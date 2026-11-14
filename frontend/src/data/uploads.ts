@@ -12,6 +12,7 @@ import {
 import { useSession } from "./hooks";
 import { WorkerHasher } from "../upload/worker-hasher";
 import type { SavedUpload, UploadSnapshot } from "../upload/types";
+import type { FileUploadMetadata } from "../api/gen/types.gen";
 
 export interface QueueItem {
   key: string;
@@ -70,6 +71,7 @@ export function useUploadQueue() {
     region: Region,
     corrupt: boolean,
     resume?: SavedUpload,
+    fileMetadata?: FileUploadMetadata,
   ) => {
     setError("");
     if (
@@ -91,6 +93,7 @@ export function useUploadQueue() {
           metadata: {
             region: resume?.region ?? region,
             simulateCorrupt: resume?.simulateCorrupt ?? corrupt,
+            fileMetadata: resume?.fileMetadata ?? fileMetadata,
           },
         },
         {

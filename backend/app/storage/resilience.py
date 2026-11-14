@@ -3,11 +3,13 @@ from __future__ import annotations
 
 import io
 import logging
+import math
 import time
 from collections.abc import AsyncIterator, Callable, Iterator, Sequence
 from contextlib import asynccontextmanager
 from ftplib import Error as FtpError
 from typing import BinaryIO, TypeVar
+from uuid import UUID
 
 import anyio
 from botocore.exceptions import BotoCoreError, ClientError
@@ -22,6 +24,8 @@ from app.models.enums import FileCategory, StorageBackend
 from app.storage.base import (
     CircuitOpen,
     Health,
+    InventoryPage,
+    InventoryStorage,
     MultipartPart,
     MultipartStorage,
     Storage,
@@ -30,6 +34,7 @@ from app.storage.base import (
     StorageUnavailable,
     StoredObject,
 )
+from app.storage.telemetry import record_operation
 
 logger = logging.getLogger("app.storage")
 T = TypeVar("T")
@@ -115,6 +120,7 @@ class ManagedStorage:
         timeout: float = 30,
         failure_threshold: int = 3,
         reset_seconds: float = 15,
+        record_operations: bool = False,
     ):
         self.backend = backend
         self.adapter = adapter
@@ -122,6 +128,7 @@ class ManagedStorage:
         self._operations = anyio.Semaphore(concurrency)
         self.timeout = timeout
         self.breaker = CircuitBreaker(backend, failure_threshold, reset_seconds)
+        self.record_operations = record_operations
 
     async def _run(
         self, function: Callable[..., T], *args, deadline: float | None = None
@@ -142,7 +149,10 @@ class ManagedStorage:
             return result
 
     @asynccontextmanager
-    async def _operation(self, category: FileCategory, operation: str) -> AsyncIterator[float]:
+    async def _operation(
+        self, category: FileCategory, operation: str,
+        transferred: Callable[[], int] | None = None,
+    ) -> AsyncIterator[float]:
         start = time.monotonic()
         deadline = anyio.current_time() + self.timeout
         outcome = "error"
@@ -196,12 +206,20 @@ class ManagedStorage:
         finally:
             if acquired:
                 self._operations.release()
+            duration = time.monotonic() - start
             STORAGE_OPERATION_DURATION_SECONDS.labels(
                 category=category.value,
                 storage=self.backend.value,
                 operation=operation,
                 outcome=outcome,
-            ).observe(time.monotonic() - start)
+            ).observe(duration)
+            size = transferred() if transferred is not None else 0
+            if self.record_operations and operation in {"put", "get", "upload_part"}:
+                with anyio.CancelScope(shield=True):
+                    await anyio.to_thread.run_sync(
+                        record_operation, category, self.backend, operation, size,
+                        max(1, math.ceil(duration * 1000)), outcome,
+                    )
 
     def _bytes(self, category: FileCategory, operation: str, size: int) -> None:
         STORAGE_BYTES_TOTAL.labels(
@@ -211,18 +229,22 @@ class ManagedStorage:
     async def put(
         self, category: FileCategory, key: str, stream: BinaryIO, size: int
     ) -> StoredObject:
-        async with self._operation(category, "put") as deadline:
+        transferred = 0
+        async with self._operation(category, "put", lambda: transferred) as deadline:
             result = await self._run(
                 self.adapter.put, key, _CancellableReader(stream), size, deadline=deadline
             )
+            transferred = result.size
             self._bytes(category, "put", result.size)
             return result
 
     async def get(self, category: FileCategory, key: str) -> AsyncIterator[bytes]:
-        async with self._operation(category, "get") as deadline:
+        transferred = 0
+        async with self._operation(category, "get", lambda: transferred) as deadline:
             iterator = self.adapter.get(key)
             try:
                 while (chunk := await self._run(_next_chunk, iterator, deadline=deadline)) is not None:
+                    transferred += len(chunk)
                     self._bytes(category, "get", len(chunk))
                     yield chunk
             finally:
@@ -234,6 +256,14 @@ class ManagedStorage:
     async def delete(self, category: FileCategory, key: str) -> None:
         async with self._operation(category, "delete") as deadline:
             await self._run(self.adapter.delete, key, deadline=deadline)
+
+    async def inventory(
+        self, category: FileCategory, cursor: UUID | None, limit: int,
+    ) -> InventoryPage:
+        if not isinstance(self.adapter, InventoryStorage):
+            raise TypeError("Storage adapter does not support inventory")
+        async with self._operation(category, "inventory") as deadline:
+            return await self._run(self.adapter.inventory, cursor, limit, deadline=deadline)
 
     async def health(self, category: FileCategory) -> Health:
         try:
@@ -260,12 +290,14 @@ class ManagedStorage:
         stream: BinaryIO,
         size: int,
     ) -> str:
-        async with self._operation(category, "upload_part") as deadline:
+        transferred = 0
+        async with self._operation(category, "upload_part", lambda: transferred) as deadline:
             etag = await self._run(
                 self._multipart().upload_part,
                 key, upload_id, part_number, _CancellableReader(stream), size,
                 deadline=deadline,
             )
+            transferred = size
             self._bytes(category, "upload_part", size)
             return etag
 

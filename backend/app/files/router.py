@@ -16,6 +16,7 @@ from app.auth.dependencies import get_current_user
 from app.core.api import Pagination, paginate
 from app.core.db import get_catalog_db
 from app.core.logging import get_request_id
+from app.core.metrics import DOCUMENT_ACCESS_TOTAL
 from app.documents.encryption import IntegrityError
 from app.files.multipart import SPOOL_SIZE, parse_upload
 from app.files.schemas import FileResource
@@ -86,6 +87,9 @@ def prepare_reader(
             )
         )
     db.commit()
+    if download and file.category == FileCategory.CONNECTION_DOCUMENT:
+        reader.document_action = "download"
+        DOCUMENT_ACCESS_TOTAL.labels(action="download", outcome="requested").inc()
     return reader
 
 

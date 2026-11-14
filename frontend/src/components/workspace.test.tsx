@@ -9,11 +9,12 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ThemeProvider } from "@mui/material";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { SourceContext } from "../data/context";
 import { LocalDemoSource } from "../data/demo";
 import { RegionProvider } from "../data/region";
 import { Shell, ManagerOnly } from "./Shell";
+import { Authenticated } from "./Authenticated";
 import { MapPage } from "../pages/Map";
 import { theme } from "../theme";
 import type { MapData, Role, Session } from "../data/models";
@@ -57,6 +58,21 @@ async function workspace(
   return { source, cache };
 }
 describe("role-aware workspace and issue conflicts", () => {
+  it("redirects mounted authenticated routes after logout and clears private cached data", async () => {
+    const { cache } = await workspace(
+      <Routes>
+        <Route element={<Authenticated />}>
+          <Route path="/" element={<Shell />} />
+        </Route>
+        <Route path="/login" element={<div>Signed out route</div>} />
+      </Routes>,
+    );
+    cache.setQueryData(["files", "private"], ["cached file"]);
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    await screen.findByText("Signed out route");
+    expect(cache.getQueryData(["session"])).toBeNull();
+    expect(cache.getQueryData(["files", "private"])).toBeUndefined();
+  });
   it("disables status changes when the API has not supplied an issue version", async () => {
     const { cache } = await workspace(<MapPage />);
     await screen.findByTestId("network-map");

@@ -16,7 +16,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.db import get_catalog_engine
-from app.core.metrics import FILE_TIME_TO_AVAILABLE_SECONDS, INTEGRITY_FAILURES_TOTAL
+from app.core.metrics import DOCUMENT_ACCESS_TOTAL, FILE_TIME_TO_AVAILABLE_SECONDS, INTEGRITY_FAILURES_TOTAL
 from app.documents.encryption import DocumentKey, IntegrityError, decrypt, encrypt
 from app.documents.service import document_region, link_document
 from app.files.multipart import SPOOL_SIZE, MultipartUpload, direct_limit
@@ -69,6 +69,17 @@ async def store_file(
     upload: MultipartUpload, manager: PolicyManager, key: DocumentKey,
     db: Session, actor_id: uuid.UUID,
 ) -> FileResource:
+    from app.uploads.locking import upload_lock
+
+    file_id = uuid.uuid4()
+    async with upload_lock(file_id):
+        return await _store_file(upload, manager, key, db, actor_id, file_id)
+
+
+async def _store_file(
+    upload: MultipartUpload, manager: PolicyManager, key: DocumentKey,
+    db: Session, actor_id: uuid.UUID, file_id: uuid.UUID,
+) -> FileResource:
     metadata = upload.metadata
     if metadata is None:
         raise ValueError("Parsed metadata is required")
@@ -80,7 +91,6 @@ async def store_file(
     started = time.monotonic()
 
     def stage() -> File:
-        file_id = uuid.uuid4()
         file = File(
             id=file_id,
             region_id=linked_region(db, metadata),
@@ -143,6 +153,7 @@ async def store_file(
                 failed = db.get(File, file_id)
                 if failed is not None:
                     failed.status = FileStatus.FAILED
+                    failed.failure_reason = "DIRECT_UPLOAD_FAILED"
                     if written is not None:
                         failed.storage_backend = written.backend
                         failed.storage_locator = written.stored.locator
@@ -206,11 +217,13 @@ class FileReader:
         self.request_id = request_id
         self.actual_sha256 = ""
         self.checked_at: datetime | None = None
+        self.document_action: str | None = None
 
     async def chunks(self) -> AsyncIterator[bytes]:
         digest = hashlib.sha256()
         size = 0
         storage = self.manager.storages[self.file.storage_backend]
+        valid = False
         try:
             async with aclosing(storage.get(self.file.category, self.file.storage_locator)) as raw:
                 plaintext = decrypt(raw, self.key, self.file.id) if self.file.encrypted else raw
@@ -237,6 +250,12 @@ class FileReader:
             await anyio.to_thread.run_sync(
                 record_check, self.file, True, self.checked_at, self.actor_id, self.request_id
             )
+            valid = True
+        finally:
+            if self.document_action is not None:
+                DOCUMENT_ACCESS_TOTAL.labels(
+                    action=self.document_action, outcome="success" if valid else "failure"
+                ).inc()
 
     async def download(self) -> AsyncIterator[bytes]:
         pending = None

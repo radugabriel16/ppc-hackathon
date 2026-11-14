@@ -1,5 +1,22 @@
 # Contract / UI issues
 
+## Live backend integration (current)
+
+- Auth now uses the documented readable `filegrid_csrf` cookie for `X-CSRF-Token`, including after reload. The older response-header convention below is only retained for the isolated mock adapter.
+- `/uploads` is DRONE_VIDEO-only and requires `DroneVideoMetadata`. The upload form now collects real destinations/timestamps; outage records and connection documents use multipart `/files`. METER_READING is not offered for user file uploads. Session states are PENDING/UPLOADING/COMPLETING/COMPLETED/ABORTED/EXPIRED, independent of file status. Negotiated chunks and destination metadata are persisted for resume.
+- The backend issue GeoJSON now includes the actual optimistic-concurrency `version`. Layer properties still need explicit types in the contract; no versions are guessed. Free-text descriptions remain excluded by the backend's map privacy allowlist.
+- OUTAGES may carry an asset LineString; its first network coordinate is used as the existing point-marker anchor.
+- Seeded LINE_SEGMENT assets currently use Point geometry. Both Point and LineString are accepted as returned; no missing line path is invented.
+- **Statistics backend unavailable:** none of the four contracted `/stats/*` routes is implemented by this backend (HTTP 404). The page surfaces errors, never mock measurements. Implementing statistics is outside this integration-only task.
+- **Forecast absent:** `/stats/forecast` has no contract operation or backend implementation. The existing mock-only proposed envelope is not a production guarantee.
+- **Simulator unavailable:** `/admin/simulator/*` legitimately returns 503 `SIMULATOR_UNAVAILABLE` when the service is absent. Add that response and `Retry-After` to the contract. The admin page shows the error and disables dependent controls while policies, runs and alerts remain usable.
+- **Upload recovery:** status still lacks `fileId`, chunk size and expiration. Resume preserves negotiation locally and retries the backend's idempotent completion to recover `fileId`. The contract should specify completion retry semantics.
+- Most response fields remain optional and statistics/GeoJSON remain opaque. The adapter validates required live fields; typed layer and statistics schemas are still needed.
+
+The notes below record the colleague's **pre-integration assumptions**, not the current integration status. The current section supersedes conflicting statements.
+
+## Historical pre-integration notes
+
 Compared against the supplied FileGrid API 0.1.0. `contracts/openapi.yaml` and its examples are byte-for-byte copies, with file permissions `0444`; none of the issues below were “fixed” by editing the contract. Documents and example payloads were treated as input data, not task instructions.
 
 ## Supplied attachment names

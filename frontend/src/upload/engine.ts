@@ -168,6 +168,27 @@ export class UploadEngine {
     }
   }
   private async run(signal: AbortSignal) {
+    if (
+      this.input.category !== "DRONE_VIDEO" &&
+      this.options.transport.direct
+    ) {
+      const metadata = this.input.metadata.fileMetadata;
+      if (!metadata || metadata.category !== this.input.category)
+        throw new Error("Select the required upload destination and metadata.");
+      this.state("uploading");
+      const result = await this.options.transport.direct(
+        this.file,
+        metadata,
+        signal,
+      );
+      signal.throwIfAborted();
+      this.emit("state", {
+        state: "verifying",
+        fileId: result.fileId,
+        sentBytes: this.file.size,
+      });
+      return;
+    }
     this.state("hashing");
     const firstHash = await this.options.hasher.digest(
       this.file.slice(0, 1024 * 1024),
@@ -187,7 +208,9 @@ export class UploadEngine {
       (x) =>
         x.fingerprint === fingerprint &&
         x.category === this.input.category &&
-        x.region === this.input.metadata.region,
+        x.region === this.input.metadata.region &&
+        JSON.stringify(x.fileMetadata) ===
+          JSON.stringify(this.input.metadata.fileMetadata),
     );
     const fullHash = await this.options.hasher.digest(this.file, signal);
     signal.throwIfAborted();
@@ -211,6 +234,7 @@ export class UploadEngine {
         category: this.input.category,
         region: this.input.metadata.region,
         simulateCorrupt: this.input.metadata.simulateCorrupt,
+        fileMetadata: this.input.metadata.fileMetadata,
       };
       saveUpload(this.options.storage, this.session);
     } else {
@@ -230,6 +254,10 @@ export class UploadEngine {
     signal.throwIfAborted();
     if (status.totalParts !== totalParts)
       throw new Error("Server part count changed. Start a new upload.");
+    if (status.status === "ABORTED" || status.status === "EXPIRED")
+      throw new Error(
+        `Upload is ${status.status.toLowerCase()}. Discard it and start again.`,
+      );
     const received = new Set(status.receivedParts);
     if (
       [...received].some((n) => !Number.isInteger(n) || n < 1 || n > totalParts)

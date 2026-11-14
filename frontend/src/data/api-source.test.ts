@@ -6,6 +6,7 @@ import {
   describe,
   expect,
   it,
+  vi,
 } from "vitest";
 import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
@@ -49,6 +50,104 @@ describe("generated client → ApiSource → MSW contract examples", () => {
     await reloaded.logout();
     expect(await source.getSession()).toBeNull();
   });
+  it("restores CSRF from the readable cookie and uses its current value on mutations", async () => {
+    let cookie = "other=value; filegrid_csrf=login-token";
+    vi.stubGlobal("document", {
+      get cookie() {
+        return cookie;
+      },
+    });
+    server.use(
+      http.get(`${base}/auth/me`, () =>
+        HttpResponse.json({ username: "operator", role: "OPERATOR" }),
+      ),
+      http.post(`${base}/auth/logout`, ({ request }) => {
+        expect(request.headers.get("X-CSRF-Token")).toBe("rotated-token");
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const restored = new ApiSource(base);
+    expect((await restored.getSession())?.csrfToken).toBe("login-token");
+    cookie = "filegrid_csrf=rotated-token";
+    await restored.logout();
+  });
+  it("serializes direct multipart metadata as JSON and downloads original bytes", async () => {
+    const file = new File(["outage evidence"], "outage.txt", {
+      type: "text/plain",
+    });
+    const metadata = {
+      category: "OUTAGE_RECORD" as const,
+      assetId: examples.assets.items![0].id!,
+      startedAt: "2026-11-14T10:00:00Z",
+      severity: "HIGH",
+    };
+    server.use(
+      http.post(`${base}/files`, async ({ request }) => {
+        expect(request.headers.get("X-CSRF-Token")).toBeTruthy();
+        const form = await request.formData();
+        expect(JSON.parse(String(form.get("metadata")))).toEqual(metadata);
+        expect(await (form.get("file") as File).text()).toBe("outage evidence");
+        return HttpResponse.json(
+          { ...examples.file, status: "READY" },
+          { status: 201 },
+        );
+      }),
+      http.get(
+        `${base}/files/:id/download`,
+        () => new HttpResponse("outage evidence"),
+      ),
+    );
+    expect(
+      await source.uploads.direct!(
+        file,
+        metadata,
+        new AbortController().signal,
+      ),
+    ).toEqual({ fileId: examples.file.id, status: "READY" });
+    expect(await (await source.downloadFile(examples.file.id!)).text()).toBe(
+      "outage evidence",
+    );
+  });
+  it.each([
+    "PENDING",
+    "UPLOADING",
+    "COMPLETING",
+    "COMPLETED",
+    "ABORTED",
+    "EXPIRED",
+  ] as const)(
+    "keeps upload session state %s distinct from file verification state",
+    async (status) => {
+      server.use(
+        http.get(`${base}/uploads/:id`, () =>
+          HttpResponse.json({ status, receivedParts: [], totalParts: 1 }),
+        ),
+      );
+      expect(
+        await source.uploads.getStatus("session", new AbortController().signal),
+      ).toEqual({ status, receivedParts: [], totalParts: 1 });
+    },
+  );
+  it("keeps explicit mock mode usable for direct uploads and downloads", async () => {
+    const file = new File(["mock evidence"], "evidence.txt");
+    const result = await source.uploads.direct!(
+      file,
+      {
+        category: "OUTAGE_RECORD",
+        assetId: examples.assets.items![0].id!,
+        startedAt: "2026-11-14T10:00:00Z",
+        severity: "HIGH",
+      },
+      new AbortController().signal,
+    );
+    expect(await source.getFile(result.fileId)).toMatchObject({
+      name: file.name,
+      status: "READY",
+    });
+    expect(await (await source.downloadFile(result.fileId)).text()).toBe(
+      "mock evidence",
+    );
+  });
   it("maps UUID region IDs, normalizes asset properties and leaves missing issue versions unavailable", async () => {
     const map = await source.getMap("MUNTENIA");
     expect(map.assetList).toEqual([
@@ -67,6 +166,31 @@ describe("generated client → ApiSource → MSW contract examples", () => {
       version: null,
     });
     expect((await source.getMap("BANAT")).assetList).toEqual([]);
+  });
+  it("accepts the real seed's Point geometry for line-segment assets", async () => {
+    server.use(
+      http.get(`${base}/map/features`, ({ request }) => {
+        if (new URL(request.url).searchParams.get("layer") !== "ASSETS")
+          return HttpResponse.json({ type: "FeatureCollection", features: [] });
+        return HttpResponse.json({
+          type: "FeatureCollection",
+          features: [
+            {
+              type: "Feature",
+              geometry: { type: "Point", coordinates: [26.11, 44.43] },
+              properties: {
+                id: examples.assets.items![0].id,
+                assetType: "LINE_SEGMENT",
+              },
+            },
+          ],
+        });
+      }),
+    );
+    expect((await source.getMap("MUNTENIA")).assetList[0]).toMatchObject({
+      type: "LINE_SEGMENT",
+      coordinates: [26.11, 44.43],
+    });
   });
   it("maps file pages and calls the real verification operation for expected/actual hashes", async () => {
     const files = await source.getFiles({
@@ -208,7 +332,14 @@ describe("generated client → ApiSource → MSW contract examples", () => {
         category: "DRONE_VIDEO",
         fileName: "sample.mp4",
         sizeBytes: blob.size,
-        metadata: { region: "MUNTENIA" },
+        metadata: {
+          region: "MUNTENIA",
+          fileMetadata: {
+            category: "DRONE_VIDEO",
+            assetId: examples.assets.items![0].id!,
+            recordedAt: "2026-11-14T10:00:00Z",
+          },
+        },
       },
       signal,
     );
@@ -245,7 +376,14 @@ describe("generated client → ApiSource → MSW contract examples", () => {
         category: "DRONE_VIDEO",
         fileName: "test",
         sizeBytes: 3,
-        metadata: { region: "MUNTENIA" },
+        metadata: {
+          region: "MUNTENIA",
+          fileMetadata: {
+            category: "DRONE_VIDEO",
+            assetId: examples.assets.items![0].id!,
+            recordedAt: "2026-11-14T10:00:00Z",
+          },
+        },
       },
       signal,
     );

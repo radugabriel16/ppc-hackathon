@@ -20,7 +20,7 @@ export function apiConfiguration(env: ApiEnvironment): {
 }
 export async function prepareSource(env: ApiEnvironment) {
   const config = apiConfiguration(env);
-  if (config.mode === "mock") {
+  if (import.meta.env.VITE_API_MODE !== "api" && config.mode === "mock") {
     const { startMockWorker } = await import("../mocks/browser");
     await startMockWorker(); // A worker failure is fatal, never a fallback to demo/live data.
   } else if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {

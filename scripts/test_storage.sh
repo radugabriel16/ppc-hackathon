@@ -4,6 +4,7 @@ set -euo pipefail
 
 log=$(mktemp)
 restore_ftp=0
+restore_worker=0
 compose=(docker compose -f docker-compose.yml -f backend/tests/compose.yml)
 
 cleanup() {
@@ -11,6 +12,12 @@ cleanup() {
     trap - EXIT
     if [ "$restore_ftp" -eq 1 ]; then
         if ! docker compose up -d --no-deps --no-recreate --wait --wait-timeout 60 ftp >>"$log" 2>&1; then
+            tail -n 40 "$log"
+            result=1
+        fi
+    fi
+    if [ "$restore_worker" -eq 1 ]; then
+        if ! docker compose up -d --no-deps --force-recreate --wait --wait-timeout 60 worker >>"$log" 2>&1; then
             tail -n 40 "$log"
             result=1
         fi
@@ -29,6 +36,13 @@ fi
 if ! "${compose[@]}" build -q storage-tests >"$log" 2>&1; then
     tail -n 40 "$log"
     exit 1
+fi
+
+# Integration tests deliberately create stale files and reminder candidates.
+running_worker=$(docker compose ps --status running -q worker)
+if [ -n "$running_worker" ]; then
+    restore_worker=1
+    docker compose stop -t 10 worker
 fi
 
 "${compose[@]}" run --rm --no-deps -T storage-tests \

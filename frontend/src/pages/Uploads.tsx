@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Alert,
   Box,
@@ -19,7 +20,15 @@ import {
   Replay,
   UploadFile,
 } from "@mui/icons-material";
-import { useDemoMode, useFile, useFiles } from "../data/hooks";
+import {
+  useCases,
+  useDemoMode,
+  useFile,
+  useFiles,
+  useMap,
+} from "../data/hooks";
+import { useSource } from "../data/context";
+import type { FileUploadMetadata } from "../api/gen/types.gen";
 import { useUploadQueue } from "../data/uploads";
 import { useRegion } from "../data/region-context";
 import { bytes, CATEGORIES, label } from "../data/models";
@@ -57,8 +66,27 @@ function UploadResult({ id }: { id: string }) {
 export function UploadsPage() {
   const { region } = useRegion();
   const demo = useDemoMode();
+  const source = useSource();
   const queue = useUploadQueue();
-  const [category, setCategory] = useState<Category>("METER_READING");
+  const [category, setCategory] = useState<Category>(
+    demo ? "METER_READING" : "OUTAGE_RECORD",
+  );
+  const map = useMap(region);
+  const cases = useCases({ region, search: "", page: 0, size: 100 });
+  const documentTypes = useQuery({
+    queryKey: ["document-types"],
+    queryFn: () => source.getDocumentTypes!(),
+    enabled: !!source.getDocumentTypes,
+  });
+  const [assetId, setAssetId] = useState("");
+  const [caseId, setCaseId] = useState("");
+  const [documentTypeId, setDocumentTypeId] = useState("");
+  const [occurredAt, setOccurredAt] = useState(() =>
+    new Date().toISOString().slice(0, 16),
+  );
+  const [severity, setSeverity] = useState("MEDIUM");
+  const [description, setDescription] = useState("");
+  const [inputError, setInputError] = useState("");
   const [corrupt, setCorrupt] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [verify, setVerify] = useState("");
@@ -67,9 +95,48 @@ export function UploadsPage() {
   const resumeRecord = useRef<SavedUpload | undefined>(undefined);
   const history = useFiles({ region, search: "", page: 0, size: 8 });
   const addFiles = (files: FileList | null) => {
+    setInputError("");
+    let metadata: FileUploadMetadata | undefined;
+    if (!demo) {
+      if (category === "CONNECTION_DOCUMENT") {
+        if (
+          !cases.data?.items.some((item) => item.id === caseId) ||
+          !documentTypeId
+        ) {
+          setInputError("Select a connection case and document type.");
+          return;
+        }
+        metadata = { category, caseId, documentTypeId };
+      } else {
+        if (
+          !map.data?.assetList.some((item) => item.id === assetId) ||
+          !Number.isFinite(Date.parse(occurredAt + "Z"))
+        ) {
+          setInputError("Select an asset and a valid UTC timestamp.");
+          return;
+        }
+        const timestamp = new Date(occurredAt + "Z").toISOString();
+        if (category === "DRONE_VIDEO")
+          metadata = { category, assetId, recordedAt: timestamp };
+        else if (category === "OUTAGE_RECORD")
+          metadata = {
+            category,
+            assetId,
+            startedAt: timestamp,
+            severity,
+            description,
+          };
+        else {
+          setInputError(
+            "Meter readings must use the simulator ingest endpoint.",
+          );
+          return;
+        }
+      }
+    }
     if (files)
       for (const file of Array.from(files))
-        queue.add(file, category, region, corrupt);
+        queue.add(file, category, region, corrupt, undefined, metadata);
   };
   const liveNames = new Set(
     queue.items
@@ -101,12 +168,103 @@ export function UploadsPage() {
               value={category}
               onChange={(e) => setCategory(e.target.value as Category)}
             >
-              {CATEGORIES.map((c) => (
-                <MenuItem key={c} value={c}>
-                  {label(c)}
-                </MenuItem>
-              ))}
+              {CATEGORIES.filter((c) => demo || c !== "METER_READING").map(
+                (c) => (
+                  <MenuItem key={c} value={c}>
+                    {label(c)}
+                  </MenuItem>
+                ),
+              )}
             </TextField>
+            {!demo && (
+              <Stack spacing={2} mt={2}>
+                {category === "CONNECTION_DOCUMENT" ? (
+                  <>
+                    <TextField
+                      select
+                      label="Connection case"
+                      value={caseId}
+                      onChange={(e) => setCaseId(e.target.value)}
+                    >
+                      {cases.data?.items.map((item) => (
+                        <MenuItem key={item.id} value={item.id}>
+                          {item.title}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                    <TextField
+                      select
+                      label="Document type"
+                      value={documentTypeId}
+                      onChange={(e) => setDocumentTypeId(e.target.value)}
+                    >
+                      {documentTypes.data?.map((item) => (
+                        <MenuItem key={item.id} value={item.id}>
+                          {item.name}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                    {cases.error && <ErrorNotice error={cases.error} />}
+                    {documentTypes.error && (
+                      <ErrorNotice error={documentTypes.error} />
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <TextField
+                      select
+                      label="Network asset"
+                      value={assetId}
+                      onChange={(e) => setAssetId(e.target.value)}
+                    >
+                      {map.data?.assetList.map((item) => (
+                        <MenuItem key={item.id} value={item.id}>
+                          {item.name}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                    <TextField
+                      label={
+                        category === "DRONE_VIDEO"
+                          ? "Recorded at (UTC)"
+                          : "Started at (UTC)"
+                      }
+                      type="datetime-local"
+                      value={occurredAt}
+                      onChange={(e) => setOccurredAt(e.target.value)}
+                      slotProps={{ inputLabel: { shrink: true } }}
+                    />
+                    {map.error && <ErrorNotice error={map.error} />}
+                    {category === "OUTAGE_RECORD" && (
+                      <>
+                        <TextField
+                          select
+                          label="Outage severity"
+                          value={severity}
+                          onChange={(e) => setSeverity(e.target.value)}
+                        >
+                          {["LOW", "MEDIUM", "HIGH", "CRITICAL"].map((item) => (
+                            <MenuItem key={item} value={item}>
+                              {label(item)}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                        <TextField
+                          label="Outage description"
+                          value={description}
+                          onChange={(e) => setDescription(e.target.value)}
+                        />
+                      </>
+                    )}
+                  </>
+                )}
+                <Typography variant="caption" color="text.secondary">
+                  Drone videos use resumable uploads. Documents and outage
+                  records upload directly. Meter readings are ingested by the
+                  simulator, not this form.
+                </Typography>
+              </Stack>
+            )}
             {demo && (
               <FormControlLabel
                 sx={{ mt: 1 }}
@@ -208,6 +366,11 @@ export function UploadsPage() {
       {queue.error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {queue.error}
+        </Alert>
+      )}
+      {inputError && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {inputError}
         </Alert>
       )}
       {queue.savedError && <ErrorNotice error={queue.savedError} />}

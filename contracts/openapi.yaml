@@ -763,6 +763,17 @@ paths:
       operationId: getStatsStorageBenchmark
       tags: [stats]
       summary: Latency/throughput/error-rate comparison across storages and categories.
+      description: >
+        Both OPERATOR and MANAGER may read global catalog telemetry. Includes put/get/upload_part
+        observations with positive durations, grouped by category/storage/scenario profile.
+        Non-scenario traffic is normal; profiles other than normal/peak are excluded.
+        Throughput is successful bytes divided by total observed transfer time.
+        Unobserved cells are omitted, never synthesized.
+      parameters:
+        - $ref: "#/components/parameters/StatsFrom"
+        - $ref: "#/components/parameters/StatsTo"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
       responses:
         "200":
           description: OK
@@ -770,6 +781,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StorageBenchmarkStats"
+        "422":
+          $ref: "#/components/responses/ValidationError"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -778,6 +791,17 @@ paths:
       operationId: getStatsRecommendations
       tags: [stats]
       summary: Which storage fits which category, and why, based on observed data.
+      description: >
+        Both roles may read global recommendations from the same observations as storage-benchmark.
+        One observed storage/profile cell per category is selected by lowest error rate, then
+        p95 latency, then highest throughput; ties use storage/profile lexical order.
+        No recommendation is returned without observations. Region filtering is not supported
+        because storage_operations has no region association.
+      parameters:
+        - $ref: "#/components/parameters/StatsFrom"
+        - $ref: "#/components/parameters/StatsTo"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
       responses:
         "200":
           description: OK
@@ -785,6 +809,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StorageRecommendations"
+        "422":
+          $ref: "#/components/responses/ValidationError"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -793,6 +819,20 @@ paths:
       operationId: getStatsMeters
       tags: [stats]
       summary: Patterns/anomalies in meter readings.
+      description: >
+        Both roles may read operational meter labels and energy, never customer PII.
+        Sums interval energy by meter and UTC day, selecting readings whose intervalStart
+        is in [from,to). Partial boundary days include only selected readings.
+        intervalMinutes is 1440; per-meter from/to are inclusive first/last observed UTC
+        day starts. Missing days are omitted, never imputed; zero totals are flagged zero.
+        Meters without readings are omitted. Pagination counts meters, ordered by region,
+        label and id, not individual samples.
+      parameters:
+        - $ref: "#/components/parameters/RegionIdQuery"
+        - $ref: "#/components/parameters/StatsFrom"
+        - $ref: "#/components/parameters/StatsTo"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
       responses:
         "200":
           description: OK
@@ -800,6 +840,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MeterStats"
+        "422":
+          $ref: "#/components/responses/ValidationError"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -808,6 +850,18 @@ paths:
       operationId: getStatsOutagesHotspots
       tags: [stats]
       summary: Assets/regions with the most outages.
+      description: >
+        Both roles may read assets ranked by count descending, then asset id.
+        Counts actual outage records overlapping [from,to), not map issues or file counts.
+        Durations are summed outage minutes clipped to the window; ongoing outages end at to.
+        Assets without outages are omitted. Geometry is a representative point on the asset.
+        Pagination counts assets.
+      parameters:
+        - $ref: "#/components/parameters/RegionIdQuery"
+        - $ref: "#/components/parameters/StatsFrom"
+        - $ref: "#/components/parameters/StatsTo"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
       responses:
         "200":
           description: OK
@@ -815,6 +869,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/OutageHotspots"
+        "422":
+          $ref: "#/components/responses/ValidationError"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -1021,6 +1077,22 @@ components:
       description: Token from the `simulator_token` secret. Only accepted on /meter-readings/ingest.
 
   parameters:
+    StatsFrom:
+      name: from
+      in: query
+      description: >
+        Inclusive UTC instant (explicit timezone required). Defaults to seven days before to.
+        Require from < to and a window no longer than 366 days. Empty results use empty arrays.
+      schema:
+        type: string
+        format: date-time
+    StatsTo:
+      name: to
+      in: query
+      description: Exclusive instant with explicit timezone. Defaults to current UTC time.
+      schema:
+        type: string
+        format: date-time
     Page:
       name: page
       in: query
@@ -1743,20 +1815,182 @@ components:
     # --------------------------------------------------------------- stats ---
     StorageBenchmarkStats:
       type: object
-      description: Latency (p50/p95/p99), throughput and error rate per category/storage.
-      additionalProperties: true
+      required: [rows]
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/StorageBenchmarkRow"
+      allOf:
+        - $ref: "#/components/schemas/StatsPagination"
     StorageRecommendations:
       type: object
-      description: Narrative + data-backed recommendation per category.
-      additionalProperties: true
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [category, storage, reason]
+            properties:
+              category:
+                $ref: "#/components/schemas/FileCategory"
+              storage:
+                $ref: "#/components/schemas/StorageBackend"
+              reason:
+                type: string
+                minLength: 1
+      allOf:
+        - $ref: "#/components/schemas/StatsPagination"
     MeterStats:
       type: object
-      description: Patterns/anomalies observed in meter readings.
-      additionalProperties: true
+      required: [meters]
+      properties:
+        meters:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeterStatsSeries"
+      allOf:
+        - $ref: "#/components/schemas/StatsPagination"
     OutageHotspots:
       type: object
-      description: Assets/regions ranked by outage frequency.
-      additionalProperties: true
+      required: [type, features]
+      properties:
+        type:
+          type: string
+          enum: [FeatureCollection]
+        features:
+          type: array
+          items:
+            type: object
+            required: [type, geometry, properties]
+            properties:
+              type:
+                type: string
+                enum: [Feature]
+              geometry:
+                type: object
+                required: [type, coordinates]
+                properties:
+                  type:
+                    type: string
+                    enum: [Point]
+                  coordinates:
+                    type: array
+                    minItems: 2
+                    maxItems: 2
+                    items:
+                      type: number
+              properties:
+                type: object
+                required: [id, assetName, regionCode, outageCount, durationMinutes]
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  assetName:
+                    type: string
+                  regionCode:
+                    $ref: "#/components/schemas/StatsRegionCode"
+                  outageCount:
+                    type: integer
+                    minimum: 0
+                  durationMinutes:
+                    type: number
+                    minimum: 0
+      allOf:
+        - $ref: "#/components/schemas/StatsPagination"
+    StatsPagination:
+      type: object
+      description: Optional additive metadata; zero-based pages, size capped at 100.
+      properties:
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+    StatsRegionCode:
+      type: string
+      enum: [MUNTENIA, BANAT, DOBROGEA]
+    StorageBenchmarkRow:
+      type: object
+      required: [category, storage, profile, p50Ms, p95Ms, p99Ms, throughputMiBps, errorRate]
+      properties:
+        category:
+          $ref: "#/components/schemas/FileCategory"
+        storage:
+          $ref: "#/components/schemas/StorageBackend"
+        profile:
+          type: string
+          enum: [normal, peak]
+        p50Ms:
+          type: number
+          minimum: 0
+          description: Median transfer duration in milliseconds.
+        p95Ms:
+          type: number
+          minimum: 0
+          description: 95th percentile duration in milliseconds, at least p50Ms.
+        p99Ms:
+          type: number
+          minimum: 0
+          description: 99th percentile duration in milliseconds, at least p95Ms.
+        throughputMiBps:
+          type: number
+          minimum: 0
+          description: Successful mebibytes per second of observed transfer time.
+        errorRate:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Fraction of observed transfers whose outcome was not success.
+    MeterStatsSeries:
+      type: object
+      required: [id, label, regionCode, intervalMinutes, from, to, readings]
+      properties:
+        id:
+          type: string
+          format: uuid
+        label:
+          type: string
+        regionCode:
+          $ref: "#/components/schemas/StatsRegionCode"
+        intervalMinutes:
+          type: number
+          exclusiveMinimum: true
+          minimum: 0
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        readings:
+          type: array
+          maxItems: 10000
+          items:
+            type: object
+            required: [timestamp, kWh, anomaly]
+            properties:
+              timestamp:
+                type: string
+                format: date-time
+              kWh:
+                type: number
+                nullable: true
+                minimum: 0
+              anomaly:
+                type: string
+                nullable: true
+                enum: [spike, zero, gap, null]
 
     # --------------------------------------------------------------- admin ---
     SimulatorStatus:

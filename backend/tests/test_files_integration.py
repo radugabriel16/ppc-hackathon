@@ -11,7 +11,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.db import get_catalog_db, get_catalog_engine
-from app.core.metrics import INTEGRITY_FAILURES_TOTAL
+from app.core.metrics import DOCUMENT_ACCESS_TOTAL, INTEGRITY_FAILURES_TOTAL
 from app.core.settings import get_settings
 from app.main import create_app
 from app.models.audit import AuditEvent
@@ -150,9 +150,13 @@ def test_upload_domain_list_download_and_verify(api, category, size):
     assert listing["size"] == 100
     assert file_id in [item["id"] for item in listing["items"]]
     assert client.get(f"{BASE}/files", params={"page": 100000}).json()["items"] == []
+    document_metric = DOCUMENT_ACCESS_TOTAL.labels(action="download", outcome="success")
+    before_access = document_metric._value.get()
     download = client.get(f"{BASE}/files/{file_id}/download")
     assert download.status_code == 200
     assert download.content == content
+    assert document_metric._value.get() == before_access + int(category == "CONNECTION_DOCUMENT")
+    assert "filegrid_document_access_total" in client.get("/metrics").text
     verification = client.get(f"{BASE}/files/{file_id}/verify").json()
     assert verification["valid"]
     assert verification["actualSha256"] == file["sha256"]
@@ -192,9 +196,12 @@ def test_corrupt_storage_refuses_download_and_verify_rereads(api, category):
         adapter.put(row.storage_locator, io.BytesIO(stored), len(stored))
     metric = INTEGRITY_FAILURES_TOTAL.labels(category=category, storage=file["storageBackend"])
     before = metric._value.get()
+    document_metric = DOCUMENT_ACCESS_TOTAL.labels(action="download", outcome="failure")
+    before_access = document_metric._value.get()
     assert client.get(f"{BASE}/files/{file_id}/download").status_code == 409
     assert client.get(f"{BASE}/files/{file_id}").json()["status"] == "CORRUPT"
     assert metric._value.get() == before + 1
+    assert document_metric._value.get() == before_access + int(category == "CONNECTION_DOCUMENT")
     assert client.get(f"{BASE}/files/{file_id}/verify").json()["valid"] is False
     with Session(get_catalog_engine()) as db:
         assert db.scalar(select(AuditEvent).where(
@@ -301,7 +308,7 @@ def test_ui_reads_region_filters_pagination_and_pii_free_map(api):
     upload("OUTAGE_RECORD")
     allowed = {
         "ASSETS": {"id", "kind", "assetType", "code", "name"},
-        "ISSUES": {"id", "kind", "assetId", "severity", "status"},
+        "ISSUES": {"id", "kind", "assetId", "severity", "status", "version"},
         "OUTAGES": {"id", "kind", "assetId", "severity", "startedAt", "endedAt"},
     }
     for layer in allowed:

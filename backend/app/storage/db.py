@@ -1,5 +1,6 @@
 """BYTEA storage, bounded to the policy maximum of one MiB."""
 from collections.abc import Iterator
+from uuid import UUID
 from typing import BinaryIO
 
 from sqlalchemy import Engine, text
@@ -8,6 +9,8 @@ from app.storage.base import (
     CHUNK_SIZE,
     MAX_DB_SIZE,
     Health,
+    InventoryObject,
+    InventoryPage,
     StorageNotFound,
     StoredObject,
     check_stream,
@@ -59,3 +62,15 @@ class DbStorage:
         with self.engine.connect() as conn:
             conn.execute(text("SELECT 1"))
         return "ok"
+
+    def inventory(self, cursor: UUID | None, limit: int) -> InventoryPage:
+        with self.engine.connect() as conn:
+            rows = conn.execute(text(
+                "SELECT file_id, created_at FROM file_contents "
+                "WHERE (CAST(:cursor AS uuid) IS NULL OR file_id > CAST(:cursor AS uuid)) "
+                "ORDER BY file_id LIMIT :limit"
+            ), {"cursor": str(cursor) if cursor is not None else None, "limit": limit}).all()
+        return InventoryPage(
+            [InventoryObject(str(row.file_id), row.created_at) for row in rows],
+            rows[-1].file_id if len(rows) == limit else None,
+        )

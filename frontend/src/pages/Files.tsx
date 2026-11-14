@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import {
   Alert,
@@ -29,6 +30,7 @@ import {
   VerifiedUserOutlined,
 } from "@mui/icons-material";
 import { useFile, useFiles } from "../data/hooks";
+import { useSource } from "../data/context";
 import { bytes, CATEGORIES, FILE_STATUSES, label } from "../data/models";
 import type { Category, FileStatus } from "../data/models";
 import { useRegion } from "../data/region-context";
@@ -129,6 +131,18 @@ export function FilesPage() {
   return <FilesContent key={region} />;
 }
 function FilesContent() {
+  const source = useSource();
+  const download = useMutation({
+    mutationFn: async (file: { id: string; name: string }) => {
+      const blob = await source.downloadFile!(file.id);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = file.name;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    },
+  });
   const { region } = useRegion();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<Category | "">("");
@@ -161,6 +175,7 @@ function FilesContent() {
           </Button>
         }
       />
+      {download.error && <ErrorNotice error={download.error} />}
       <Paper variant="outlined" sx={{ overflow: "hidden" }}>
         <Stack direction={{ xs: "column", sm: "row" }} gap={2} sx={{ p: 2.5 }}>
           <TextField
@@ -241,6 +256,17 @@ function FilesContent() {
                   {query.data.items.map((file) => (
                     <TableRow key={file.id} hover>
                       <TableCell>
+                        {source.downloadFile && (
+                          <Button
+                            size="small"
+                            disabled={
+                              file.status !== "READY" || download.isPending
+                            }
+                            onClick={() => download.mutate(file)}
+                          >
+                            Download
+                          </Button>
+                        )}
                         <Stack direction="row" gap={1.4} alignItems="center">
                           <Box
                             sx={{

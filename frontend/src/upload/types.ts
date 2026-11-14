@@ -1,10 +1,15 @@
 import type { Category, FileStatus, Region } from "../data/models";
+import type { FileUploadMetadata } from "../api/gen/types.gen";
 
 export interface UploadInput {
   category: Category;
   fileName: string;
   sizeBytes: number;
-  metadata: { region: Region; simulateCorrupt?: boolean };
+  metadata: {
+    region: Region;
+    simulateCorrupt?: boolean;
+    fileMetadata?: FileUploadMetadata;
+  };
 }
 export interface UploadSession {
   uploadId: string;
@@ -13,15 +18,26 @@ export interface UploadSession {
   expiresAt: string;
 }
 export interface UploadStatus {
-  status: "STAGING" | "VERIFYING" | "READY" | "CORRUPT";
+  status:
+    | "PENDING"
+    | "UPLOADING"
+    | "COMPLETING"
+    | "COMPLETED"
+    | "ABORTED"
+    | "EXPIRED";
   receivedParts: number[];
   totalParts: number;
 }
 export interface CompletedUpload {
   fileId: string;
-  status: "VERIFYING";
+  status: "VERIFYING" | "READY";
 }
 export interface UploadTransport {
+  direct?(
+    file: File,
+    metadata: FileUploadMetadata,
+    signal: AbortSignal,
+  ): Promise<CompletedUpload>;
   create(input: UploadInput, signal: AbortSignal): Promise<UploadSession>;
   putPart(
     id: string,
@@ -74,6 +90,7 @@ export interface SavedUpload {
   category: Category;
   region: Region;
   simulateCorrupt?: boolean;
+  fileMetadata?: FileUploadMetadata;
 }
 export interface KeyValueStorage {
   getItem(key: string): string | null;

@@ -6,6 +6,7 @@ import logging
 import sys
 from contextvars import ContextVar
 from datetime import datetime, timezone
+from opentelemetry import trace
 
 _request_id_ctx: ContextVar[str | None] = ContextVar("request_id", default=None)
 
@@ -20,12 +21,14 @@ def get_request_id() -> str | None:
 
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
+        span_context = trace.get_current_span().get_span_context()
         payload = {
             "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
             "requestId": get_request_id(),
+            "trace_id": format(span_context.trace_id, "032x") if span_context.is_valid else None,
         }
         if record.exc_info:
             payload["exception"] = self.formatException(record.exc_info)

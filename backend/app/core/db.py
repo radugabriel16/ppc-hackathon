@@ -2,7 +2,8 @@
 from collections.abc import Generator
 from functools import lru_cache
 
-from sqlalchemy import Engine, create_engine
+import sqlalchemy
+from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.settings import get_settings
@@ -11,14 +12,14 @@ from app.core.settings import get_settings
 @lru_cache
 def get_catalog_engine():
     settings = get_settings()
-    return create_engine(settings.catalog_db_dsn, pool_pre_ping=True)
+    return sqlalchemy.create_engine(settings.catalog_db_dsn, pool_pre_ping=True)
 
 
 @lru_cache
 def get_storage_engine() -> Engine:
     settings = get_settings()
     timeout = max(1, int(settings.storage_io_timeout_seconds))
-    return create_engine(
+    return sqlalchemy.create_engine(
         settings.storage_db_dsn,
         pool_pre_ping=True,
         pool_size=settings.storage_max_concurrency,

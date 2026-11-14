@@ -93,6 +93,10 @@ def test_issue_claim_race_permissions_and_audit(api):
     assert sorted(result.status_code for result in responses) == [200, 409]
     claimed = next(result.json() for result in responses if result.status_code == 200)
     assert claimed["version"] == 2
+    features = client.get(BASE + "/map/features?layer=ISSUES").json()["features"]
+    mapped = next(row["properties"] for row in features if row["properties"]["id"] == issue["id"])
+    assert mapped["version"] == claimed["version"]
+    assert "description" not in mapped
     assert client.patch(path, json={"status": "RESOLVED", "version": 2}).status_code == 403
     assert client.patch(path, json={"status": "OPEN", "version": 2},
                         headers={"X-CSRF-Token": ""}).status_code == 403

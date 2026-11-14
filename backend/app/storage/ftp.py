@@ -2,12 +2,19 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
 from ftplib import FTP, error_perm
+from datetime import datetime, timezone
+from heapq import nsmallest
+from time import monotonic
 from typing import BinaryIO
+from uuid import UUID
 
 from app.storage.base import (
     CHUNK_SIZE,
     Health,
+    InventoryObject,
+    InventoryPage,
     StorageNotFound,
+    StorageTimeout,
     StoredObject,
     check_stream,
     object_key,
@@ -69,3 +76,33 @@ class FtpStorage:
         with self._connection() as ftp:
             ftp.voidcmd("NOOP")
         return "ok"
+
+    def inventory(self, cursor: UUID | None, limit: int) -> InventoryPage:
+        # FTP has no server-side pagination. Stream MLSD with bounded memory/time.
+        with self._connection() as ftp:
+            deadline = monotonic() + self.timeout
+            with ftp.transfercmd("MLSD") as data:
+                data.settimeout(self.timeout)
+                with data.makefile("r", encoding="utf-8") as lines:
+                    def entries():
+                        for line in lines:
+                            if monotonic() >= deadline:
+                                raise StorageTimeout("FTP inventory deadline exceeded")
+                            facts, key = line.rstrip("\r\n").split(" ", 1)
+                            values = dict(
+                                fact.lower().split("=", 1) for fact in facts.split(";") if fact
+                            )
+                            if values.get("type") != "file":
+                                continue
+                            key = object_key(key)
+                            if cursor is None or UUID(key) > cursor:
+                                yield InventoryObject(
+                                    key, datetime.strptime(
+                                        values["modify"].split(".")[0], "%Y%m%d%H%M%S"
+                                    ).replace(tzinfo=timezone.utc),
+                                )
+                    objects = nsmallest(limit, entries(), key=lambda item: item.key)
+            ftp.voidresp()
+        return InventoryPage(
+            objects, UUID(objects[-1].key) if len(objects) == limit else None,
+        )

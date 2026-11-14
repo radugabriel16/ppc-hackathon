@@ -9,7 +9,9 @@ import type {
   UploadSessionCreateRequest,
   FileResource,
   GeoJsonFeature,
+  FileUploadMetadata,
 } from "../api/gen/types.gen";
+import { digestBlob } from "../upload/hash";
 import { AppError } from "../data/errors";
 import {
   FakeUploadTransport,
@@ -109,6 +111,9 @@ export function createMockApi(options: Options = {}) {
   };
   const listFiles = async (): Promise<FileResource[]> => [
     examples.file,
+    ...(await store.entries<FileResource>("mock:direct-file:")).map(
+      (entry) => entry.value,
+    ),
     ...(await uploads.listFiles()).map((file) => ({
       id: file.id.replace(/^up-/, ""),
       regionId: mockRegions.find((x) => x.code === file.region)?.id,
@@ -287,6 +292,62 @@ export function createMockApi(options: Options = {}) {
         return HttpResponse.json(updated);
       });
     }),
+    http.post(`${base}/files`, async ({ request }) => {
+      const denied = await guard(request, true);
+      if (denied) return denied;
+      const form = await request.formData();
+      const file = form.get("file");
+      let metadata: FileUploadMetadata;
+      try {
+        metadata = JSON.parse(
+          String(form.get("metadata")),
+        ) as FileUploadMetadata;
+      } catch {
+        return error(422, "Invalid JSON upload metadata.");
+      }
+      if (
+        !(file instanceof File) ||
+        !metadata ||
+        !["OUTAGE_RECORD", "CONNECTION_DOCUMENT", "DRONE_VIDEO"].includes(
+          metadata.category,
+        )
+      )
+        return error(422, "Invalid direct upload.");
+      const resource: FileResource = {
+        id: crypto.randomUUID(),
+        regionId:
+          "assetId" in metadata
+            ? regionForAsset(metadata.assetId)
+            : fixtureRegionId,
+        category: metadata.category,
+        originalName: file.name,
+        sizeBytes: file.size,
+        sha256: await digestBlob(file),
+        status: "READY",
+        createdAt: new Date().toISOString(),
+      };
+      await store.put(`mock:direct-file:${resource.id}`, resource);
+      await store.put(`mock:bytes:${resource.id}`, file);
+      return HttpResponse.json(resource, { status: 201 });
+    }),
+    http.get(`${base}/files/:id/download`, async ({ request, params }) => {
+      const denied = await guard(request);
+      if (denied) return denied;
+      const file = await store.get<Blob>(`mock:bytes:${params.id}`);
+      if (file) return new HttpResponse(file);
+      const parts = await store.entries<{ number: number; body: Blob }>(
+        `part:${params.id}:`,
+      );
+      if (!parts.length) return error(404, "Mock file content is unavailable.");
+      return new HttpResponse(
+        new Blob(
+          parts
+            .map((entry) => entry.value)
+            .sort((a, b) => a.number - b.number)
+            .map((part) => part.body),
+        ),
+      );
+    }),
     http.get(`${base}/files`, async ({ request }) => {
       const denied = await guard(request);
       if (denied) return denied;
@@ -355,13 +416,11 @@ export function createMockApi(options: Options = {}) {
         if (
           !body.fileName ||
           !Number.isSafeInteger(body.sizeBytes) ||
-          body.sizeBytes < 0 ||
-          ![
-            "METER_READING",
-            "OUTAGE_RECORD",
-            "CONNECTION_DOCUMENT",
-            "DRONE_VIDEO",
-          ].includes(body.category)
+          body.sizeBytes <= 0 ||
+          body.category !== "DRONE_VIDEO" ||
+          body.metadata?.category !== "DRONE_VIDEO" ||
+          !body.metadata.assetId ||
+          !body.metadata.recordedAt
         )
           return error(422, "Invalid upload details.");
         const assetId =

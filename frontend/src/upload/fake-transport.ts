@@ -211,16 +211,12 @@ export class FakeUploadTransport implements UploadTransport {
     await this.delay(signal);
     const session = await this.session(id);
     const parts = await this.store.entries<ServerPart>(`part:${id}:`);
-    const file = session.completed
-      ? await this.getFile(session.completed.fileId)
-      : undefined;
     return {
-      status:
-        file?.status === "READY" || file?.status === "CORRUPT"
-          ? file.status
-          : session.completed
-            ? "VERIFYING"
-            : "STAGING",
+      status: session.completed
+        ? "COMPLETED"
+        : parts.length
+          ? "UPLOADING"
+          : "PENDING",
       receivedParts: parts.map((x) => x.value.number).sort((a, b) => a - b),
       totalParts: session.totalParts,
     };

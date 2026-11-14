@@ -8,6 +8,7 @@ import anyio
 from fastapi import HTTPException
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
+from opentelemetry import trace
 
 from app.core.db import get_catalog_engine
 from app.core.metrics import (
@@ -18,6 +19,10 @@ from app.core.metrics import (
 from app.documents.encryption import DocumentKey, IntegrityError
 from app.files.service import FileReader
 from app.jobs.orphans import delete_orphan_contents
+from app.jobs.maintenance import integrity_scrub, reconcile_files
+from app.jobs.meter_gaps import detect_meter_gaps
+from app.jobs.reminders import send_reminders
+from app.jobs.scheduling import job_run
 from app.models.enums import FileStatus
 from app.models.files import File
 from app.models.uploads import UploadSession
@@ -32,6 +37,7 @@ from app.uploads.service import (
 )
 
 logger = logging.getLogger("app.jobs.worker")
+tracer = trace.get_tracer(__name__)
 
 POLL_INTERVAL_SECONDS = 5
 STALLED_AFTER = timedelta(minutes=10)
@@ -89,30 +95,37 @@ async def verify_upload(upload_id: UUID, manager: PolicyManager, key: DocumentKe
         file = await anyio.to_thread.run_sync(load)
         if file is None:
             return
-        async with manager.acquire(file.category):
-            reader = FileReader(file, manager, key, file.uploaded_by, None)
-            try:
-                async with aclosing(reader.chunks()) as chunks:
-                    async for _ in chunks:
-                        pass
-            except IntegrityError:
-                logger.warning("Multipart upload failed integrity verification file_id=%s", file.id)
-                return
+        async with upload_lock(file.id):
+            file = await anyio.to_thread.run_sync(load)
+            if file is not None:
+                await verify_upload_file(file, manager, key)
 
-            def ready():
-                with Session(get_catalog_engine()) as db:
-                    current = db.get(File, file.id)
-                    if current is None or current.status != FileStatus.VERIFYING:
-                        return False
-                    current.status = FileStatus.READY
-                    current.ready_at = now()
-                    db.commit()
-                    return True
 
-            if await anyio.to_thread.run_sync(ready):
-                FILE_TIME_TO_AVAILABLE_SECONDS.labels(category=file.category.value).observe(
-                    (now() - file.created_at).total_seconds()
-                )
+async def verify_upload_file(file: File, manager: PolicyManager, key: DocumentKey) -> None:
+    async with manager.acquire(file.category):
+        reader = FileReader(file, manager, key, file.uploaded_by, None)
+        try:
+            async with aclosing(reader.chunks()) as chunks:
+                async for _ in chunks:
+                    pass
+        except IntegrityError:
+            logger.warning("Multipart upload failed integrity verification file_id=%s", file.id)
+            return
+
+        def ready():
+            with Session(get_catalog_engine()) as db:
+                current = db.get(File, file.id)
+                if current is None or current.status != FileStatus.VERIFYING:
+                    return False
+                current.status = FileStatus.READY
+                current.ready_at = now()
+                db.commit()
+                return True
+
+        if await anyio.to_thread.run_sync(ready):
+            FILE_TIME_TO_AVAILABLE_SECONDS.labels(category=file.category.value).observe(
+                (now() - file.created_at).total_seconds()
+            )
 
 
 def update_upload_metrics() -> None:
@@ -127,7 +140,36 @@ def update_upload_metrics() -> None:
     UPLOAD_SESSIONS_STALLED.set(stalled)
 
 
+async def run_uploads(manager: PolicyManager, key: DocumentKey) -> None:
+    async with job_run("uploads") as run:
+        if run:
+            await run_upload_jobs(manager, key)
+
+
+def worker_jobs(manager: PolicyManager, key: DocumentKey):
+    return (
+        ("uploads", run_uploads, (manager, key)),
+        ("integrity_scrub", integrity_scrub, (manager, key)),
+        ("reconcile_files", reconcile_files, (manager, key)),
+        ("meter_gaps", detect_meter_gaps, ()),
+        ("reminders", send_reminders, ()),
+    )
+
+
+async def run_job(name, job, args) -> None:
+    try:
+        with tracer.start_as_current_span(f"worker.{name}"):
+            await job(*args)
+    except Exception:
+        logger.exception("Worker job failed job=%s", name)
+
+
 async def run_worker_once(manager: PolicyManager, key: DocumentKey) -> None:
+    for name, job, args in worker_jobs(manager, key):
+        await run_job(name, job, args)
+
+
+async def run_upload_jobs(manager: PolicyManager, key: DocumentKey) -> None:
     expired, completing, verifying = await anyio.to_thread.run_sync(pending_jobs)
     jobs = (
         [(upload_id, expire_upload, (upload_id, manager)) for upload_id in expired]
@@ -145,7 +187,8 @@ async def run_worker_once(manager: PolicyManager, key: DocumentKey) -> None:
         except Exception:
             logger.exception("Upload job failed upload_id=%s", upload_id)
     try:
-        deleted = await delete_orphan_contents(manager)
+        with tracer.start_as_current_span("worker.orphan_contents"):
+            deleted = await delete_orphan_contents(manager)
         if deleted:
             logger.info("Deleted orphan storage contents count=%s", deleted)
     except Exception:
@@ -155,13 +198,17 @@ async def run_worker_once(manager: PolicyManager, key: DocumentKey) -> None:
 
 async def run_worker_loop(manager: PolicyManager, key: DocumentKey) -> None:
     logger.info("worker loop started")
+    running: dict[str, asyncio.Task] = {}
     try:
         while True:
-            try:
-                await run_worker_once(manager, key)
-            except Exception:
-                logger.exception("Worker iteration failed")
+            for name, job, args in worker_jobs(manager, key):
+                if name not in running or running[name].done():
+                    running[name] = asyncio.create_task(run_job(name, job, args))
             await asyncio.sleep(POLL_INTERVAL_SECONDS)
     except asyncio.CancelledError:
         logger.info("worker loop stopped")
         raise
+    finally:
+        for task in running.values():
+            task.cancel()
+        await asyncio.gather(*running.values(), return_exceptions=True)

@@ -54,6 +54,23 @@ class Settings(BaseSettings):
 
     policies_path: str = Field(default="/app/config/policies.yaml", alias="POLICIES_PATH")
 
+    worker_batch_size: int = Field(default=25, gt=0, le=1000)
+    integrity_scrub_interval_seconds: int = Field(default=86400, gt=0)
+    integrity_scrub_bytes_per_second: int = Field(default=5 * 1024 * 1024, gt=0)
+    stuck_file_after_seconds: int = Field(default=3600, gt=0)
+    worker_retry_seconds: int = Field(default=300, gt=0)
+    worker_max_attempts: int = Field(default=3, gt=0)
+    meter_gap_window_seconds: int = Field(default=3600, gt=0)
+    meter_active_seconds: int = Field(default=300, gt=0)
+    meter_gap_readings_limit: int = Field(default=1000, ge=2, le=10000)
+    reminder_after_hours: int = Field(default=24, gt=0)
+    reminder_period_hours: int = Field(default=24, gt=0)
+    smtp_host: str = "mailpit"
+    smtp_port: int = Field(default=1025, gt=0, le=65535)
+    smtp_timeout_seconds: float = Field(default=10, gt=0, le=60)
+    reminder_from: str = "filegrid@filegrid.local"
+    reminder_to: str = "operations@filegrid.local"
+
     def _secret(self, name: str, default: str = "") -> str:
         return _read_secret(self.secrets_dir, name, default)
 
