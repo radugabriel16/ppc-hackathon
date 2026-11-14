@@ -12,6 +12,12 @@ import type {
   LoginInput,
   Session,
   Statistics,
+  EffectivePolicy,
+  SimulatorStart,
+  SimulatorBackfill,
+  SimulatorState,
+  ScenarioRun,
+  RecentAlert,
 } from "./models";
 import type { UploadTransport } from "../upload/types";
 
@@ -35,4 +41,12 @@ export interface DataSource {
   getFile(id: string): Promise<FileRecord>;
   getCases(filter: CaseFilter): Promise<Page<CaseRecord>>;
   getStatistics(region: Region): Promise<Statistics>;
+  getPolicies(): Promise<EffectivePolicy[]>;
+  reloadPolicies(): Promise<EffectivePolicy[]>;
+  getSimulatorStatus(): Promise<SimulatorState>;
+  startSimulator(input: SimulatorStart): Promise<SimulatorState>;
+  stopSimulator(): Promise<SimulatorState>;
+  backfillSimulator(input: SimulatorBackfill): Promise<ScenarioRun>;
+  getScenarioRuns(page: number, size: number): Promise<Page<ScenarioRun>>;
+  getRecentAlerts(): Promise<RecentAlert[]>;
 }

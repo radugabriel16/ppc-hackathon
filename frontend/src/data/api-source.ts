@@ -8,6 +8,12 @@ import type {
 import { ApiConnection, contractError, requireValue } from "./api-client";
 import { ApiUploadTransport } from "./api-upload";
 import {
+  policyRows,
+  recentAlert,
+  scenarioRun,
+  simulatorState,
+} from "./admin-mapping";
+import {
   assetList,
   fileRecord,
   issueList,
@@ -26,6 +32,9 @@ import type {
   Page,
   Region,
   Statistics,
+  SimulatorStart,
+  SimulatorBackfill,
+  ScenarioRun,
 } from "./models";
 import type { DataSource } from "./source";
 
@@ -46,6 +55,87 @@ export class ApiSource implements DataSource {
   }
   private get client() {
     return this.connection.client;
+  }
+  async getPolicies() {
+    return policyRows(
+      await this.connection.read(sdk.getAdminPolicies({ client: this.client })),
+    );
+  }
+  async reloadPolicies() {
+    return policyRows(
+      await this.connection.read(
+        sdk.createAdminPoliciesReload({
+          client: this.client,
+          headers: this.connection.mutationHeaders(),
+        }),
+      ),
+    );
+  }
+  async getSimulatorStatus() {
+    return simulatorState(
+      await this.connection.read(
+        sdk.getAdminSimulatorStatus({ client: this.client }),
+      ),
+    );
+  }
+  async startSimulator(input: SimulatorStart) {
+    return simulatorState(
+      await this.connection.read(
+        sdk.createAdminSimulatorStart({
+          client: this.client,
+          headers: this.connection.mutationHeaders(),
+          body: input,
+        }),
+      ),
+    );
+  }
+  async stopSimulator() {
+    return simulatorState(
+      await this.connection.read(
+        sdk.createAdminSimulatorStop({
+          client: this.client,
+          headers: this.connection.mutationHeaders(),
+        }),
+      ),
+    );
+  }
+  async backfillSimulator(input: SimulatorBackfill) {
+    return scenarioRun(
+      await this.connection.read(
+        sdk.createAdminSimulatorBackfill({
+          client: this.client,
+          headers: this.connection.mutationHeaders(),
+          // The contract has no anomalies field; anomaly names are backfill profiles.
+          body: { profile: input.anomaly, from: input.from, to: input.to },
+        }),
+      ),
+    );
+  }
+  async getScenarioRuns(
+    page: number,
+    size: number,
+  ): Promise<Page<ScenarioRun>> {
+    const data = await this.connection.read(
+      sdk.getAdminScenarioRuns({
+        client: this.client,
+        query: { page, size },
+      }),
+    );
+    return {
+      items: requireValue(data.items, "scenarioRuns.items").map(scenarioRun),
+      page: requireValue(data.page, "scenarioRuns.page"),
+      size: requireValue(data.size, "scenarioRuns.size"),
+      totalElements: requireValue(
+        data.totalElements,
+        "scenarioRuns.totalElements",
+      ),
+      totalPages: requireValue(data.totalPages, "scenarioRuns.totalPages"),
+    };
+  }
+  async getRecentAlerts() {
+    return (
+      await this.connection.read(sdk.getAlertsRecent({ client: this.client }))
+    ).map(recentAlert);
   }
   private async all<T>(
     getPage: (page: number) => Promise<PageMeta & { items?: T[] }>,

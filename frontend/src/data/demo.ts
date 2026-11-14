@@ -4,6 +4,7 @@ import {
   IndexedDemoStore,
 } from "../upload/fake-transport";
 import { AppError } from "./errors";
+import { DemoAdministration } from "./demo-administration";
 import { CATEGORIES, REGIONS, REGION_INFO } from "./models";
 import type {
   Asset,
@@ -19,6 +20,8 @@ import type {
   Region,
   Role,
   Session,
+  SimulatorStart,
+  SimulatorBackfill,
 } from "./models";
 import type { DataSource } from "./source";
 
@@ -38,6 +41,38 @@ export class LocalDemoSource implements DataSource {
   readonly kind = "demo" as const;
   readonly uploads = new FakeUploadTransport({ store: new IndexedDemoStore() });
   private session: Session | null = null;
+  private readonly administration = new DemoAdministration(() => {
+    if (this.requireSession().user.role !== "MANAGER")
+      throw new AppError(403, {
+        code: "FORBIDDEN",
+        message: "This operation requires a manager.",
+        requestId: "demo-admin",
+      });
+  });
+  getPolicies() {
+    return this.administration.getPolicies();
+  }
+  reloadPolicies() {
+    return this.administration.reloadPolicies();
+  }
+  getSimulatorStatus() {
+    return this.administration.getSimulatorStatus();
+  }
+  startSimulator(input: SimulatorStart) {
+    return this.administration.startSimulator(input);
+  }
+  stopSimulator() {
+    return this.administration.stopSimulator();
+  }
+  backfillSimulator(input: SimulatorBackfill) {
+    return this.administration.backfillSimulator(input);
+  }
+  getScenarioRuns(page: number, size: number) {
+    return this.administration.getScenarioRuns(page, size);
+  }
+  getRecentAlerts() {
+    return this.administration.getRecentAlerts();
+  }
   private assets: Asset[] = REGIONS.flatMap((region) => {
     const [lon, lat] = REGION_INFO[region].center;
     return Array.from(

@@ -11,12 +11,13 @@ import { RegionProvider } from "./data/region";
 import { AppError } from "./data/errors";
 import { ErrorBoundary, Loading } from "./components/common";
 import { Authenticated } from "./components/Authenticated";
-import { ManagerOnly, Shell } from "./components/Shell";
+import { Shell } from "./components/Shell";
 import { Login } from "./pages/Login";
 import { FilesPage } from "./pages/Files";
 import { CasesPage } from "./pages/Cases";
 import { UploadsPage } from "./pages/Uploads";
-import { AdminPage, StatisticsPage } from "./pages/Overview";
+import { StatisticsPage } from "./pages/Overview";
+import { AdminPage } from "./pages/Admin";
 import "./styles.css";
 
 const MapPage = lazy(() =>
@@ -63,14 +64,7 @@ prepareSource(import.meta.env)
                             path="/statistics"
                             element={<StatisticsPage />}
                           />
-                          <Route
-                            path="/admin"
-                            element={
-                              <ManagerOnly>
-                                <AdminPage />
-                              </ManagerOnly>
-                            }
-                          />
+                          <Route path="/admin" element={<AdminPage />} />
                           <Route
                             index
                             element={<Navigate to="/map" replace />}

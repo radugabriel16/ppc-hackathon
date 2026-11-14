@@ -59,6 +59,12 @@ The API upload contract does not accept the existing UI-only region/simulation m
 
 Creation is not automatically retried because no create idempotency key is specified. Completion retries rely on idempotence; the contract needs to guarantee this or expose a recoverable completed file ID. Zero-byte uploads use zero parts. These protocol questions are documented rather than silently changing the supplied schema.
 
+## Administration
+
+Managers can open Admin to inspect every effective category policy, reload the server policy configuration, inspect/start/stop the smart-meter simulator, and backfill a local-time range with spike/zero/gap profiles. Simulator status, paginated scenario history, and recent alerts refresh every 10 seconds while the page is active. Operators cannot mount the page or request its data through the UI; MSW also enforces manager permissions on `/admin/*` and CSRF on all mutations.
+
+The implementation uses DataSource hooks and generated SDK operations in both API and mock modes. LocalDemoSource retains independent in-memory controls. MSW records follow the contract schemas and persist simulator state/history in IndexedDB; they do not run an actual meter generator. Backfill anomaly names are sent as the schema's free-form `profile` field. These assumptions are detailed in CONTRACT_ISSUES.md.
+
 ## Known live integration blockers
 
 - The auth contract requires CSRF for mutations but defines no token delivery. The adapter and MSW provisionally use an **X-CSRF-Token response header** on login/me. A real response without it allows reads but mutations fail explicitly. Confirm this extension or update the upstream contract.

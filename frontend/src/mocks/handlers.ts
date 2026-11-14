@@ -18,6 +18,7 @@ import {
 } from "../upload/fake-transport";
 import type { DemoStore } from "../upload/fake-transport";
 import { examples, mockRegions } from "./fixtures";
+import { createAdminHandlers } from "./admin";
 import type { Region } from "../data/models";
 
 type MockSession = { me: Me; csrf: string };
@@ -57,7 +58,7 @@ export function createMockApi(options: Options = {}) {
     if (mutation && request.headers.get("X-CSRF-Token") !== session.csrf)
       return error(403, "Invalid CSRF token.", "CSRF_INVALID");
     if (manager && session.me.role !== "MANAGER")
-      return error(403, "Only managers can resolve issues.", "FORBIDDEN");
+      return error(403, "This operation requires a manager.", "FORBIDDEN");
   };
   const wrap = async (run: () => Promise<Response>) => {
     try {
@@ -128,6 +129,7 @@ export function createMockApi(options: Options = {}) {
     },
   ];
   const handlers: RequestHandler[] = [
+    ...createAdminHandlers({ base, store, guard, error, page }),
     http.post(`${base}/auth/login`, async ({ request }) => {
       const body = (await request.json()) as {
         username?: string;

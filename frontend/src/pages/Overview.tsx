@@ -6,7 +6,7 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
-import { useDataMode, useStatistics } from "../data/hooks";
+import { useStatistics } from "../data/hooks";
 import { useRegion } from "../data/region-context";
 import { bytes, REGION_INFO } from "../data/models";
 import {
@@ -119,80 +119,6 @@ export function StatisticsPage() {
           </Box>
         </>
       )}
-    </>
-  );
-}
-export function AdminPage() {
-  const mode = useDataMode();
-  const demo = mode === "demo";
-  return (
-    <>
-      <PageHeading
-        eyebrow="MANAGER WORKSPACE"
-        title="Administration."
-        detail="Operational settings and integration status for your workspace."
-      />
-      <Paper variant="outlined" sx={{ p: 3, maxWidth: 850 }}>
-        <Typography variant="h6" mb={2}>
-          Access policy
-        </Typography>
-        <Typography variant="body2" mb={2}>
-          Operators can inspect the network, create issues, take issues, and
-          ingest evidence. Managers can also resolve issues and access this
-          workspace.
-        </Typography>
-        {demo && (
-          <Alert severity="info" sx={{ mb: 3 }}>
-            Demo role selection is illustrative. The API must validate session
-            permissions on every request.
-          </Alert>
-        )}
-        <Typography variant="h6" mb={2}>
-          Workspace configuration
-        </Typography>
-        <Stack spacing={2}>
-          {[
-            ["Regions", "Muntenia · Banat · Dobrogea"],
-            ["File integrity", "SHA-256 per part and full file"],
-            ["Upload concurrency", "3 parts per file"],
-            [
-              "Data mode",
-              demo
-                ? "LocalDemoSource · local browser storage"
-                : mode === "mock"
-                  ? "ApiSource · MSW mock"
-                  : "ApiSource · cookie session",
-            ],
-            [
-              "API integration",
-              demo
-                ? "Local demo"
-                : mode === "mock"
-                  ? "Contract examples · MSW"
-                  : "Generated contract client",
-            ],
-          ].map(([name, value]) => (
-            <Stack
-              direction={{ xs: "column", sm: "row" }}
-              justifyContent="space-between"
-              gap={1}
-              key={name}
-              sx={{
-                pb: 1.5,
-                borderBottom: "1px solid",
-                borderColor: "divider",
-              }}
-            >
-              <Typography variant="body2" color="text.secondary">
-                {name}
-              </Typography>
-              <Typography variant="body2" fontWeight={600}>
-                {value}
-              </Typography>
-            </Stack>
-          ))}
-        </Stack>
-      </Paper>
     </>
   );
 }

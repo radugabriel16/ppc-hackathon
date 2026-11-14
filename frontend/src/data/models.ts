@@ -111,6 +111,46 @@ export interface Statistics {
   overdueCases: number;
   bytes: number;
 }
+export interface EffectivePolicy {
+  category: string;
+  backend: string | null;
+  fallback: string | null;
+  maxSizeBytes: number | null;
+  maxConcurrency: number | null;
+  encryption: string | null;
+  resumable: boolean | null;
+  chunkSizeBytes: number | null;
+}
+export const SIMULATOR_PROFILES = ["normal", "peak", "storm"] as const;
+export const BACKFILL_ANOMALIES = ["spike", "zero", "gap"] as const;
+export interface SimulatorStart {
+  profile: (typeof SIMULATOR_PROFILES)[number];
+  readingsPerSecond: number;
+}
+export interface SimulatorBackfill {
+  anomaly: (typeof BACKFILL_ANOMALIES)[number];
+  from: string;
+  to: string;
+}
+export interface SimulatorState {
+  running: boolean;
+  profile: string | null;
+  readingsPerSecond: number | null;
+}
+export interface ScenarioRun {
+  id: string;
+  kind: string | null;
+  profile: string | null;
+  startedAt: string | null;
+  endedAt: string | null;
+  counters: Record<string, unknown>;
+}
+export interface RecentAlert {
+  id: string;
+  severity: string | null;
+  message: string;
+  occurredAt: string | null;
+}
 export interface RegionDefinition {
   name: string;
   center: [number, number];
