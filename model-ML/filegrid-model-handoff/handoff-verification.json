@@ -1,0 +1,24 @@
+{
+  "sourceUnitTestsPassed": 9,
+  "artifactCopiedWithoutRetraining": true,
+  "modelSha256": "3a025fc4883299b805e6cf6241215a8462375295e00cf0cd66bd4cb7729b08ca",
+  "modelVersion": "hgb_smooth:3a025fc48832",
+  "verifiedSegments": 18,
+  "verifiedForecastRows": 54,
+  "identicalToExistingAllSegmentForecast": true,
+  "jsonStrictSerialization": true,
+  "segmentSumEqualsSevenMeterPredictions": true,
+  "sqliteQuickCheck": "ok",
+  "sourceTableCounts": {
+    "regiuni": 3,
+    "segmente": 18,
+    "contoare": 126,
+    "stats_contor": 367920,
+    "stats_avarii": 127,
+    "avarii_contoare": 567,
+    "avarii_video": 0
+  },
+  "sourceDatabaseSha256": "7533c98697a20c3baa77d475d0fcad2ed3619c3ac5998ce767d215bbb3f4c040",
+  "actualFastApiIntegrationTested": false,
+  "postgresImportTested": false
+}
