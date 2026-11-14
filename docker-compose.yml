@@ -1,5 +1,8 @@
 name: filegrid
 
+include:
+  - compose.simulator.yml
+
 x-backend: &backend
   image: filegrid-backend:0.1.0
   restart: unless-stopped

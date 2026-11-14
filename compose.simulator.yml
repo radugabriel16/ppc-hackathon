@@ -1,0 +1,40 @@
+services:
+  simulator:
+    image: filegrid-simulator:0.1.0
+    build:
+      context: ./simulator
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      SIM_INGEST_URL: http://api-ingest:8000/api/v1/meter-readings/ingest
+      SIM_FILES_URL: http://api-files:8000/api/v1
+      SIM_DB_PATH: /data/outbox.sqlite3
+      SIM_MAX_OUTBOX: ${SIM_MAX_OUTBOX:-10000}
+      SIM_MAX_RPS: ${SIM_MAX_RPS:-20}
+      SIM_SPEED_FACTOR: ${SIM_SPEED_FACTOR:-1}
+      APP_ORIGIN: ${APP_ORIGIN:-https://localhost}
+      OTEL_SERVICE_NAME: simulator
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL:-http/protobuf}
+      OTEL_RESOURCE_ATTRIBUTES: ${OTEL_RESOURCE_ATTRIBUTES:-}
+      OTEL_TRACES_EXPORTER: ${OTEL_TRACES_EXPORTER:-none}
+    volumes:
+      - secrets:/run/secrets:ro
+      - simulator-data:/data
+    networks:
+      - internal
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health/live', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 45s
+    stop_grace_period: 15s
+
+volumes:
+  simulator-data:

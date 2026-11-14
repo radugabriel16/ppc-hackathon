@@ -1,0 +1,50 @@
+[
+  {
+    "externalCode": "MTR-0001",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "MTR-0002",
+    "clientType": "COMMERCIAL"
+  },
+  {
+    "externalCode": "MTR-0003",
+    "clientType": "INDUSTRIAL"
+  },
+  {
+    "externalCode": "MTR-0004",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "MTR-0005",
+    "clientType": "COMMERCIAL"
+  },
+  {
+    "externalCode": "MTR-0006",
+    "clientType": "INDUSTRIAL"
+  },
+  {
+    "externalCode": "MTR-0007",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "MTR-0008",
+    "clientType": "COMMERCIAL"
+  },
+  {
+    "externalCode": "MTR-0009",
+    "clientType": "INDUSTRIAL"
+  },
+  {
+    "externalCode": "MTR-0010",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "MTR-0011",
+    "clientType": "COMMERCIAL"
+  },
+  {
+    "externalCode": "MTR-0012",
+    "clientType": "INDUSTRIAL"
+  }
+]
