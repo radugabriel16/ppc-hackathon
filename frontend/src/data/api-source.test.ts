@@ -38,6 +38,131 @@ beforeEach(async () => {
   });
 });
 describe("generated client → ApiSource → MSW contract examples", () => {
+  it("uses generated scoped-run and threshold endpoints with CSRF and restores a durable run", async () => {
+    const body = {
+      scope: "segment" as const,
+      regionId: mockRegions[0].id!,
+      segmentId: "b353a50e-0028-4ed1-aa87-10746f7dce8f",
+    };
+    const run = {
+      id: "run-1",
+      ...body,
+      status: "COMPLETED",
+      segments: [],
+      createdIssues: [],
+    };
+    server.use(
+      http.post(`${base}/forecast/runs`, async ({ request }) => {
+        expect(request.headers.get("X-CSRF-Token")).toBeTruthy();
+        expect(await request.json()).toEqual(body);
+        return HttpResponse.json(run, { status: 201 });
+      }),
+      http.get(`${base}/forecast/runs/run-1`, () => HttpResponse.json(run)),
+      http.get(`${base}/forecast/thresholds`, () =>
+        HttpResponse.json([{ segmentId: body.segmentId, dailyEnergyKwh: 100 }]),
+      ),
+      http.put(
+        `${base}/forecast/thresholds/${body.segmentId}`,
+        async ({ request }) => {
+          expect(request.headers.get("X-CSRF-Token")).toBeTruthy();
+          expect(await request.json()).toEqual({ dailyEnergyKwh: 90 });
+          return HttpResponse.json({
+            segmentId: body.segmentId,
+            dailyEnergyKwh: 90,
+          });
+        },
+      ),
+    );
+    expect(await source.createForecastRun(body)).toEqual(run);
+    expect(await source.getForecastRun("run-1")).toEqual(run);
+    expect(await source.getForecastThresholds()).toHaveLength(1);
+    expect(
+      await source.updateForecastThreshold(body.segmentId, 90),
+    ).toMatchObject({ dailyEnergyKwh: 90 });
+  });
+  it("joins geolocated meter markers to client types and the newest reading without synthesizing positions", async () => {
+    const segmentId = "segment-1";
+    server.use(
+      http.get(`${base}/meters`, ({ request }) => {
+        const query = new URL(request.url).searchParams;
+        expect(query.get("segmentId")).toBe(segmentId);
+        return HttpResponse.json({
+          items: [
+            {
+              id: "meter-1",
+              externalCode: "METER-01",
+              clientId: "client-1",
+              segmentId,
+              location: { type: "Point", coordinates: [26.11, 44.43] },
+            },
+          ],
+          page: 0,
+          size: 100,
+          totalPages: 1,
+        });
+      }),
+      http.get(`${base}/clients`, () =>
+        HttpResponse.json({
+          items: [{ id: "client-1", clientType: "RESIDENTIAL" }],
+          page: 0,
+          size: 100,
+          totalPages: 1,
+        }),
+      ),
+      http.get(`${base}/meter-readings`, ({ request }) => {
+        expect(new URL(request.url).searchParams.get("size")).toBe("1");
+        return HttpResponse.json({
+          items: [{ energyKwh: 2.5, intervalEnd: "2026-11-14T20:00:00Z" }],
+        });
+      }),
+    );
+    expect(await source.getMapMeters("MUNTENIA", segmentId)).toEqual([
+      {
+        id: "meter-1",
+        code: "METER-01",
+        segmentId,
+        coordinates: [26.11, 44.43],
+        clientType: "RESIDENTIAL",
+        lastReading: { kWh: 2.5, timestamp: "2026-11-14T20:00:00Z" },
+      },
+    ]);
+  });
+  it("forwards every issue filter, requests operational data, and excludes any historical response rows", async () => {
+    const filter = {
+      region: "MUNTENIA" as const,
+      segmentId: "segment-1",
+      type: "ML_FORECAST" as const,
+      status: "OPEN" as const,
+      clientId: "client-1",
+      from: "2026-11-14T00:00:00Z",
+      to: "2026-11-15T00:00:00Z",
+      page: 0,
+      size: 20,
+    };
+    server.use(
+      http.get(`${base}/map-issues`, ({ request }) => {
+        const query = Object.fromEntries(new URL(request.url).searchParams);
+        expect(query).toMatchObject({
+          regionId: mockRegions[0].id,
+          segmentId: filter.segmentId,
+          type: filter.type,
+          status: filter.status,
+          clientId: filter.clientId,
+          from: filter.from,
+          to: filter.to,
+          includeHistorical: "false",
+        });
+        return HttpResponse.json({
+          items: [{ isHistorical: true }],
+          page: 0,
+          size: 20,
+          totalPages: 1,
+          totalElements: 0,
+        });
+      }),
+    );
+    expect((await source.getIssues(filter)).items).toEqual([]);
+  });
   it("sends subregion filters through the generated geography, file and stats clients", async () => {
     const subregionId = "b353a50e-0028-4ed1-aa87-10746f7dce8f";
     const visited = new Set<string>();
@@ -306,12 +431,14 @@ describe("generated client → ApiSource → MSW contract examples", () => {
       description: "Insulation failure",
       videoId: "11111111-1111-4111-8111-111111111111",
       offsetSeconds: 12,
+      coordinates: [26.123456, 44.4321],
     });
     expect(created).toMatchObject({
       severity: "CRITICAL",
       version: 1,
       videoId: expect.any(String),
       offsetSeconds: 12,
+      coordinates: [26.123456, 44.4321],
     });
     await source.getMap("MUNTENIA");
     expect(

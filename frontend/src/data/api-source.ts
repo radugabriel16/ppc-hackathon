@@ -23,10 +23,10 @@ import {
 import {
   assetList,
   fileRecord,
-  issueList,
   issueRecord,
   mapCollection,
   geographicAreas,
+  coordinate,
 } from "./api-mapping";
 import { AppError } from "./errors";
 import type {
@@ -44,6 +44,9 @@ import type {
   SimulatorBackfill,
   ScenarioRun,
   GeographicArea,
+  IssueFilter,
+  ForecastRunCreate,
+  MeterMarker,
 } from "./models";
 import type { DataSource } from "./source";
 
@@ -96,7 +99,11 @@ export class ApiSource implements DataSource {
       await this.connection.read(
         sdk.getStatsMeters({
           client: this.client,
-          query: { regionId: await this.regionId(region), subregionId },
+          query: {
+            regionId: await this.regionId(region),
+            subregionId,
+            size: 100,
+          },
         }),
       ),
       region,
@@ -107,7 +114,11 @@ export class ApiSource implements DataSource {
       await this.connection.read(
         sdk.getStatsOutagesHotspots({
           client: this.client,
-          query: { regionId: await this.regionId(region), subregionId },
+          query: {
+            regionId: await this.regionId(region),
+            subregionId,
+            size: 100,
+          },
         }),
       ),
       region,
@@ -302,7 +313,7 @@ export class ApiSource implements DataSource {
   }
   async getMap(region: Region, subregionId?: string): Promise<MapData> {
     const regionId = await this.regionId(region);
-    const [assets, rawAssets, rawIssues, rawOutages] = await Promise.all([
+    const [assets, rawAssets, issues, rawOutages] = await Promise.all([
       this.all((page) =>
         this.connection.read(
           sdk.getAssets({
@@ -317,11 +328,19 @@ export class ApiSource implements DataSource {
           query: { regionId, subregionId, layer: "ASSETS" },
         }),
       ),
-      this.connection.read(
-        sdk.getMapFeatures({
-          client: this.client,
-          query: { regionId, subregionId, layer: "ISSUES" },
-        }),
+      this.all((page) =>
+        this.connection.read(
+          sdk.getMapIssues({
+            client: this.client,
+            query: {
+              regionId,
+              subregionId,
+              includeHistorical: false,
+              page,
+              size: 100,
+            },
+          }),
+        ),
       ),
       this.connection.read(
         sdk.getMapFeatures({
@@ -331,16 +350,150 @@ export class ApiSource implements DataSource {
       ),
     ]);
     const mappedAssets = mapCollection(rawAssets, "ASSETS", assets);
-    const mappedIssues = mapCollection(rawIssues, "ISSUES");
+    const issueList = issues
+      .filter((i) => !i.isHistorical)
+      .map((i) => issueRecord(i, region));
+    const mappedIssues: MapData["issues"] = {
+      type: "FeatureCollection",
+      features: issueList.map((i) => ({
+        type: "Feature",
+        id: i.id,
+        geometry: { type: "Point", coordinates: i.coordinates },
+        properties: {
+          id: i.id,
+          type: i.type ?? "OUTAGE_REPORT",
+          title: i.title,
+          status: i.status,
+        },
+      })),
+    };
     const map: MapData = {
       assets: mappedAssets,
       issues: mappedIssues,
       outages: mapCollection(rawOutages, "OUTAGES"),
       assetList: assetList(mappedAssets, region),
-      issueList: issueList(mappedIssues, region),
+      issueList,
     };
     this.maps.set(region, map);
     return map;
+  }
+  async getMapMeters(
+    region: Region,
+    segmentId?: string,
+  ): Promise<MeterMarker[]> {
+    const regionId = await this.regionId(region);
+    const [meters, clients] = await Promise.all([
+      this.all((page) =>
+        this.connection.read(
+          sdk.getMeters({
+            client: this.client,
+            query: { regionId, segmentId, page, size: 100 },
+          }),
+        ),
+      ),
+      this.all((page) =>
+        this.connection.read(
+          sdk.getClients({
+            client: this.client,
+            query: { regionId, page, size: 100 },
+          }),
+        ),
+      ),
+    ]);
+    const markers: MeterMarker[] = [];
+    for (let offset = 0; offset < meters.length; offset += 8) {
+      markers.push(
+        ...(await Promise.all(
+          meters.slice(offset, offset + 8).map(async (meter) => {
+            const id = requireValue(meter.id, "meter.id");
+            const readings = await this.connection.read(
+              sdk.getMeterReadings({
+                client: this.client,
+                query: { meterId: id, page: 0, size: 1 },
+              }),
+            );
+            const reading = requireValue(readings.items, "readings.items")[0];
+            return {
+              id,
+              code: requireValue(meter.externalCode, "meter.externalCode"),
+              segmentId: meter.segmentId ?? meter.subregionId ?? undefined,
+              coordinates: coordinate(meter.location?.coordinates),
+              clientType:
+                clients.find((c) => c.id === meter.clientId)?.clientType ??
+                null,
+              lastReading: reading
+                ? {
+                    kWh: requireValue(reading.energyKwh, "reading.energyKwh"),
+                    timestamp: requireValue(
+                      reading.intervalEnd,
+                      "reading.intervalEnd",
+                    ),
+                  }
+                : null,
+            };
+          }),
+        )),
+      );
+    }
+    return markers;
+  }
+  async getIssues(filter: IssueFilter) {
+    const { region, ...query } = filter;
+    const result = await this.connection.read(
+      sdk.getMapIssues({
+        client: this.client,
+        query: {
+          ...query,
+          regionId: region ? await this.regionId(region) : undefined,
+          includeHistorical: false,
+        },
+      }),
+    );
+    return {
+      items: await Promise.all(
+        requireValue(result.items, "issues.items")
+          .filter((i) => !i.isHistorical)
+          .map(async (dto) =>
+            issueRecord(
+              dto,
+              region ?? (await this.regionCode(dto.regionId ?? undefined)),
+            ),
+          ),
+      ),
+      page: requireValue(result.page, "issues.page"),
+      size: requireValue(result.size, "issues.size"),
+      totalElements: requireValue(result.totalElements, "issues.totalElements"),
+      totalPages: requireValue(result.totalPages, "issues.totalPages"),
+    };
+  }
+  createForecastRun(body: ForecastRunCreate) {
+    return this.connection.read(
+      sdk.createForecastRun({
+        client: this.client,
+        headers: this.connection.mutationHeaders(),
+        body,
+      }),
+    );
+  }
+  getForecastRun(id: string) {
+    return this.connection.read(
+      sdk.getForecastRun({ client: this.client, path: { id } }),
+    );
+  }
+  getForecastThresholds() {
+    return this.connection.read(
+      sdk.getForecastThresholds({ client: this.client }),
+    );
+  }
+  updateForecastThreshold(segmentId: string, value: number) {
+    return this.connection.read(
+      sdk.updateForecastThreshold({
+        client: this.client,
+        headers: this.connection.mutationHeaders(),
+        path: { segmentId },
+        body: { dailyEnergyKwh: value },
+      }),
+    );
   }
   async createIssue(input: CreateIssue) {
     const asset = [...this.maps.values()]
@@ -366,7 +519,13 @@ export class ApiSource implements DataSource {
         headers: this.connection.mutationHeaders(),
         body: {
           assetId: input.assetId,
-          location: { type: "Point", coordinates: asset.coordinates },
+          location: {
+            type: "Point",
+            coordinates: input.coordinates ?? asset.coordinates,
+          },
+          type: "OUTAGE_REPORT",
+          regionId: input.regionId,
+          segmentId: input.segmentId,
           severity: input.severity,
           description: input.description,
           videoInspectionId: input.videoId,
@@ -389,8 +548,6 @@ export class ApiSource implements DataSource {
     const region = [...this.maps].find(([, map]) =>
       map.issueList.some((x) => x.id === input.id),
     )?.[0];
-    if (!region)
-      throw contractError("Load this issue on the map before updating it.");
     const data = await this.connection.read(
       sdk.patchMapIssuesIdStatus({
         client: this.client,
@@ -399,7 +556,10 @@ export class ApiSource implements DataSource {
         body: { status: input.status, version: input.version },
       }),
     );
-    return issueRecord(data, region);
+    return issueRecord(
+      data,
+      region ?? (await this.regionCode(data.regionId ?? undefined)),
+    );
   }
   private async fileRows(
     region: Region,
@@ -452,23 +612,57 @@ export class ApiSource implements DataSource {
     }
     return file;
   }
-  private async caseRows(region: Region): Promise<ConnectionCase[]> {
-    const regionId = await this.regionId(region);
+  private async caseRows(
+    region?: Region,
+    segmentId?: string,
+  ): Promise<ConnectionCase[]> {
+    const regionId = region ? await this.regionId(region) : undefined;
     return this.all((page) =>
       this.connection.read(
         sdk.getConnectionCases({
           client: this.client,
-          query: { regionId, page, size: 100 },
+          query: { regionId, segmentId, page, size: 100 },
         }),
       ),
     );
   }
   async getCases(filter: CaseFilter): Promise<Page<CaseRecord>> {
-    const rows = (await this.caseRows(filter.region))
-      .map((dto) => ({
+    const missingClients = filter.missingOnly
+      ? await this.all(async (page) =>
+          this.connection.read(
+            sdk.getClientsMissingDocuments({
+              client: this.client,
+              query: {
+                regionId: filter.region
+                  ? await this.regionId(filter.region)
+                  : undefined,
+                segmentId: filter.segmentId,
+                page,
+                size: 100,
+              },
+            }),
+          ),
+        )
+      : undefined;
+    const missingCases = missingClients
+      ? new Map(
+          missingClients.flatMap((c) =>
+            (c.cases ?? []).map((item) => [item.caseId, c] as const),
+          ),
+        )
+      : undefined;
+    const scopedRows = (
+      await this.caseRows(filter.region, filter.segmentId)
+    ).filter((dto) => !missingCases || missingCases.has(dto.id));
+    const records = await Promise.all(
+      scopedRows.map(async (dto) => ({
         id: requireValue(dto.id, "case.id"),
-        title: `Connection case ${requireValue(dto.id, "case.id").slice(0, 8)}`,
-        region: filter.region,
+        title: missingCases
+          ? `${requireValue(missingCases.get(dto.id)?.externalCode, "client.externalCode")} · Connection case ${dto.id?.slice(0, 8)}`
+          : `Connection case ${requireValue(dto.id, "case.id").slice(0, 8)}`,
+        region:
+          filter.region ??
+          (await this.regionCode(missingCases?.get(dto.id)?.regionId)),
         dueAt: dto.dueAt ?? null,
         status:
           dto.status === "CLOSED"
@@ -479,7 +673,9 @@ export class ApiSource implements DataSource {
                   throw contractError("Unknown case status.");
                 })(),
         documents: [] as CaseRecord["documents"],
-      }))
+      })),
+    );
+    const rows = records
       .filter(
         (x) =>
           (!filter.status || x.status === filter.status) &&
@@ -500,19 +696,28 @@ export class ApiSource implements DataSource {
             path: { id: row.id },
           }),
         );
+        const missing = requireValue(
+          checklist.missingDocumentTypes,
+          "checklist.missingDocumentTypes",
+        );
+        const received = [
+          ...new Map(
+            requireValue(checklist.documents, "checklist.documents")
+              .filter(
+                (doc) =>
+                  !missing.some((type) => type.id === doc.documentTypeId),
+              )
+              .map((doc) => [doc.documentTypeId, doc]),
+          ).values(),
+        ];
         row.documents = [
-          ...requireValue(checklist.documents, "checklist.documents").map(
-            (doc) => ({
-              name:
-                types.find((t) => t.id === doc.documentTypeId)?.name ??
-                `Document ${doc.documentTypeId ?? "unknown"}`,
-              received: true,
-            }),
-          ),
-          ...requireValue(
-            checklist.missingDocumentTypes,
-            "checklist.missingDocumentTypes",
-          ).map((doc) => ({
+          ...received.map((doc) => ({
+            name:
+              types.find((t) => t.id === doc.documentTypeId)?.name ??
+              `Document ${doc.documentTypeId ?? "unknown"}`,
+            received: true,
+          })),
+          ...missing.map((doc) => ({
             name: requireValue(doc.name, "documentType.name"),
             received: false,
           })),

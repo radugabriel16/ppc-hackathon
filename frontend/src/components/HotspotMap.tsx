@@ -15,11 +15,13 @@ import { REGION_INFO, type OutageHotspot, type Region } from "../data/models";
 
 interface Props {
   rows: OutageHotspot[];
-  region: Region;
+  region?: Region;
   mode: HotspotMode;
 }
-function fitRegion(instance: LibreMap, region: Region) {
-  const [west, south, east, north] = REGION_INFO[region].bbox;
+function fitRegion(instance: LibreMap, region?: Region) {
+  const [west, south, east, north] = region
+    ? REGION_INFO[region].bbox
+    : [20.1, 43.5, 29.8, 48.3];
   instance.fitBounds(
     [
       [west, south],
@@ -145,7 +147,7 @@ export function HotspotMap(props: Props) {
     <Box>
       <Box
         ref={container}
-        aria-label={`Outage hotspots in ${REGION_INFO[props.region].name}`}
+        aria-label={`Outage hotspots in ${props.region ? REGION_INFO[props.region].name : "Romania"}`}
         sx={{ height: 380, width: "100%", bgcolor: "#e9eee5", borderRadius: 2 }}
       />
       {error && (

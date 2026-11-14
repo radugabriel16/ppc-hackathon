@@ -15,6 +15,7 @@ import { Shell } from "./components/Shell";
 import { Login } from "./pages/Login";
 import { FilesPage } from "./pages/Files";
 import { CasesPage } from "./pages/Cases";
+import { IssuesPage } from "./pages/Issues";
 import { UploadsPage } from "./pages/Uploads";
 import { AdminPage } from "./pages/Admin";
 import "./styles.css";
@@ -47,8 +48,8 @@ prepareSource(import.meta.env)
           <ErrorBoundary>
             <QueryClientProvider client={queryClient}>
               <SourceContext.Provider value={source}>
-                <RegionProvider>
-                  <BrowserRouter>
+                <BrowserRouter>
+                  <RegionProvider>
                     <Routes>
                       <Route path="/login" element={<Login />} />
                       <Route element={<Authenticated />}>
@@ -63,6 +64,7 @@ prepareSource(import.meta.env)
                           />
                           <Route path="/files" element={<FilesPage />} />
                           <Route path="/cases" element={<CasesPage />} />
+                          <Route path="/issues" element={<IssuesPage />} />
                           <Route path="/uploads" element={<UploadsPage />} />
                           <Route
                             path="/statistics"
@@ -84,8 +86,8 @@ prepareSource(import.meta.env)
                         </Route>
                       </Route>
                     </Routes>
-                  </BrowserRouter>
-                </RegionProvider>
+                  </RegionProvider>
+                </BrowserRouter>
               </SourceContext.Provider>
             </QueryClientProvider>
           </ErrorBoundary>

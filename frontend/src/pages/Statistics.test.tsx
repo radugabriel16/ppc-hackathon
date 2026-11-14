@@ -90,12 +90,12 @@ function workspace(withData = true, mode: "api" | "mock" = "api") {
       <ThemeProvider theme={theme}>
         <QueryClientProvider client={cache}>
           <SourceContext.Provider value={source}>
-            <RegionProvider>
-              <MemoryRouter>
+            <MemoryRouter initialEntries={["/statistics?region=MUNTENIA"]}>
+              <RegionProvider>
                 <RegionControl />
                 <StatisticsPage />
-              </MemoryRouter>
-            </RegionProvider>
+              </RegionProvider>
+            </MemoryRouter>
           </SourceContext.Provider>
         </QueryClientProvider>
       </ThemeProvider>,

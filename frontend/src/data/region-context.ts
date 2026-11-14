@@ -3,6 +3,7 @@ import type { Region } from "./models";
 export const RegionContext = createContext<{
   region: Region;
   setRegion: (region: Region) => void;
+  setScope: (region: Region | null, segmentId?: string) => void;
   selectedRegion: Region | null;
   subregionId?: string;
   setSubregion: (id?: string) => void;
@@ -10,6 +11,7 @@ export const RegionContext = createContext<{
 }>({
   region: "MUNTENIA",
   setRegion: () => undefined,
+  setScope: () => undefined,
   selectedRegion: null,
   setSubregion: () => undefined,
   clearRegion: () => undefined,

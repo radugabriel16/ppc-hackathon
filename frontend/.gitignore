@@ -7,3 +7,5 @@ coverage/
 .env.local
 .env.*.local
 openapi-ts-error-*.log
+!src/data/
+!src/data/**

@@ -263,6 +263,54 @@ export function createMockApi(options: Options = {}) {
       await store.put(`mock:issue:${issue.id}`, issue);
       return HttpResponse.json(issue, { status: 201 });
     }),
+    http.get(`${base}/map-issues`, async ({ request }) => {
+      const denied = await guard(request);
+      if (denied) return denied;
+      const query = new URL(request.url).searchParams;
+      const rows = new Map<string, MapIssue>();
+      for (const feature of examples.map.features ?? []) {
+        const p = feature.properties;
+        if (p?.kind !== "ISSUE" || !feature.geometry) continue;
+        const issue: MapIssue = {
+          id: String(p.id),
+          assetId: String(p.assetId),
+          type: "OUTAGE_REPORT",
+          title: typeof p.title === "string" ? p.title : undefined,
+          description:
+            typeof p.description === "string" ? p.description : undefined,
+          severity: p.severity as MapIssue["severity"],
+          status: p.status as MapIssue["status"],
+          version: p.version as MapIssue["version"],
+          regionId: regionForAsset(p.assetId),
+          location: {
+            type: "Point",
+            coordinates: feature.geometry.coordinates as [number, number],
+          },
+          isHistorical: false,
+        };
+        rows.set(issue.id!, issue);
+      }
+      for (const { value } of await store.entries<MapIssue>("mock:issue:"))
+        rows.set(value.id!, value);
+      return HttpResponse.json(
+        page(
+          [...rows.values()].filter(
+            (row) =>
+              !row.isHistorical &&
+              (!query.get("regionId") ||
+                (row.regionId ?? regionForAsset(row.assetId)) ===
+                  query.get("regionId")) &&
+              (!query.get("segmentId") ||
+                row.segmentId === query.get("segmentId")) &&
+              (!query.get("type") || row.type === query.get("type")) &&
+              (!query.get("status") || row.status === query.get("status")) &&
+              (!query.get("clientId") ||
+                row.clientId === query.get("clientId")),
+          ),
+          request,
+        ),
+      );
+    }),
     http.patch(`${base}/map-issues/:id/status`, async ({ request, params }) => {
       const body = (await request.json()) as MapIssueStatusUpdateRequest;
       const denied = await guard(request, true, body.status === "RESOLVED");

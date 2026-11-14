@@ -10,6 +10,15 @@ import {
   TablePagination,
   TextField,
   Typography,
+  Alert,
+  ToggleButton,
+  ToggleButtonGroup,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
 } from "@mui/material";
 import { AccessTime, Search } from "@mui/icons-material";
 import { useCases } from "../data/hooks";
@@ -25,16 +34,30 @@ import {
 } from "../components/common";
 
 export function CasesPage() {
-  const { region } = useRegion();
-  return <CasesContent key={region} />;
+  const { selectedRegion, subregionId } = useRegion();
+  return <CasesContent key={`${selectedRegion}:${subregionId}`} />;
+}
+const VIEW_KEY = "filegrid.cases-view";
+function storedView(): { view: "list" | "grid"; error: string } {
+  try {
+    return {
+      view: localStorage.getItem(VIEW_KEY) === "list" ? "list" : "grid",
+      error: "",
+    };
+  } catch {
+    return { view: "grid", error: "View preference storage is unavailable." };
+  }
 }
 function CasesContent() {
-  const { region } = useRegion();
+  const { selectedRegion, subregionId } = useRegion();
+  const [preference, setPreference] = useState(storedView);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<CaseRecord["status"] | "">("");
   const [page, setPage] = useState(0);
   const query = useCases({
-    region,
+    region: selectedRegion ?? undefined,
+    segmentId: subregionId,
+    missingOnly: true,
     search,
     status: status || undefined,
     page,
@@ -45,7 +68,7 @@ function CasesContent() {
       <PageHeading
         eyebrow="CASE WORKSPACE"
         title="Keep every case moving."
-        detail="Ordered by due date. See the evidence you have and the documents still missing."
+        detail="Clients missing required documents, ordered by due date. Region and segment follow the workspace scope."
       />
       <Paper variant="outlined" sx={{ p: 2.5, mb: 2.5 }}>
         <Stack direction={{ xs: "column", sm: "row" }} gap={2}>
@@ -76,7 +99,7 @@ function CasesContent() {
             sx={{ minWidth: 180 }}
           >
             <MenuItem value="">All statuses</MenuItem>
-            {["OPEN", "REVIEW", "COMPLETE"].map((x) => (
+            {["OPEN", "COMPLETE"].map((x) => (
               <MenuItem key={x} value={x}>
                 {label(x)}
               </MenuItem>
@@ -88,124 +111,194 @@ function CasesContent() {
             variant="outlined"
             sx={{ alignSelf: "center" }}
           />
+          <ToggleButtonGroup
+            exclusive
+            value={preference.view}
+            aria-label="Cases view"
+            size="small"
+            onChange={(_, view: "list" | "grid" | null) => {
+              if (!view) return;
+              try {
+                localStorage.setItem(VIEW_KEY, view);
+                setPreference({ view, error: "" });
+              } catch {
+                setPreference({
+                  view,
+                  error: "Could not remember the view preference.",
+                });
+              }
+            }}
+          >
+            <ToggleButton value="list" aria-label="List view">
+              List
+            </ToggleButton>
+            <ToggleButton value="grid" aria-label="Grid view">
+              Grid
+            </ToggleButton>
+          </ToggleButtonGroup>
         </Stack>
       </Paper>
+      {preference.error && <Alert severity="warning">{preference.error}</Alert>}
       {query.isPending && <Loading />}
       {query.error && (
         <ErrorNotice error={query.error} retry={() => void query.refetch()} />
       )}
       {query.data &&
         (query.data.items.length ? (
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" },
-              gap: 2,
-            }}
-          >
-            {query.data.items.map((item) => {
-              const overdue =
-                item.status !== "COMPLETE" &&
-                !!item.dueAt &&
-                Date.parse(item.dueAt) < Date.now();
-              const missing = item.documents.filter((d) => !d.received).length;
-              return (
-                <Paper variant="outlined" key={item.id} sx={{ p: 2.5 }}>
-                  <Stack
-                    direction="row"
-                    justifyContent="space-between"
-                    mb={1.4}
-                  >
-                    <Typography className="eyebrow">{item.id}</Typography>
-                    <StatusChip status={item.status} />
-                  </Stack>
-                  <Typography variant="h6">{item.title}</Typography>
-                  <Stack
-                    direction="row"
-                    gap={1}
-                    alignItems="center"
-                    mt={1}
-                    mb={2}
-                  >
-                    <AccessTime
-                      sx={{
-                        fontSize: 15,
-                        color: overdue ? "error.main" : "text.secondary",
-                      }}
-                    />
-                    <Typography
-                      variant="caption"
-                      color={overdue ? "error.main" : "text.secondary"}
-                    >
-                      {overdue ? "Overdue · " : "Due "}
-                      {item.dueAt
-                        ? new Date(item.dueAt).toLocaleString("en-GB", {
-                            timeZone: "Europe/Bucharest",
-                            day: "2-digit",
-                            month: "short",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
-                        : "No due date"}
-                    </Typography>
-                  </Stack>
-                  <Box sx={{ bgcolor: "#f7f9f4", borderRadius: 2, p: 1.5 }}>
+          preference.view === "list" ? (
+            <TableContainer component={Paper} variant="outlined">
+              <Table aria-label="Clients missing documents">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Client / case</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Due</TableCell>
+                    <TableCell>Missing documents</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {query.data.items.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell>
+                        {item.title}
+                        <Typography variant="caption" display="block">
+                          {item.id}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <StatusChip status={item.status} />
+                      </TableCell>
+                      <TableCell>
+                        {item.dueAt
+                          ? new Date(item.dueAt).toLocaleDateString()
+                          : "No due date"}
+                      </TableCell>
+                      <TableCell>
+                        {item.documents
+                          .filter((d) => !d.received)
+                          .map((d) => d.name)
+                          .join(", ")}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          ) : (
+            <Box
+              aria-label="Cases grid"
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" },
+                gap: 2,
+              }}
+            >
+              {query.data.items.map((item) => {
+                const overdue =
+                  item.status !== "COMPLETE" &&
+                  !!item.dueAt &&
+                  Date.parse(item.dueAt) < Date.now();
+                const missing = item.documents.filter(
+                  (d) => !d.received,
+                ).length;
+                return (
+                  <Paper variant="outlined" key={item.id} sx={{ p: 2.5 }}>
                     <Stack
                       direction="row"
                       justifyContent="space-between"
-                      mb={1}
+                      mb={1.4}
                     >
-                      <Typography variant="caption" fontWeight={600}>
-                        Document checklist
-                      </Typography>
+                      <Typography className="eyebrow">{item.id}</Typography>
+                      <StatusChip status={item.status} />
+                    </Stack>
+                    <Typography variant="h6">{item.title}</Typography>
+                    <Stack
+                      direction="row"
+                      gap={1}
+                      alignItems="center"
+                      mt={1}
+                      mb={2}
+                    >
+                      <AccessTime
+                        sx={{
+                          fontSize: 15,
+                          color: overdue ? "error.main" : "text.secondary",
+                        }}
+                      />
                       <Typography
                         variant="caption"
-                        color={missing ? "warning.main" : "primary.main"}
+                        color={overdue ? "error.main" : "text.secondary"}
                       >
-                        {missing ? `${missing} missing` : "All received"}
+                        {overdue ? "Overdue · " : "Due "}
+                        {item.dueAt
+                          ? new Date(item.dueAt).toLocaleString("en-GB", {
+                              timeZone: "Europe/Bucharest",
+                              day: "2-digit",
+                              month: "short",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : "No due date"}
                       </Typography>
                     </Stack>
-                    {item.documents.map((doc) => (
+                    <Box sx={{ bgcolor: "#f7f9f4", borderRadius: 2, p: 1.5 }}>
                       <Stack
                         direction="row"
-                        alignItems="center"
-                        key={doc.name}
-                        spacing={1}
+                        justifyContent="space-between"
+                        mb={1}
                       >
-                        <Checkbox
-                          checked={doc.received}
-                          disabled
-                          size="small"
-                          sx={{
-                            p: 0.4,
-                            "&.Mui-disabled": {
-                              color: doc.received ? "#4b8461" : "#c4c9c1",
-                            },
-                          }}
-                          inputProps={{
-                            "aria-label": `${doc.name}: ${doc.received ? "received" : "missing"}`,
-                          }}
-                        />
-                        <Typography
-                          variant="body2"
-                          color={
-                            doc.received ? "text.secondary" : "text.primary"
-                          }
-                        >
-                          {doc.name}
+                        <Typography variant="caption" fontWeight={600}>
+                          Document checklist
                         </Typography>
-                        {!doc.received && (
-                          <Typography variant="caption" color="warning.main">
-                            Missing
-                          </Typography>
-                        )}
+                        <Typography
+                          variant="caption"
+                          color={missing ? "warning.main" : "primary.main"}
+                        >
+                          {missing ? `${missing} missing` : "All received"}
+                        </Typography>
                       </Stack>
-                    ))}
-                  </Box>
-                </Paper>
-              );
-            })}
-          </Box>
+                      {item.documents.map((doc) => (
+                        <Stack
+                          direction="row"
+                          alignItems="center"
+                          key={doc.name}
+                          spacing={1}
+                        >
+                          <Checkbox
+                            checked={doc.received}
+                            disabled
+                            size="small"
+                            sx={{
+                              p: 0.4,
+                              "&.Mui-disabled": {
+                                color: doc.received ? "#4b8461" : "#c4c9c1",
+                              },
+                            }}
+                            inputProps={{
+                              "aria-label": `${doc.name}: ${doc.received ? "received" : "missing"}`,
+                            }}
+                          />
+                          <Typography
+                            variant="body2"
+                            color={
+                              doc.received ? "text.secondary" : "text.primary"
+                            }
+                          >
+                            {doc.name}
+                          </Typography>
+                          {!doc.received && (
+                            <Typography variant="caption" color="warning.main">
+                              Missing
+                            </Typography>
+                          )}
+                        </Stack>
+                      ))}
+                    </Box>
+                  </Paper>
+                );
+              })}
+            </Box>
+          )
         ) : (
           <Paper variant="outlined">
             <Empty title="No cases found" />

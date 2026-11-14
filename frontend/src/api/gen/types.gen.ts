@@ -17,10 +17,24 @@ export type ForecastRunCreate = {
   segmentId?: string;
 };
 
+/**
+ * Defaults use p95 of complete daily segment totals in the preceding 28 UTC days times 1.03 (minimum 14 complete days). Explicit manager overrides are preserved. Limits are daily energy, not physical kW capacity.
+ *
+ */
 export type SegmentThreshold = {
   segmentId?: string;
   regionId?: string;
   dailyEnergyKwh?: number;
+  source?: "UNCONFIGURED" | "HISTORY_P95" | "MANUAL";
+  calibration?: {
+    startInclusive?: string;
+    endExclusive?: string;
+    sampleDays?: number;
+    percentile?: number;
+    multiplier?: number;
+    p95Kwh?: number;
+    asOf?: string;
+  } | null;
 };
 
 export type ForecastRun = {
@@ -36,6 +50,10 @@ export type ForecastRun = {
     SegmentForecast & {
       regionId?: string;
       thresholdKwh?: number;
+      thresholdSource?: "UNCONFIGURED" | "HISTORY_P95" | "MANUAL";
+      thresholdCalibration?: {
+        [key: string]: unknown;
+      } | null;
     }
   >;
   createdIssues: Array<MapIssue>;
@@ -67,6 +85,23 @@ export type ForecastMetadata = {
   uncertaintyIntervalsAvailable: false;
   predictsOutageProbability: false;
   fallbackUsed: boolean;
+  /**
+   * Tomorrow-origin forecasts may bridge missing slots of today only, using the median of at least two matching slots from the prior four same weekdays. Estimates remain private inference state, not readings or baseline predictions; historical gaps are not bridged.
+   *
+   */
+  bridged?: boolean;
+  bridge?: {
+    method?: "SAME_WEEKDAY_SLOT_MEDIAN";
+    date?: string;
+    intervals?: number;
+    asOf?: string;
+    persistedAsReadings?: false;
+  } | null;
+  /**
+   * Untyped meters use the model with all client-type indicators unset; client metadata is never inferred or modified.
+   *
+   */
+  unknownClientTypeMeters?: number;
   generatedAt: string;
 };
 
@@ -78,6 +113,7 @@ export type ForecastDay = {
   changeVsReferencePct: number | null;
   status: "READY" | "INSUFFICIENT_DATA";
   fallbackUsed: boolean;
+  bridged?: boolean;
 };
 
 export type SegmentForecastDay = ForecastDay & {
@@ -97,6 +133,8 @@ export type MeterForecast = {
   meterId: string;
   meter: string;
   segmentId: string;
+  bridged?: boolean;
+  clientTypeUnknown?: boolean;
   forecasts: [MeterForecastDay, MeterForecastDay, MeterForecastDay];
 };
 

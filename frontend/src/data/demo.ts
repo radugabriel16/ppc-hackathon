@@ -319,7 +319,7 @@ export class LocalDemoSource implements DataSource {
       description: input.description.trim(),
       id: `ISS-${crypto.randomUUID().slice(0, 6)}`,
       region: asset!.region,
-      coordinates: asset!.coordinates,
+      coordinates: input.coordinates ?? asset!.coordinates,
       status: "OPEN",
       version: 1,
     };
@@ -395,7 +395,8 @@ export class LocalDemoSource implements DataSource {
       this.cases
         .filter(
           (x) =>
-            x.region === filter.region &&
+            (!filter.region || x.region === filter.region) &&
+            (!filter.missingOnly || x.documents.some((d) => !d.received)) &&
             (!filter.status || filter.status === x.status) &&
             `${x.title} ${x.id}`
               .toLowerCase()

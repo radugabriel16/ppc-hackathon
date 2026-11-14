@@ -20,6 +20,7 @@ import { ErrorNotice, Empty, Loading, PageHeading } from "../components/common";
 import { MapLinkButton } from "../components/Shell";
 import { StatisticsChart } from "../components/StatisticsChart";
 import { HotspotMap } from "../components/HotspotMap";
+import { ForecastPanel } from "../components/ForecastPanel";
 import {
   benchmarkOption,
   BENCHMARK_METRICS,
@@ -257,6 +258,7 @@ function Recommendations() {
 }
 
 function Meters({ region }: { region: Region }) {
+  const { selectedRegion } = useRegion();
   const query = useMeterConsumption(region);
   const [selected, setSelected] = useState("");
   const meter =
@@ -273,8 +275,9 @@ function Meters({ region }: { region: Region }) {
         Meter consumption
       </Typography>
       <Typography variant="body2" color="text.secondary" mb={2}>
-        Interval energy in {REGION_INFO[region].name}. Diamonds mark anomalies;
-        shaded windows mark missing readings.
+        Interval energy in{" "}
+        {selectedRegion ? REGION_INFO[region].name : "Romania"}. Diamonds mark
+        anomalies; shaded windows mark missing readings.
       </Typography>
       <StatContent query={query} empty={!query.data?.length}>
         {meter && (
@@ -353,6 +356,7 @@ function Meters({ region }: { region: Region }) {
 }
 
 function Hotspots({ region }: { region: Region }) {
+  const { selectedRegion } = useRegion();
   const query = useOutageHotspots(region);
   const [mode, setMode] = useState<HotspotMode>("heat");
   return (
@@ -368,7 +372,8 @@ function Hotspots({ region }: { region: Region }) {
             Outage hotspots
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {REGION_INFO[region].name} · concentration weighted by outage count
+            {selectedRegion ? REGION_INFO[region].name : "Romania"} ·
+            concentration weighted by outage count
           </Typography>
         </Box>
         <ToggleButtonGroup
@@ -386,7 +391,11 @@ function Hotspots({ region }: { region: Region }) {
       </Stack>
       <StatContent query={query} empty={!query.data?.length}>
         {!!query.data?.length && (
-          <HotspotMap rows={query.data} region={region} mode={mode} />
+          <HotspotMap
+            rows={query.data}
+            region={selectedRegion ?? undefined}
+            mode={mode}
+          />
         )}
         <Typography
           variant="caption"
@@ -424,22 +433,25 @@ function Hotspots({ region }: { region: Region }) {
 }
 
 function Forecast({ region }: { region: Region }) {
+  const { selectedRegion } = useRegion();
+  const scopeName = selectedRegion ? REGION_INFO[region].name : "Romania";
   const query = useForecast(region);
   const mode = useDataMode();
   return (
     <Paper variant="outlined" sx={{ p: 3, minWidth: 0 }}>
       <Stack direction="row" alignItems="center" gap={2} mb={1}>
         <Typography variant="h6" component="h2">
-          Regional consumption forecast
+          Historical reference forecast
         </Typography>
         {mode === "mock" && (
           <Chip size="small" label="MOCK FORECAST" color="warning" />
         )}
       </Stack>
       <Typography variant="body2" color="text.secondary" mb={2}>
-        {REGION_INFO[region].name} · Three whole UTC days · kWh/day. No
-        calibrated prediction intervals or outage probabilities. Missing segment
-        data leaves the regional total unknown.
+        {scopeName} · Latest completed daily cutoff (not a new prediction run) ·
+        Three whole UTC days · kWh/day. No calibrated prediction intervals or
+        outage probabilities. Missing segment data leaves the regional total
+        unknown.
       </Typography>
       <StatContent query={query} empty={!query.data?.length}>
         {!!query.data?.length && (
@@ -451,7 +463,7 @@ function Forecast({ region }: { region: Region }) {
             </Typography>
             <StatisticsChart
               option={forecastOption(query.data)}
-              label={`Regional consumption forecast for ${REGION_INFO[region].name}, three UTC days`}
+              label={`Regional consumption forecast for ${scopeName}, three UTC days`}
               height={360}
             />
             <Box component="details" sx={{ mt: 2 }}>
@@ -496,18 +508,19 @@ function Forecast({ region }: { region: Region }) {
 }
 
 export function StatisticsPage() {
-  const { region } = useRegion();
+  const { region, selectedRegion } = useRegion();
   return (
     <>
       <PageHeading
         eyebrow="OPERATIONAL INTELLIGENCE"
         title="Evidence behind the decisions."
-        detail={`Storage benchmarks cover all regions. Meter, outage and forecast views follow ${REGION_INFO[region].name}.`}
+        detail={`Storage benchmarks cover all regions. Operational views follow ${selectedRegion ? REGION_INFO[region].name : "Romania"} and the selected segment.`}
         action={<MapLinkButton />}
       />
       <Stack spacing={3}>
         <Benchmark />
         <Recommendations />
+        <ForecastPanel />
         <Meters region={region} />
         <Hotspots region={region} />
         <Forecast region={region} />

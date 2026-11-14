@@ -4,6 +4,7 @@ import {
   CATEGORIES,
   STORAGES,
   label,
+  type ForecastRun,
   type ForecastPoint,
   type MeterConsumption,
   type StorageBenchmark,
@@ -160,6 +161,36 @@ export function forecastOption(points: ForecastPoint[]): EChartsOption {
         dimensions: ["Time", "Estimate (kWh)"],
         encode: { x: 0, y: 1, tooltip: [1] },
         data: points.map((point) => [point.timestamp, point.estimate]),
+      },
+    ],
+  };
+}
+
+export function scopedForecastOption(
+  segment: Pick<ForecastRun["segments"][number], "forecasts" | "thresholdKwh">,
+): EChartsOption {
+  return {
+    ...chartDefaults,
+    legend: { data: ["Predicted energy", "Run threshold"] },
+    xAxis: {
+      type: "category",
+      data: segment.forecasts.map((day) => `D+${day.horizon} ${day.date}`),
+    },
+    yAxis: { type: "value", name: "kWh/day" },
+    series: [
+      {
+        name: "Predicted energy",
+        type: "bar",
+        data: segment.forecasts.map((day) => day.predictedEnergyKwh),
+        itemStyle: { color: "#238258" },
+      },
+      {
+        name: "Run threshold",
+        type: "line",
+        data: segment.forecasts.map(
+          (day) => day.thresholdKwh ?? segment.thresholdKwh ?? null,
+        ),
+        lineStyle: { type: "dashed", color: "#bd503b" },
       },
     ],
   };

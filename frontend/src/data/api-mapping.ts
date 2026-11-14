@@ -80,6 +80,15 @@ export function issueRecord(dto: MapIssue, region: Region): Issue {
     status: requireValue(dto.status, "issue.status"),
     version: dto.version ?? null,
     coordinates: coordinate(dto.location?.coordinates),
+    type: dto.type,
+    title: dto.title,
+    isHistorical: dto.isHistorical,
+    regionId: dto.regionId ?? undefined,
+    segmentId: dto.segmentId ?? dto.subregionId ?? undefined,
+    clientId: dto.clientId ?? undefined,
+    caseId: dto.caseId ?? undefined,
+    forecastDate: dto.forecastDate ?? undefined,
+    createdAt: dto.createdAt,
   };
 }
 // GeoJSON's properties are completely untyped by the contract. Whitelist map data

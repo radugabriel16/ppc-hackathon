@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Alert,
   Box,
@@ -23,13 +24,19 @@ import {
   useCreateIssue,
   useDemoMode,
   useMap,
+  useMapMeters,
   useGeography,
   useSession,
   useUpdateIssue,
 } from "../data/hooks";
 import { AppError } from "../data/errors";
 import { label, REGION_INFO } from "../data/models";
-import type { GeographicArea, MapData, Severity } from "../data/models";
+import type {
+  CreateIssue,
+  GeographicArea,
+  MapData,
+  Severity,
+} from "../data/models";
 import { useRegion } from "../data/region-context";
 import {
   Empty,
@@ -41,15 +48,19 @@ import {
 } from "../components/common";
 import { NetworkMap } from "../components/NetworkMap";
 import { GeographyExplorer } from "../components/GeographyExplorer";
+import { ForecastPanel } from "../components/ForecastPanel";
+import { ISSUE_TYPES, issueTitle } from "../components/issue-presentation";
 
 function CreateIssueDialog({
   data,
   initialAsset,
+  initialPoint,
   onClose,
   onCreated,
 }: {
   data: MapData;
   initialAsset?: string;
+  initialPoint?: Pick<CreateIssue, "coordinates" | "regionId" | "segmentId">;
   onClose: () => void;
   onCreated: () => void;
 }) {
@@ -83,15 +94,20 @@ function CreateIssueDialog({
               description,
               videoId: videoId.trim() || undefined,
               offsetSeconds: offset === "" ? undefined : Number(offset),
+              ...initialPoint,
             },
             { onSuccess: onCreated },
           );
         }}
       >
         <DialogTitle>
-          Create network issue
+          {initialPoint?.coordinates
+            ? "Report outage here"
+            : "Create network issue"}
           <Typography variant="body2" color="text.secondary">
-            Connect a finding to an asset and its evidence.
+            {initialPoint?.coordinates
+              ? `Exact location: ${initialPoint.coordinates[0].toFixed(6)}, ${initialPoint.coordinates[1].toFixed(6)}`
+              : "Connect a finding to an asset and its evidence."}
           </Typography>
         </DialogTitle>
         <DialogContent>
@@ -175,11 +191,12 @@ export function MapPage() {
     region,
     selectedRegion,
     subregionId,
-    setRegion,
+    setScope,
     setSubregion,
     clearRegion,
   } = useRegion();
   const query = useMap(region, selectedRegion === null);
+  const meters = useMapMeters();
   const geography = useGeography();
   const areas = geography.data ?? [];
   const parent = areas.find((a) => !a.parentId && a.region === selectedRegion);
@@ -189,8 +206,7 @@ export function MapPage() {
       clearRegion();
       return;
     }
-    setRegion(area.region);
-    setSubregion(area.parentId ? area.id : undefined);
+    setScope(area.region, area.parentId ? area.id : undefined);
   };
   const goBack = () => (subregionId ? setSubregion(undefined) : clearRegion());
   const update = useUpdateIssue();
@@ -202,16 +218,39 @@ export function MapPage() {
     issues: true,
     outages: true,
   });
-  const [create, setCreate] = useState<{ assetId?: string } | null>(null);
-  const [selected, setSelected] = useState("");
+  const [create, setCreate] = useState<
+    | (Pick<CreateIssue, "coordinates" | "regionId" | "segmentId"> & {
+        assetId?: string;
+      })
+    | null
+  >(null);
+  const [params, setParams] = useSearchParams();
+  const selected = params.get("issue") ?? "";
+  const setSelected = (id: string) =>
+    setParams((previous) => {
+      const next = new URLSearchParams(previous);
+      if (id) next.set("issue", id);
+      else next.delete("issue");
+      return next;
+    });
   const [conflict, setConflict] = useState(false);
   const [notice, setNotice] = useState(false);
   const data = query.data;
+  const visibleData =
+    data && query.isPlaceholderData
+      ? {
+          ...data,
+          assets: { ...data.assets, features: [] },
+          issues: { ...data.issues, features: [] },
+          outages: { ...data.outages, features: [] },
+          assetList: [],
+          issueList: [],
+        }
+      : data;
   const issue = data?.issueList.find((x) => x.id === selected);
   const open = data?.issueList.filter((x) => x.status === "OPEN").length ?? 0;
   const inProgress =
     data?.issueList.filter((x) => x.status === "IN_PROGRESS").length ?? 0;
-  const onCreate = (assetId?: string) => setCreate({ assetId });
   return (
     <Box
       onKeyDown={(event) => {
@@ -229,7 +268,7 @@ export function MapPage() {
           <Button
             variant="contained"
             startIcon={<Add />}
-            disabled={!data}
+            disabled={!data || query.isPlaceholderData}
             onClick={() => setCreate({})}
           >
             Create issue
@@ -269,6 +308,9 @@ export function MapPage() {
           retry={() => void geography.refetch()}
         />
       )}
+      {meters.error && (
+        <ErrorNotice error={meters.error} retry={() => void meters.refetch()} />
+      )}
       {notice && (
         <Alert sx={{ mb: 2 }} onClose={() => setNotice(false)}>
           Issue created. The network map has been refreshed.
@@ -280,6 +322,7 @@ export function MapPage() {
             display: "grid",
             gridTemplateColumns: { xs: "1fr", xl: "minmax(0, 1fr) 315px" },
             gap: 2.5,
+            alignItems: "start",
           }}
         >
           <Paper variant="outlined" sx={{ overflow: "hidden" }}>
@@ -303,7 +346,7 @@ export function MapPage() {
                 color="text.secondary"
                 sx={{ display: { xs: "none", sm: "block" } }}
               >
-                Click a region to explore
+                Left click to select · Right click to report
               </Typography>
             </Stack>
             <Divider />
@@ -313,20 +356,22 @@ export function MapPage() {
               onSelect={selectArea}
             />
             <NetworkMap
-              data={data}
+              data={{ ...visibleData!, meters: meters.data }}
               region={region}
               areas={areas}
               selectedId={selectedId}
               onSelect={selectArea}
               resolved={resolved}
               layers={layers}
-              onCreate={onCreate}
+              onCreate={setCreate}
               onIssue={setSelected}
+              selectedIssue={selected}
             />
             <Box sx={{ px: 2, py: 1 }}>
               <Typography variant="caption" color="text.secondary">
-                Illustrative boundaries · [longitude, latitude] · No personal
-                client data ·{" "}
+                {meters.data?.length ?? 0} meters visible · Co-located meters
+                fanned out for clarity · Operational boundaries · [longitude,
+                latitude] · No personal client data ·{" "}
                 <a
                   href="https://www.openstreetmap.org/copyright"
                   target="_blank"
@@ -362,13 +407,33 @@ export function MapPage() {
               ))}
               <Divider sx={{ my: 1.5 }} />
               <Stack gap={0.8}>
+                {Object.entries(ISSUE_TYPES).map(([type, info]) => (
+                  <Stack key={type} direction="row" gap={1} alignItems="center">
+                    <Box
+                      sx={{
+                        borderRadius: "50%",
+                        bgcolor: info.color,
+                        color: "#fff",
+                        width: 20,
+                        height: 20,
+                        textAlign: "center",
+                        fontSize: 12,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {info.symbol}
+                    </Box>
+                    <Typography variant="caption">{info.label}</Typography>
+                  </Stack>
+                ))}
+                <Typography variant="caption">Blue markers · Meters</Typography>
+              </Stack>
+              <Divider sx={{ my: 1.5 }} />
+              <Stack gap={0.8}>
                 {[
                   ["#176747", "Substation"],
                   ["#457b9d", "Transformer"],
                   ["#25816e", "Line segment"],
-                  ["#d44c53", "Open issue"],
-                  ["#e2b23d", "In progress"],
-                  ["#6e9e8a", "Resolved"],
                   ["#9b70ba", "Outage"],
                 ].map(([color, text]) => (
                   <Stack
@@ -420,7 +485,7 @@ export function MapPage() {
                   }
                 />
               </Stack>
-              <Stack gap={1}>
+              <Stack gap={1} sx={{ maxHeight: 600, overflow: "auto" }}>
                 {data.issueList
                   .filter((x) => resolved || x.status !== "RESOLVED")
                   .map((item) => (
@@ -456,8 +521,14 @@ export function MapPage() {
                           />
                         </Stack>
                         <Typography variant="body2" sx={{ my: 0.4 }}>
-                          {item.description}
+                          {issueTitle(item)}
                         </Typography>
+                        <Chip
+                          size="small"
+                          label={
+                            ISSUE_TYPES[item.type ?? "OUTAGE_REPORT"].label
+                          }
+                        />
                         <Typography variant="caption" color="text.secondary">
                           {item.assetId} · {label(item.severity)} severity
                         </Typography>
@@ -472,6 +543,9 @@ export function MapPage() {
           </Stack>
         </Box>
       )}
+      <Box mt={3}>
+        <ForecastPanel />
+      </Box>
       {issue && (
         <Dialog
           open
@@ -483,11 +557,31 @@ export function MapPage() {
           maxWidth="sm"
         >
           <DialogTitle>
-            {issue.id} <StatusChip status={issue.status} />
+            {issueTitle(issue)} <StatusChip status={issue.status} />
           </DialogTitle>
           <DialogContent>
             <Stack spacing={2}>
               <Typography>{issue.description}</Typography>
+              <Chip
+                label={ISSUE_TYPES[issue.type ?? "OUTAGE_REPORT"].label}
+                sx={{ alignSelf: "start" }}
+              />
+              <Typography variant="body2">
+                Location: {issue.coordinates.join(", ")}
+              </Typography>
+              {issue.forecastDate && (
+                <Typography variant="body2">
+                  Forecast date: {issue.forecastDate} UTC
+                </Typography>
+              )}
+              {issue.clientId && (
+                <Typography variant="body2">
+                  Client ID: {issue.clientId}
+                </Typography>
+              )}
+              {issue.caseId && (
+                <Typography variant="body2">Case ID: {issue.caseId}</Typography>
+              )}
               <Typography variant="body2" color="text.secondary">
                 {issue.assetId} · {label(issue.severity)} severity · Version{" "}
                 {issue.version ?? "unavailable"}
@@ -576,6 +670,7 @@ export function MapPage() {
           key={region}
           data={data}
           initialAsset={create.assetId}
+          initialPoint={create}
           onClose={() => setCreate(null)}
           onCreated={() => {
             setCreate(null);

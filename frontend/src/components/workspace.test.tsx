@@ -55,9 +55,9 @@ async function workspace(
     <ThemeProvider theme={theme}>
       <QueryClientProvider client={cache}>
         <SourceContext.Provider value={source}>
-          <RegionProvider>
-            <MemoryRouter>{children}</MemoryRouter>
-          </RegionProvider>
+          <MemoryRouter>
+            <RegionProvider>{children}</RegionProvider>
+          </MemoryRouter>
         </SourceContext.Provider>
       </QueryClientProvider>
     </ThemeProvider>,

@@ -24,11 +24,16 @@ import type {
   OutageHotspot,
   ForecastPoint,
   GeographicArea,
+  IssueFilter,
+  ForecastRun,
+  ForecastRunCreate,
+  SegmentThreshold,
+  MeterMarker,
 } from "./models";
 import type { UploadTransport } from "../upload/types";
 import type { DocumentType } from "../api/gen/types.gen";
 
-// The only boundary the hooks know. Generated DTOs must never escape an ApiSource.
+// The data boundary used by hooks, with typed contract resources for operations.
 export interface DataSource {
   readonly kind: "demo" | "mock" | "api";
   readonly uploadScope?: string;
@@ -40,6 +45,15 @@ export interface DataSource {
   login(input: LoginInput): Promise<Session>;
   logout(): Promise<void>;
   getMap(region: Region, subregionId?: string): Promise<MapData>;
+  getMapMeters?(region: Region, segmentId?: string): Promise<MeterMarker[]>;
+  getIssues?(filter: IssueFilter): Promise<Page<Issue>>;
+  createForecastRun?(input: ForecastRunCreate): Promise<ForecastRun>;
+  getForecastRun?(id: string): Promise<ForecastRun>;
+  getForecastThresholds?(): Promise<SegmentThreshold[]>;
+  updateForecastThreshold?(
+    segmentId: string,
+    value: number,
+  ): Promise<SegmentThreshold>;
   createIssue(input: CreateIssue): Promise<Issue>;
   updateIssue(input: {
     id: string;

@@ -1,39 +1,47 @@
 import { useEffect, useRef, useState } from "react";
-import { Alert, Box, Button } from "@mui/material";
+import { Alert, Box, Button, Menu, MenuItem, Snackbar } from "@mui/material";
 import maplibregl from "maplibre-gl";
 import type { GeoJSONSource, Map as LibreMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import type { Asset, MapData, Region } from "../data/models";
+import type { CreateIssue, MapData, Region } from "../data/models";
 import type { GeographySelectionProps } from "./GeographyExplorer";
-import { areaBounds, areaFeatures } from "./map-geography";
+import { areaBounds, areaFeatures, reportArea } from "./map-geography";
+import { ISSUE_TYPES } from "./issue-presentation";
+import { meterFeatures } from "./meter-features";
 
 interface Props extends GeographySelectionProps {
   data: MapData;
   region: Region;
   resolved: boolean;
   layers: { assets: boolean; issues: boolean; outages: boolean };
-  onCreate: (assetId?: string) => void;
+  onCreate: (
+    point: Pick<CreateIssue, "coordinates" | "regionId" | "segmentId"> & {
+      assetId?: string;
+    },
+  ) => void;
   onIssue: (id: string) => void;
+  selectedIssue?: string;
 }
 const empty = { type: "FeatureCollection" as const, features: [] };
-const issueFilter = (resolved: boolean): maplibregl.FilterSpecification =>
+const issueFilter = (resolved: boolean): maplibregl.ExpressionSpecification =>
   resolved ? ["has", "status"] : ["!=", ["get", "status"], "RESOLVED"];
 function update(map: LibreMap, props: Props) {
   (map.getSource("assets") as GeoJSONSource)?.setData(props.data.assets);
   (map.getSource("issues") as GeoJSONSource)?.setData(props.data.issues);
   (map.getSource("outages") as GeoJSONSource)?.setData(props.data.outages);
-  (map.getSource("areas") as GeoJSONSource)?.setData(areaFeatures(props.areas));
+  (map.getSource("areas") as GeoJSONSource)?.setData(
+    areaFeatures(props.areas, props.selectedId),
+  );
+  (map.getSource("meters") as GeoJSONSource)?.setData(
+    meterFeatures(props.data.meters ?? []),
+  );
   const selected = props.areas.find((a) => a.id === props.selectedId);
   const parentId = selected?.parentId ?? selected?.id;
   for (const kind of ["region", "subregion"]) {
     for (const suffix of ["fill", "line"]) {
       const id = `${kind}-${suffix}`;
       const isRegion = kind === "region";
-      map.setLayerZoomRange(
-        id,
-        isRegion || parentId ? 0 : 7.3,
-        isRegion && !parentId ? 7.3 : 24,
-      );
+      map.setLayerZoomRange(id, isRegion || parentId ? 0 : 7.3, 24);
       map.setFilter(
         id,
         isRegion
@@ -44,15 +52,14 @@ function update(map: LibreMap, props: Props) {
       );
     }
   }
-  map.removeFeatureState({ source: "areas" }, "selected");
-  if (selected)
+  for (const area of props.areas)
     map.setFeatureState(
-      { source: "areas", id: selected.id },
-      { selected: true },
+      { source: "areas", id: area.id },
+      { selected: area.id === props.selectedId },
     );
   for (const [key, ids] of Object.entries({
     assets: ["asset-points", "asset-lines"],
-    issues: ["issue-points"],
+    issues: ["issue-points", "issue-selected"],
     outages: ["outage-points"],
   })) {
     for (const id of ids)
@@ -62,19 +69,51 @@ function update(map: LibreMap, props: Props) {
         props.layers[key as keyof Props["layers"]] ? "visible" : "none",
       );
   }
-  map.setFilter("issue-points", issueFilter(props.resolved));
+  map.setFilter("issue-points", [
+    "any",
+    issueFilter(props.resolved),
+    ["==", ["get", "id"], props.selectedIssue ?? ""],
+  ]);
+  map.setFilter("issue-selected", [
+    "==",
+    ["get", "id"],
+    props.selectedIssue ?? "",
+  ]);
 }
 export function NetworkMap(props: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<LibreMap | null>(null);
   const latest = useRef(props);
   const previousSelection = useRef<string | undefined>(undefined);
+  const previousIssue = useRef<string | undefined>(undefined);
   const [error, setError] = useState("");
   const [ready, setReady] = useState(false);
+  const [context, setContext] = useState<{
+    left: number;
+    top: number;
+    point: [number, number];
+  } | null>(null);
+  const [hint, setHint] = useState("");
   useEffect(() => {
     latest.current = props;
-    if (map.current?.isStyleLoaded()) {
+    if (map.current?.getSource("areas")) {
       update(map.current, props);
+      if (
+        props.selectedIssue &&
+        previousIssue.current !== props.selectedIssue
+      ) {
+        const issue = props.data.issueList.find(
+          (item) => item.id === props.selectedIssue,
+        );
+        if (issue) {
+          previousIssue.current = props.selectedIssue;
+          map.current.easeTo({
+            center: issue.coordinates,
+            zoom: Math.max(map.current.getZoom(), 10),
+            duration: 300,
+          });
+        }
+      }
       if (previousSelection.current !== props.selectedId) {
         previousSelection.current = props.selectedId;
         const selected = props.areas.find((a) => a.id === props.selectedId);
@@ -124,7 +163,9 @@ export function NetworkMap(props: Props) {
         "(prefers-reduced-motion: reduce)",
       ).matches;
       const step = (now: number) => {
-        const progress = reduced ? 1 : Math.min((now - start) / 150, 1);
+        const progress = reduced
+          ? 1
+          : Math.max(0, Math.min((now - start) / 150, 1));
         instance.setFeatureState(target, {
           hover: from + (value - from) * progress,
         });
@@ -150,15 +191,15 @@ export function NetworkMap(props: Props) {
       }),
       "bottom-right",
     );
-    instance.on("error", () =>
+    instance.on("error", (event) =>
       setError(
-        "Map tiles could not load. Check your connection; the issue list remains available.",
+        `Map rendering warning: ${event.error.message}. The issue list remains available.`,
       ),
     );
     instance.on("load", () => {
       setError("");
       setReady(true);
-      for (const id of ["assets", "issues", "outages", "areas"])
+      for (const id of ["assets", "issues", "outages", "areas", "meters"])
         instance.addSource(id, { type: "geojson", data: empty });
       for (const kind of ["region", "subregion"]) {
         instance.addLayer({
@@ -166,17 +207,22 @@ export function NetworkMap(props: Props) {
           type: "fill",
           source: "areas",
           paint: {
-            "fill-color": "#176747",
+            "fill-color": [
+              "case",
+              ["get", "highlighted"],
+              "#209755",
+              "#8c9992",
+            ],
             "fill-opacity": [
               "case",
-              ["boolean", ["feature-state", "selected"], false],
-              0.3,
+              ["get", "highlighted"],
+              0.35,
               [
                 "interpolate",
                 ["linear"],
                 ["number", ["feature-state", "hover"], 0],
                 0,
-                kind === "region" ? 0.1 : 0.07,
+                kind === "region" ? 0.1 : 0.025,
                 1,
                 0.23,
               ],
@@ -188,7 +234,12 @@ export function NetworkMap(props: Props) {
           type: "line",
           source: "areas",
           paint: {
-            "line-color": "#176747",
+            "line-color": [
+              "case",
+              ["get", "highlighted"],
+              "#176747",
+              "#9aa59f",
+            ],
             "line-width": [
               "case",
               ["boolean", ["feature-state", "selected"], false],
@@ -256,24 +307,75 @@ export function NetworkMap(props: Props) {
           "circle-stroke-width": 2,
         },
       });
+      const meterCanvas = document.createElement("canvas");
+      meterCanvas.width = meterCanvas.height = 24;
+      const meterContext = meterCanvas.getContext("2d");
+      if (meterContext) {
+        meterContext.fillStyle = "#2378aa";
+        meterContext.beginPath();
+        meterContext.arc(12, 12, 10, 0, Math.PI * 2);
+        meterContext.fill();
+        meterContext.strokeStyle = "#fff";
+        meterContext.lineWidth = 3;
+        meterContext.stroke();
+        instance.addImage("meter", meterContext.getImageData(0, 0, 24, 24), {
+          pixelRatio: 2,
+        });
+      }
       instance.addLayer({
-        id: "issue-points",
+        id: "meter-points",
+        type: "symbol",
+        source: "meters",
+        layout: {
+          "icon-image": "meter",
+          "icon-offset": ["get", "markerOffset"],
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
+          "icon-rotation-alignment": "viewport",
+        },
+      });
+      for (const [type, info] of Object.entries(ISSUE_TYPES)) {
+        const canvas = document.createElement("canvas");
+        canvas.width = canvas.height = 40;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) continue;
+        ctx.fillStyle = info.color;
+        ctx.beginPath();
+        ctx.arc(20, 20, 18, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 22px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(info.symbol, 20, 21);
+        instance.addImage(type, ctx.getImageData(0, 0, 40, 40), {
+          pixelRatio: 2,
+        });
+      }
+      instance.addLayer({
+        id: "issue-selected",
         type: "circle",
         source: "issues",
         paint: {
-          "circle-radius": 7,
-          "circle-color": [
-            "match",
-            ["get", "status"],
-            "OPEN",
-            "#d44c53",
-            "IN_PROGRESS",
-            "#e2b23d",
-            "#6e9e8a",
-          ],
-          "circle-stroke-width": 2.5,
-          "circle-stroke-color": "#fff",
-          "circle-translate": [12, -12],
+          "circle-radius": 17,
+          "circle-color": "#f1cf41",
+          "circle-opacity": 0.6,
+          "circle-stroke-color": "#493e05",
+          "circle-stroke-width": 2,
+        },
+      });
+      instance.addLayer({
+        id: "issue-points",
+        type: "symbol",
+        source: "issues",
+        layout: {
+          "icon-image": ["coalesce", ["get", "type"], "OUTAGE_REPORT"],
+          "icon-size": 1,
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
         },
       });
       update(instance, latest.current);
@@ -296,7 +398,7 @@ export function NetworkMap(props: Props) {
         sessionStorage.setItem("region-outline-pulsed", "1");
         const start = performance.now();
         const pulse = (now: number) => {
-          const progress = Math.min((now - start) / 1400, 1);
+          const progress = Math.max(0, Math.min((now - start) / 1400, 1));
           instance.setPaintProperty(
             "area-pulse",
             "line-opacity",
@@ -309,9 +411,16 @@ export function NetworkMap(props: Props) {
     });
     instance.on("mousemove", (event) => {
       if (!instance.getLayer("region-fill")) return;
-      const feature = instance.queryRenderedFeatures(event.point, {
-        layers: ["subregion-fill", "region-fill"],
-      })[0];
+      const hits = instance.queryRenderedFeatures(event.point, {
+        layers: [
+          "meter-points",
+          "issue-points",
+          "subregion-fill",
+          "region-fill",
+        ],
+      });
+      const feature =
+        hits.find((f) => f.layer.id === "meter-points") ?? hits[0];
       const id = feature?.properties.id as string | undefined;
       if (hovered !== id) {
         if (hovered) animateHover(hovered, 0);
@@ -324,7 +433,15 @@ export function NetworkMap(props: Props) {
         return;
       }
       const content = document.createElement("div");
-      content.textContent = `${feature.properties.name} · ${feature.properties.meterCount} meters`;
+      content.textContent =
+        feature.layer.id === "meter-points"
+          ? `${feature.properties.code} · ${feature.properties.clientType} · Last reading: ${feature.properties.lastReading}`
+          : feature.layer.id === "issue-points"
+            ? (feature.properties.title ??
+              ISSUE_TYPES[feature.properties.type as keyof typeof ISSUE_TYPES]
+                ?.label ??
+              "Issue")
+            : `${feature.properties.name} · ${feature.properties.meterCount} meters`;
       tooltip.setLngLat(event.lngLat).setDOMContent(content).addTo(instance);
     });
     instance.on("mouseout", () => {
@@ -335,16 +452,12 @@ export function NetworkMap(props: Props) {
     });
     instance.on("click", (event) => {
       if (!instance.getLayer("asset-points")) return;
-      const features = instance.queryRenderedFeatures(event.point, {
-        layers: [
-          "issue-points",
-          "asset-points",
-          "asset-lines",
-          "outage-points",
-        ],
-      });
-      const feature = features[0];
-      if (!feature) {
+      const feature = instance.queryRenderedFeatures(event.point, {
+        layers: ["issue-points"],
+      })[0];
+      if (feature) {
+        latest.current.onIssue(String(feature.properties.id));
+      } else {
         const area = instance.queryRenderedFeatures(event.point, {
           layers: ["subregion-fill", "region-fill"],
         })[0];
@@ -356,44 +469,16 @@ export function NetworkMap(props: Props) {
           tooltip.remove();
           return;
         }
-        // Offer a nearby asset; users can choose a different asset in the dialog.
-        const distance = (asset: Asset) =>
-          (asset.coordinates[0] - event.lngLat.lng) ** 2 +
-          (asset.coordinates[1] - event.lngLat.lat) ** 2;
-        const nearest = [...latest.current.data.assetList].sort(
-          (a, b) => distance(a) - distance(b),
-        )[0];
-        latest.current.onCreate(nearest?.id);
-        return;
       }
-      const properties = feature.properties;
-      const content = document.createElement("div");
-      const title = document.createElement("strong");
-      title.textContent = String(properties.name ?? properties.id);
-      content.append(title);
-      const detail = document.createElement("div");
-      detail.textContent = String(
-        properties.description ??
-          properties.type ??
-          `Affected assets: ${properties.affectedAssets}`,
-      );
-      content.append(detail);
-      if (feature.layer.id === "issue-points") {
-        latest.current.onIssue(String(properties.id));
-        const status = document.createElement("div");
-        status.textContent = String(properties.status).replaceAll("_", " ");
-        content.append(status);
-      } else if (feature.layer.id.startsWith("asset-")) {
-        const button = document.createElement("button");
-        button.className = "popup-action";
-        button.textContent = "Create issue";
-        button.onclick = () => latest.current.onCreate(String(properties.id));
-        content.append(button);
-      }
-      new maplibregl.Popup({ closeButton: true, maxWidth: "280px" })
-        .setLngLat(event.lngLat)
-        .setDOMContent(content)
-        .addTo(instance);
+    });
+    instance.on("contextmenu", (event) => {
+      event.preventDefault();
+      tooltip.remove();
+      setContext({
+        left: event.originalEvent.clientX,
+        top: event.originalEvent.clientY,
+        point: [event.lngLat.lng, event.lngLat.lat],
+      });
     });
     const resize = new ResizeObserver(() => instance.resize());
     resize.observe(container.current);
@@ -421,6 +506,58 @@ export function NetworkMap(props: Props) {
   };
   return (
     <Box sx={{ position: "relative" }}>
+      <Menu
+        open={!!context}
+        onClose={() => setContext(null)}
+        anchorReference="anchorPosition"
+        anchorPosition={context ?? undefined}
+      >
+        <MenuItem
+          onClick={() => {
+            if (!context) return;
+            const point = context.point;
+            setContext(null);
+            const area = reportArea(props.areas, props.selectedId, point);
+            if (!area) {
+              setHint("Choose a point inside the current scope.");
+              return;
+            }
+            const nearest = props.data.assetList
+              .filter((a) => a.region === area.region)
+              .sort(
+                (a, b) =>
+                  Math.hypot(
+                    a.coordinates[0] - point[0],
+                    a.coordinates[1] - point[1],
+                  ) -
+                  Math.hypot(
+                    b.coordinates[0] - point[0],
+                    b.coordinates[1] - point[1],
+                  ),
+              )[0];
+            if (!nearest) {
+              setHint(
+                "No network asset is available here. Wait for the map to load.",
+              );
+              return;
+            }
+            props.onCreate({
+              coordinates: point,
+              regionId: area.parentId!,
+              segmentId: area.id,
+              assetId: nearest.id,
+            });
+          }}
+        >
+          Report outage here
+        </MenuItem>
+      </Menu>
+      <Snackbar
+        open={!!hint}
+        message={hint}
+        autoHideDuration={3500}
+        onClose={() => setHint("")}
+      />
       <Box
         ref={container}
         className="map-container"

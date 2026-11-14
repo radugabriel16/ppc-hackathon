@@ -1,5 +1,10 @@
 import { use as registerCharts, init } from "echarts/core";
-import { HeatmapChart, LineChart, ScatterChart } from "echarts/charts";
+import {
+  BarChart,
+  HeatmapChart,
+  LineChart,
+  ScatterChart,
+} from "echarts/charts";
 import {
   AriaComponent,
   DataZoomComponent,
@@ -12,6 +17,7 @@ import {
 import { SVGRenderer } from "echarts/renderers";
 
 registerCharts([
+  BarChart,
   HeatmapChart,
   LineChart,
   ScatterChart,

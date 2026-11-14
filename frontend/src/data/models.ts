@@ -4,6 +4,14 @@ import type {
   MultiPolygon,
   Point,
 } from "geojson";
+export type {
+  ForecastRun,
+  ForecastRunCreate,
+  SegmentThreshold,
+  ClientMissingDocuments,
+} from "../api/gen/types.gen";
+import type { IssueType } from "../api/gen/types.gen";
+export type { IssueType };
 
 export interface GeographicArea {
   id: string;
@@ -89,6 +97,15 @@ export interface Issue {
   coordinates: [number, number];
   videoId?: string;
   offsetSeconds?: number;
+  type?: IssueType;
+  title?: string;
+  isHistorical?: boolean;
+  segmentId?: string;
+  regionId?: string;
+  clientId?: string;
+  caseId?: string;
+  forecastDate?: string;
+  createdAt?: string;
 }
 export interface CreateIssue {
   assetId: string;
@@ -96,6 +113,28 @@ export interface CreateIssue {
   description: string;
   videoId?: string;
   offsetSeconds?: number;
+  coordinates?: [number, number];
+  regionId?: string;
+  segmentId?: string;
+}
+export interface IssueFilter {
+  region?: Region;
+  segmentId?: string;
+  type?: IssueType;
+  status?: IssueStatus;
+  clientId?: string;
+  from?: string;
+  to?: string;
+  page: number;
+  size: number;
+}
+export interface MeterMarker {
+  id: string;
+  code: string;
+  segmentId?: string;
+  coordinates: [number, number];
+  clientType: string | null;
+  lastReading: { kWh: number; timestamp: string } | null;
 }
 export interface MapData {
   assets: FeatureCollection<Point | LineString>;
@@ -103,6 +142,7 @@ export interface MapData {
   outages: FeatureCollection<Point>;
   assetList: Asset[];
   issueList: Issue[];
+  meters?: MeterMarker[];
 }
 export interface CaseRecord {
   id: string;
@@ -113,7 +153,9 @@ export interface CaseRecord {
   documents: { name: string; received: boolean }[];
 }
 export interface CaseFilter {
-  region: Region;
+  region?: Region;
+  segmentId?: string;
+  missingOnly?: boolean;
   search: string;
   status?: CaseRecord["status"];
   page: number;

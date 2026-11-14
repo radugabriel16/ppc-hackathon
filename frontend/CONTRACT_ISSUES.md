@@ -1,5 +1,20 @@
 # Contract / UI issues
 
+## Scoped operations integration (2026-11-14)
+
+This section supersedes the older integration notes below. No backend or contract files were changed.
+
+- Generated output is `frontend/src/api/gen`, the path imported by the app. The generator now resolves its input/output relative to its configuration file, independent of the invocation directory.
+- `/map-issues` supplies full typed operational issue details; the map GeoJSON allowlist intentionally omits descriptions/history flags. The UI explicitly requests `includeHistorical=false` and preserves returned point coordinates without a visual offset. `OUTAGE_REPORT` is displayed as **Manual report**; the backend owns ML and missing-document issue creation.
+- **Meter tooltip aggregation:** `/meters` supplies locations but not client type or the last reading. The UI joins `/clients` and requests `/meter-readings?meterId=…&size=1` per meter. The backend currently orders newest first, but the contract does not guarantee this. Add a typed latest-reading/client-type summary to `/meters` (or document descending order), to avoid up to 144 additional requests at country scope. Unknown client types and absent readings are labelled, not inferred.
+- **Live meter colocation:** all eight meters within each live segment currently have the same location (also shared with forecast issues). Return distinct authoritative meter locations if intended. Until then, the UI fans out only coincident meter icons in screen pixels so all eight tooltips remain accessible; GeoJSON coordinates and issue pins are never moved.
+- **Scope geometry precision:** UI containment uses the supplied MultiPolygons, including holes and boundaries. `/regions` simplifies them at 0.001 degrees, whereas create validation uses full PostGIS geometry. Points extremely close to a boundary can disagree; the backend validation error is shown. Return authoritative reporting geometry or a point-validation operation if exact edge agreement is required.
+- **Forecast progress:** POST `/forecast/runs` returns a completed run, not a job/progress stream. The UI shows indeterminate progress, never a fabricated percentage, and can read/poll a RUNNING run by URL ID. Add an accepted-job response/progress field for measured progress.
+- **Threshold update response:** PUT currently returns only `segmentId` and `dailyEnergyKwh`, omitting `regionId`, `source`, and calibration; the UI refetches the threshold list after save. Mark the essential threshold fields required and return the full updated resource. Saving marks the source MANUAL and clears calibration; restoring the numeric value cannot restore HISTORY_P95 provenance. Add an explicit reset-to-calibrated operation if reverting manual overrides is required.
+- **Missing-document clients:** `/clients/missing-documents` is authoritative for membership and missing types. The Cases view joins connection cases and READY-document checklists to retain due dates and the existing grid. Add sortable/searchable enriched case rows server-side for production-scale data. The optional case status/type/client/date filters are now contracted; only OPEN/CLOSED are real backend statuses (REVIEW is not supported).
+- **Required fields / failed runs:** many issue, meter, threshold, and pagination properties are optional in OpenAPI even when needed by the UI. Mark stable fields required. Forecast errors should consistently carry the documented `Location` of the persisted failed run (including non-503 calculation failures).
+- Scoped runs refer to **geographical segments/subregions**, unlike the legacy `/segments/{id}/forecast` and historical reference `/stats/forecast`, which use network assets. The new predictions panel never substitutes one kind of ID for the other. Storage benchmarks remain global; meter/outage/reference statistics and prediction runs follow the shared URL scope.
+
 ## Live backend integration (current)
 
 - Auth now uses the documented readable `filegrid_csrf` cookie for `X-CSRF-Token`, including after reload. The older response-header convention below is only retained for the isolated mock adapter.

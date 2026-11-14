@@ -8,11 +8,7 @@ import {
   Chip,
   Divider,
   Drawer,
-  FormControl,
   IconButton,
-  InputLabel,
-  MenuItem,
-  Select,
   Stack,
   Tooltip,
   Typography,
@@ -29,15 +25,17 @@ import {
   Menu,
   NorthEast,
   PlaceOutlined,
+  ReportProblemOutlined,
 } from "@mui/icons-material";
 import { useDataMode, useLogout, useSession } from "../data/hooks";
-import { REGIONS, REGION_INFO } from "../data/models";
-import type { Region } from "../data/models";
+import { REGION_INFO } from "../data/models";
 import { useRegion } from "../data/region-context";
 import { ErrorNotice } from "./common";
+import { ScopeSelector } from "./ScopeSelector";
 
 const links = [
   { to: "/map", label: "Map", Icon: MapOutlined },
+  { to: "/issues", label: "Issues", Icon: ReportProblemOutlined },
   { to: "/files", label: "Files", Icon: FolderCopyOutlined },
   { to: "/cases", label: "Cases", Icon: DescriptionOutlined },
   { to: "/uploads", label: "Uploads", Icon: CloudUploadOutlined },
@@ -48,7 +46,7 @@ export function Shell() {
   const { data: session } = useSession();
   const logout = useLogout();
   const mode = useDataMode();
-  const { region, setRegion } = useRegion();
+  const { region, selectedRegion } = useRegion();
   const [mobile, setMobile] = useState(false);
   const location = useLocation();
   const navigation = (
@@ -83,7 +81,7 @@ export function Shell() {
           .map(({ to, label, Icon }) => (
             <NavLink
               key={to}
-              to={to}
+              to={{ pathname: to, search: location.search }}
               className="nav-link"
               onClick={() => setMobile(false)}
             >
@@ -177,21 +175,7 @@ export function Shell() {
                 fontSize: 19,
               }}
             />
-            <FormControl size="small" sx={{ minWidth: { xs: 125, sm: 155 } }}>
-              <InputLabel id="region-label">Region</InputLabel>
-              <Select
-                labelId="region-label"
-                label="Region"
-                value={region}
-                onChange={(e) => setRegion(e.target.value as Region)}
-              >
-                {REGIONS.map((r) => (
-                  <MenuItem key={r} value={r}>
-                    {REGION_INFO[r].name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <ScopeSelector />
             <Divider orientation="vertical" flexItem />
             <Avatar
               sx={{
@@ -286,7 +270,9 @@ export function Shell() {
             Electricity network intelligence
           </Typography>
           <Typography variant="caption">
-            Romania · {REGION_INFO[region].name}
+            {selectedRegion
+              ? `Romania · ${REGION_INFO[region].name}`
+              : "Romania"}
           </Typography>
         </Box>
       </Box>
@@ -304,10 +290,11 @@ export function ManagerOnly({ children }: { children: React.ReactNode }) {
   );
 }
 export function MapLinkButton() {
+  const location = useLocation();
   return (
     <Button
       component={NavLink}
-      to="/map"
+      to={{ pathname: "/map", search: location.search }}
       variant="outlined"
       startIcon={<MapOutlined />}
     >

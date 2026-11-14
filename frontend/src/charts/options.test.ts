@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { LineSeriesOption } from "echarts";
+import type { SegmentForecastDay } from "../api/gen/types.gen";
 import { init } from "./runtime";
-import { benchmarkOption, forecastOption, meterOption } from "./options";
+import {
+  benchmarkOption,
+  forecastOption,
+  meterOption,
+  scopedForecastOption,
+} from "./options";
 import {
   hotspotCollection,
   hotspotLayers,
@@ -17,6 +23,17 @@ import {
 const fixtures = createStatsFixtures(Date.parse("2026-11-14T12:00:00Z"));
 describe("statistics visualization semantics", () => {
   it("renders heatmap, consumption and forecast as real ECharts SVG artifacts", () => {
+    const day = (horizon: number): SegmentForecastDay => ({
+      horizon,
+      date: `2026-11-${14 + horizon}`,
+      predictedEnergyKwh: horizon === 3 ? null : 120,
+      referenceEnergyKwh: 100,
+      changeVsReferencePct: horizon === 3 ? null : 20,
+      status: horizon === 3 ? "INSUFFICIENT_DATA" : "READY",
+      fallbackUsed: false,
+      expectedMeters: 8,
+      eligibleMeters: horizon === 3 ? 7 : 8,
+    });
     const options = [
       benchmarkOption(
         fixtures.benchmark.rows.filter((row) => row.profile === "normal"),
@@ -24,6 +41,10 @@ describe("statistics visualization semantics", () => {
       ),
       meterOption(meterConsumption(fixtures.meters, "MUNTENIA")[0]),
       forecastOption(forecast(fixtures.forecast, "MUNTENIA")),
+      scopedForecastOption({
+        thresholdKwh: 100,
+        forecasts: [day(1), day(2), day(3)],
+      }),
     ];
     for (const option of options) {
       const chart = init(null, undefined, {

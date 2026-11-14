@@ -14,6 +14,7 @@ import type {
   CreateIssue,
   FileFilter,
   IssueStatus,
+  IssueFilter,
   Region,
   LoginInput,
   Session,
@@ -96,6 +97,34 @@ export function useMap(region: Region, national = false) {
     placeholderData: keepPreviousData,
   });
 }
+export function useMapMeters() {
+  const source = useSource();
+  const { selectedRegion, subregionId } = useRegion();
+  return useQuery({
+    queryKey: ["map-meters", selectedRegion, subregionId],
+    queryFn: async () => {
+      if (!source.getMapMeters) return [];
+      const regions = selectedRegion ? [selectedRegion] : REGIONS;
+      return (
+        await Promise.all(
+          regions.map((r) => source.getMapMeters!(r, subregionId)),
+        )
+      ).flat();
+    },
+  });
+}
+export function useIssues(filter: IssueFilter, enabled = true) {
+  const source = useSource();
+  return useQuery({
+    queryKey: ["issues", filter],
+    enabled,
+    queryFn: async () => {
+      if (!source.getIssues)
+        throw new Error("Issues listing requires API mode.");
+      return source.getIssues(filter);
+    },
+  });
+}
 export function useCreateIssue() {
   const source = useSource();
   const cache = useQueryClient();
@@ -104,6 +133,7 @@ export function useCreateIssue() {
     onSuccess: () => {
       void cache.invalidateQueries({ queryKey: ["map"] });
       void cache.invalidateQueries({ queryKey: ["statistics"] });
+      void cache.invalidateQueries({ queryKey: ["issues"] });
     },
   });
 }
@@ -132,6 +162,7 @@ export function useUpdateIssue() {
       Promise.all([
         cache.invalidateQueries({ queryKey: ["map"] }),
         cache.invalidateQueries({ queryKey: ["statistics"] }),
+        cache.invalidateQueries({ queryKey: ["issues"] }),
       ]),
   });
 }
