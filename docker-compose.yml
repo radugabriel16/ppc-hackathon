@@ -215,7 +215,7 @@ services:
   api-ingest:
     <<: *backend
     environment:
-      <<: [*backend-environment, *otel-environment]
+      <<: [*otel-environment, *backend-environment]
       ROLE: ingest
       OTEL_SERVICE_NAME: api-ingest
     networks:
@@ -228,7 +228,7 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     environment:
-      <<: [*backend-environment, *otel-environment]
+      <<: [*otel-environment, *backend-environment]
       ROLE: files
       OTEL_SERVICE_NAME: api-files
     networks:
@@ -238,7 +238,7 @@ services:
   worker:
     <<: *backend
     environment:
-      <<: [*backend-environment, *otel-environment]
+      <<: [*otel-environment, *backend-environment]
       ROLE: worker
       OTEL_SERVICE_NAME: worker
 

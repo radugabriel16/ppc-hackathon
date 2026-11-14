@@ -93,3 +93,25 @@ groups:
       summary: 'Metrics unavailable: {{ $labels.job }}'
       description: A discovered exporter is down, or Docker DNS has removed every target for this job. Inspect service
         replicas and the metrics listener.
+  - alert: MeterReadingsMissing
+    expr: max by (region) (filegrid_meter_readings_missing) > 0
+    for: 2m
+    labels:
+      severity: warning
+      team: filegrid
+      category: METER_READING
+    annotations:
+      summary: 'Meter readings missing in region {{ $labels.region }}'
+      description: The worker reports internal reading gaps on recently active meters in this region for two minutes.
+        Every replica exports the same shared snapshot, so the maximum is used rather than a sum.
+  - alert: DocumentAccessAnomaly
+    expr: sum by (action) (increase(filegrid_document_access_total{outcome="failure"}[5m])) > 5
+    for: 2m
+    labels:
+      severity: warning
+      team: filegrid
+      category: CONNECTION_DOCUMENT
+    annotations:
+      summary: 'Document {{ $labels.action }} failures are anomalous'
+      description: More than five document accesses failed within five minutes, summed over replicas. The backend
+        emits outcomes requested, success and failure only; failure means the access did not complete or verify.

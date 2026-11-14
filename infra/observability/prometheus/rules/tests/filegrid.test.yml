@@ -495,3 +495,70 @@ tests:
   - eval_time: 4m
     alertname: InstanceDown
     exp_alerts: []
+- name: Missing meter readings fire per region, ignore replica duplicates, and recover
+  interval: 1m
+  input_series:
+  - series: filegrid_meter_readings_missing{job="api-files",instance="files-1:8000",region="north"}
+    values: 0 0 3 3 3 3 0 0 0 0
+  - series: filegrid_meter_readings_missing{job="api-files",instance="files-2:8000",region="north"}
+    values: 0 0 3 3 3 3 0 0 0 0
+  - series: filegrid_meter_readings_missing{job="api-files",instance="files-1:8000",region="south"}
+    values: 0+0x9
+  alert_rule_test:
+  - eval_time: 3m
+    alertname: MeterReadingsMissing
+    exp_alerts: []
+  - eval_time: 5m
+    alertname: MeterReadingsMissing
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        team: filegrid
+        category: METER_READING
+        region: north
+      exp_annotations:
+        summary: 'Meter readings missing in region north'
+        description: The worker reports internal reading gaps on recently active meters in this region for two
+          minutes. Every replica exports the same shared snapshot, so the maximum is used rather than a sum.
+  - eval_time: 9m
+    alertname: MeterReadingsMissing
+    exp_alerts: []
+- name: Document access failures above threshold fire and recover
+  interval: 1m
+  input_series:
+  - series: filegrid_document_access_total{job="api-files",instance="files-1:8000",action="download",outcome="failure"}
+    values: 0 3 6 9 12 15 15 15 15 15 15 15 15 15 15 15
+  - series: filegrid_document_access_total{job="api-files",instance="files-2:8000",action="download",outcome="failure"}
+    values: 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+  - series: filegrid_document_access_total{job="api-files",instance="files-1:8000",action="download",outcome="success"}
+    values: 0+100x15
+  alert_rule_test:
+  - eval_time: 3m
+    alertname: DocumentAccessAnomaly
+    exp_alerts: []
+  - eval_time: 6m
+    alertname: DocumentAccessAnomaly
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        team: filegrid
+        category: CONNECTION_DOCUMENT
+        action: download
+      exp_annotations:
+        summary: 'Document download failures are anomalous'
+        description: More than five document accesses failed within five minutes, summed over replicas. The backend
+          emits outcomes requested, success and failure only; failure means the access did not complete or verify.
+  - eval_time: 14m
+    alertname: DocumentAccessAnomaly
+    exp_alerts: []
+- name: Successful or low-volume document access never alerts
+  interval: 1m
+  input_series:
+  - series: filegrid_document_access_total{job="api-files",instance="files-1:8000",action="download",outcome="success"}
+    values: 0+50x15
+  - series: filegrid_document_access_total{job="api-files",instance="files-1:8000",action="view",outcome="failure"}
+    values: 0 1 1 2 2 3 3 3 3 3 3 3 3 3 3 3
+  alert_rule_test:
+  - eval_time: 8m
+    alertname: DocumentAccessAnomaly
+    exp_alerts: []
