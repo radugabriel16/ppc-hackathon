@@ -347,32 +347,90 @@ export type PoliciesConfig = {
   };
 };
 
-/**
- * Latency (p50/p95/p99), throughput and error rate per category/storage.
- */
-export type StorageBenchmarkStats = {
-  [key: string]: unknown;
+export type StorageBenchmarkStats = StatsPagination & {
+  rows: Array<StorageBenchmarkRow>;
+};
+
+export type StorageRecommendations = StatsPagination & {
+  items: Array<{
+    category: FileCategory;
+    storage: StorageBackend;
+    reason: string;
+  }>;
+};
+
+export type MeterStats = StatsPagination & {
+  meters: Array<MeterStatsSeries>;
+};
+
+export type OutageHotspots = StatsPagination & {
+  type: "FeatureCollection";
+  features: Array<{
+    type: "Feature";
+    geometry: {
+      type: "Point";
+      coordinates: [number, number];
+    };
+    properties: {
+      id: string;
+      assetName: string;
+      regionCode: StatsRegionCode;
+      outageCount: number;
+      durationMinutes: number;
+    };
+  }>;
 };
 
 /**
- * Narrative + data-backed recommendation per category.
+ * Optional additive metadata; zero-based pages, size capped at 100.
  */
-export type StorageRecommendations = {
-  [key: string]: unknown;
+export type StatsPagination = {
+  page?: number;
+  size?: number;
+  totalElements?: number;
+  totalPages?: number;
 };
 
-/**
- * Patterns/anomalies observed in meter readings.
- */
-export type MeterStats = {
-  [key: string]: unknown;
+export type StatsRegionCode = "MUNTENIA" | "BANAT" | "DOBROGEA";
+
+export type StorageBenchmarkRow = {
+  category: FileCategory;
+  storage: StorageBackend;
+  profile: "normal" | "peak";
+  /**
+   * Median transfer duration in milliseconds.
+   */
+  p50Ms: number;
+  /**
+   * 95th percentile duration in milliseconds, at least p50Ms.
+   */
+  p95Ms: number;
+  /**
+   * 99th percentile duration in milliseconds, at least p95Ms.
+   */
+  p99Ms: number;
+  /**
+   * Successful mebibytes per second of observed transfer time.
+   */
+  throughputMiBps: number;
+  /**
+   * Fraction of observed transfers whose outcome was not success.
+   */
+  errorRate: number;
 };
 
-/**
- * Assets/regions ranked by outage frequency.
- */
-export type OutageHotspots = {
-  [key: string]: unknown;
+export type MeterStatsSeries = {
+  id: string;
+  label: string;
+  regionCode: StatsRegionCode;
+  intervalMinutes: number;
+  from: string;
+  to: string;
+  readings: Array<{
+    timestamp: string;
+    kWh: number | null;
+    anomaly: "spike" | "zero" | "gap" | null;
+  }>;
 };
 
 export type SimulatorStatus = {
@@ -446,6 +504,17 @@ export type Alert = {
   message?: string;
   occurredAt?: string;
 };
+
+/**
+ * Inclusive UTC instant (explicit timezone required). Defaults to seven days before to. Require from < to and a window no longer than 366 days. Empty results use empty arrays.
+ *
+ */
+export type StatsFrom = string;
+
+/**
+ * Exclusive instant with explicit timezone. Defaults to current UTC time.
+ */
+export type StatsTo = string;
 
 export type Page = number;
 
@@ -1354,7 +1423,19 @@ export type PatchMapIssuesIdStatusResponse =
 export type GetStatsStorageBenchmarkData = {
   body?: never;
   path?: never;
-  query?: never;
+  query?: {
+    /**
+     * Inclusive UTC instant (explicit timezone required). Defaults to seven days before to. Require from < to and a window no longer than 366 days. Empty results use empty arrays.
+     *
+     */
+    from?: string;
+    /**
+     * Exclusive instant with explicit timezone. Defaults to current UTC time.
+     */
+    to?: string;
+    page?: number;
+    size?: number;
+  };
   url: "/stats/storage-benchmark";
 };
 
@@ -1363,6 +1444,10 @@ export type GetStatsStorageBenchmarkErrors = {
    * Not authenticated.
    */
   401: _Error;
+  /**
+   * Request failed schema/business validation.
+   */
+  422: _Error;
 };
 
 export type GetStatsStorageBenchmarkError =
@@ -1381,7 +1466,19 @@ export type GetStatsStorageBenchmarkResponse =
 export type GetStatsRecommendationsData = {
   body?: never;
   path?: never;
-  query?: never;
+  query?: {
+    /**
+     * Inclusive UTC instant (explicit timezone required). Defaults to seven days before to. Require from < to and a window no longer than 366 days. Empty results use empty arrays.
+     *
+     */
+    from?: string;
+    /**
+     * Exclusive instant with explicit timezone. Defaults to current UTC time.
+     */
+    to?: string;
+    page?: number;
+    size?: number;
+  };
   url: "/stats/recommendations";
 };
 
@@ -1390,6 +1487,10 @@ export type GetStatsRecommendationsErrors = {
    * Not authenticated.
    */
   401: _Error;
+  /**
+   * Request failed schema/business validation.
+   */
+  422: _Error;
 };
 
 export type GetStatsRecommendationsError =
@@ -1408,7 +1509,20 @@ export type GetStatsRecommendationsResponse =
 export type GetStatsMetersData = {
   body?: never;
   path?: never;
-  query?: never;
+  query?: {
+    regionId?: string;
+    /**
+     * Inclusive UTC instant (explicit timezone required). Defaults to seven days before to. Require from < to and a window no longer than 366 days. Empty results use empty arrays.
+     *
+     */
+    from?: string;
+    /**
+     * Exclusive instant with explicit timezone. Defaults to current UTC time.
+     */
+    to?: string;
+    page?: number;
+    size?: number;
+  };
   url: "/stats/meters";
 };
 
@@ -1417,6 +1531,10 @@ export type GetStatsMetersErrors = {
    * Not authenticated.
    */
   401: _Error;
+  /**
+   * Request failed schema/business validation.
+   */
+  422: _Error;
 };
 
 export type GetStatsMetersError =
@@ -1435,7 +1553,20 @@ export type GetStatsMetersResponse =
 export type GetStatsOutagesHotspotsData = {
   body?: never;
   path?: never;
-  query?: never;
+  query?: {
+    regionId?: string;
+    /**
+     * Inclusive UTC instant (explicit timezone required). Defaults to seven days before to. Require from < to and a window no longer than 366 days. Empty results use empty arrays.
+     *
+     */
+    from?: string;
+    /**
+     * Exclusive instant with explicit timezone. Defaults to current UTC time.
+     */
+    to?: string;
+    page?: number;
+    size?: number;
+  };
   url: "/stats/outages/hotspots";
 };
 
@@ -1444,6 +1575,10 @@ export type GetStatsOutagesHotspotsErrors = {
    * Not authenticated.
    */
   401: _Error;
+  /**
+   * Request failed schema/business validation.
+   */
+  422: _Error;
 };
 
 export type GetStatsOutagesHotspotsError =

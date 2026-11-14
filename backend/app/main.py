@@ -31,6 +31,7 @@ from app.metering.router import router as metering_router
 from app.policies.router import router as policies_router
 from app.policies.service import PolicyManager
 from app.storage.registry import create_storages
+from app.stats.router import router as stats_router
 from app.uploads.router import router as uploads_router
 from app.auth.router import router as auth_router
 
@@ -47,6 +48,7 @@ FILES_ROLE_ROUTERS = (
     policies_router,
     admin_router,
     alerts_router,
+    stats_router,
 )
 
 

@@ -158,3 +158,30 @@ async def test_download_can_be_finalized_by_another_task():
         tasks.start_soon(close)
     assert adapter.closed
     await storage.put(CATEGORY, str(uuid.uuid4()), io.BytesIO(b"x"), 1)
+
+
+async def test_transfer_telemetry_bytes_outcomes_and_cross_task_close(monkeypatch):
+    observations = []
+    monkeypatch.setattr(
+        "app.storage.resilience.record_operation", lambda *args: observations.append(args),
+    )
+    adapter = Adapter()
+    storage = ManagedStorage(StorageBackend.ftp, adapter, record_operations=True)
+    await storage.put(CATEGORY, "demo", io.BytesIO(b"abc"), 3)
+    assert observations[-1][2:4] == ("put", 3)
+    assert observations[-1][4] >= 1 and observations[-1][5] == "success"
+    iterator = storage.get(CATEGORY, "demo")
+    assert await anext(iterator) == b"first"
+
+    async def close():
+        await iterator.aclose()
+
+    async with anyio.create_task_group() as tasks:
+        tasks.start_soon(close)
+    assert observations[-1][2:4] == ("get", 5)
+    assert observations[-1][5] == "error"
+    adapter.fail = True
+    with pytest.raises(StorageUnavailable):
+        await storage.put(CATEGORY, "demo", io.BytesIO(b"abc"), 3)
+    assert observations[-1][2:4] == ("put", 0)
+    assert observations[-1][5] == "error"

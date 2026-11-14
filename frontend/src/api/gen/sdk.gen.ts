@@ -783,6 +783,8 @@ export const patchMapIssuesIdStatus = <ThrowOnError extends boolean = false>(
 
 /**
  * Latency/throughput/error-rate comparison across storages and categories.
+ * Both OPERATOR and MANAGER may read global catalog telemetry. Includes put/get/upload_part observations with positive durations, grouped by category/storage/scenario profile. Non-scenario traffic is normal; profiles other than normal/peak are excluded. Throughput is successful bytes divided by total observed transfer time. Unobserved cells are omitted, never synthesized.
+ *
  */
 export const getStatsStorageBenchmark = <ThrowOnError extends boolean = false>(
   options?: Options<GetStatsStorageBenchmarkData, ThrowOnError>,
@@ -806,6 +808,8 @@ export const getStatsStorageBenchmark = <ThrowOnError extends boolean = false>(
 
 /**
  * Which storage fits which category, and why, based on observed data.
+ * Both roles may read global recommendations from the same observations as storage-benchmark. One observed storage/profile cell per category is selected by lowest error rate, then p95 latency, then highest throughput; ties use storage/profile lexical order. No recommendation is returned without observations. Region filtering is not supported because storage_operations has no region association.
+ *
  */
 export const getStatsRecommendations = <ThrowOnError extends boolean = false>(
   options?: Options<GetStatsRecommendationsData, ThrowOnError>,
@@ -829,6 +833,8 @@ export const getStatsRecommendations = <ThrowOnError extends boolean = false>(
 
 /**
  * Patterns/anomalies in meter readings.
+ * Both roles may read operational meter labels and energy, never customer PII. Sums interval energy by meter and UTC day, selecting readings whose intervalStart is in [from,to). Partial boundary days include only selected readings. intervalMinutes is 1440; per-meter from/to are inclusive first/last observed UTC day starts. Missing days are omitted, never imputed; zero totals are flagged zero. Meters without readings are omitted. Pagination counts meters, ordered by region, label and id, not individual samples.
+ *
  */
 export const getStatsMeters = <ThrowOnError extends boolean = false>(
   options?: Options<GetStatsMetersData, ThrowOnError>,
@@ -852,6 +858,8 @@ export const getStatsMeters = <ThrowOnError extends boolean = false>(
 
 /**
  * Assets/regions with the most outages.
+ * Both roles may read assets ranked by count descending, then asset id. Counts actual outage records overlapping [from,to), not map issues or file counts. Durations are summed outage minutes clipped to the window; ongoing outages end at to. Assets without outages are omitted. Geometry is a representative point on the asset. Pagination counts assets.
+ *
  */
 export const getStatsOutagesHotspots = <ThrowOnError extends boolean = false>(
   options?: Options<GetStatsOutagesHotspotsData, ThrowOnError>,

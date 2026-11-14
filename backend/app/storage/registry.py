@@ -29,6 +29,7 @@ def create_storages(settings: Settings) -> dict[StorageBackend, ManagedStorage]:
             timeout=settings.storage_operation_timeout_seconds,
             failure_threshold=settings.storage_circuit_failure_threshold,
             reset_seconds=settings.storage_circuit_reset_seconds,
+            record_operations=True,
         )
         for backend, adapter in adapters.items()
     }

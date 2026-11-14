@@ -35,7 +35,7 @@ class MeterReading(UUIDPkMixin, Base):
     )
     reading_key: Mapped[str] = mapped_column(String(256), nullable=False)
     seq: Mapped[int] = mapped_column(nullable=False)
-    interval_start: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
+    interval_start: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, index=True)
     interval_end: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
     energy_kwh: Mapped[Decimal] = mapped_column(Numeric, nullable=False)
     file_id: Mapped[uuid.UUID] = mapped_column(

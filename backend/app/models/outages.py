@@ -17,7 +17,7 @@ class Outage(UUIDPkMixin, Base):
     file_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("files.id", ondelete="RESTRICT"), unique=True, nullable=False
     )
-    started_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
+    started_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, index=True)
     ended_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     severity: Mapped[str] = mapped_column(String(32), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
