@@ -1,18 +1,18 @@
 # Track B merge notes
 
-Owned paths: `compose.observability.yml` and `infra/observability/` only. No shared application, contract, nginx, init or README changes were made.
+The authorized branch integration is applied in `docker-compose.yml`, `infra/nginx/nginx.conf`, `compose.observability.yml` and `infra/observability/`. Backend application/SDK code, frontend source and contracts were not changed.
 
 ## Composition and access
 
-- Both `docker compose -f docker-compose.yml -f compose.observability.yml ...` and root `include: [compose.observability.yml]` are supported. Use one integration method; the shared `internal: {internal: true}` network definitions agree. Compose 2.20+ is required for include (validated with 2.32.4).
+- The root file has `include: [compose.observability.yml]`. Use **`docker compose` only**, without an additional observability `-f` merge. The shared `internal: {internal: true}` network definitions agree. Compose 2.20+ is required for include (validated with the running 2.29.2 CLI).
 - APIs and worker expose `/metrics` on **8000** (`backend/Dockerfile`); the admin proxy expects **simulator:8080**. Four A-record DNS discovery jobs refresh every 15 seconds and retain a distinct `instance` per replica. The simulator service is absent from the current base Compose: its track must attach `simulator` to `internal` and expose `/metrics` on 8080. Until then `InstanceDown` reports missing discovery for it.
-- Only Mailpit publishes a host port: **127.0.0.1:8025**. SMTP 1025, Grafana 3000, Prometheus 9090, Alertmanager 9093, Loki 3100, Tempo 3200/4317/4318 and Alloy 12345 stay internal.
+- Only Mailpit publishes an observability host port: **127.0.0.1:8025**. Mailpit joins both existing networks (`internal`, `edge`), because Docker suppresses host publications on an internal-only bridge. SMTP 1025, Grafana 3000, Prometheus 9090, Alertmanager 9093, Loki 3100, Tempo 3200/4317/4318 and Alloy 12345 remain unpublished. The base nginx HTTPS port 443 is unchanged.
 - Grafana generates a random 0600 admin-password secret file once in its persistent volume (`/var/lib/grafana/secrets/admin_password`); `GF_SECURITY_ADMIN_PASSWORD__FILE` reads it. No default password is checked in. An operator can retrieve it with `docker compose exec -T grafana cat /var/lib/grafana/secrets/admin_password` (do not paste it into logs). This is independent of the shared init volume. Back up the Grafana volume; changing the file does not reset an already-created Grafana administrator.
-- `GRAFANA_ROOT_URL` defaults to `https://localhost/grafana/`; set it to the actual external origin, keeping `/grafana/`. Datasource UIDs are `prometheus`, `loki`, `tempo`; dashboards use `prometheus` and their links include `/grafana/`.
+- `GF_SERVER_ROOT_URL` is `https://localhost/grafana/`, with `GF_SERVER_SERVE_FROM_SUB_PATH=true`. Datasource UIDs are `prometheus`, `loki`, `tempo`; dashboards use `prometheus` and their links include `/grafana/`.
 
-## Required nginx integration (Track A)
+## Applied nginx integration
 
-The current nginx is on `edge` only. Attach it to **internal as well**, keeping `edge`. Add these locations to its TLS server; keep the existing Docker DNS resolver. The URI is preserved because Grafana serves its own subpath. Do not expose Loki/Tempo/Prometheus/Alertmanager through this block.
+Nginx is attached to both `edge` and `internal`. These locations are installed in its TLS server, with the existing Docker DNS resolver retained. The URI is preserved because Grafana serves its own subpath. Loki/Tempo/Prometheus/Alertmanager are not exposed through nginx.
 
 ```nginx
 location = /grafana { return 301 /grafana/; }
@@ -57,7 +57,7 @@ All current metric families and labels exist in backend/app. Prometheus's genera
 
 ## Backend tracing integration (Track A)
 
-Tempo listens on **0.0.0.0:4317 gRPC** and **0.0.0.0:4318 HTTP** inside `internal`. Add these env vars to each instrumented backend role, with `OTEL_SERVICE_NAME` set separately to `api-ingest`, `api-files`, `worker` (and simulator on its track):
+Tempo listens on **0.0.0.0:4317 gRPC** and **0.0.0.0:4318 HTTP** inside `internal`. These env vars are now set on all three backend roles, with `OTEL_SERVICE_NAME` separately set to `api-ingest`, `api-files`, and `worker`. Simulator instrumentation remains on its track:
 
 ```yaml
 OTEL_SERVICE_NAME: api-files
@@ -73,20 +73,25 @@ OTEL_PYTHON_LOG_CORRELATION: "true"
 
 Env vars alone do not instrument this backend: its current requirements contain no OpenTelemetry SDK/exporter/instrumentors. Track A must pin and install them, instrument FastAPI/HTTP/DB/worker spans, and propagate context (or launch through `opentelemetry-instrument`). Add `traceId` or `trace_id` to the existing JSON formatter to enable the provisioned Loki → Tempo links. The existing `requestId` is parsed by Alloy and stored as structured metadata, **never an indexed label**; the full JSON line is retained for `| json` field queries.
 
-Alloy reads this project's containers through the Docker socket, requiring daemon access; the bind mount is read-only but Docker API access remains privileged. It uses Alloy, not Promtail. Compose must provide a Docker socket and JSON-readable container logs. Native host validation cannot prove Docker discovery/log delivery.
+Alloy reads this project's containers through the Docker socket, requiring daemon access; the bind mount is read-only but Docker API access remains privileged. It runs as vendor UID/GID **473:473**, which owns its state directory, with the socket's supplementary group **`${DOCKER_SOCKET_GID:-1001}`**. No capabilities are added; all capabilities remain dropped. On another host, set `DOCKER_SOCKET_GID` to `stat -c %g /var/run/docker.sock`. It uses Alloy, not Promtail. Docker discovery and log delivery now pass the live verifier.
 
 ## Verification and remaining runtime checks
 
-Completed with pinned native Linux tools matching the configured versions: Compose `-f` merge and `include` validation; Prometheus/Alertmanager/Loki/Tempo configuration checks; all 22 promtool scenarios; Alloy formatting and full graph evaluation/readiness; Grafana secret generation/persistence/permissions; and dashboard JSON validation. A temporary loopback smoke deployment verified Grafana 11.6.1 at `/grafana/`, Prometheus/Loki datasource health, Tempo's proxied `/api/echo`, all five provisioned dashboard APIs, a Loki JSON/requestId roundtrip with no requestId stream label, OTLP/HTTP trace ingestion and lookup, and Alertmanager SMTP plus v4 webhook delivery to a synthetic receiver. All temporary processes were stopped.
+Initial native validation covered configuration checks, all 22 promtool scenarios, Alloy graph evaluation, Grafana secret persistence/permissions, provisioned dashboards, log/trace ingestion and synthetic notification delivery. The current branch uses the include-based live Docker stack rather than that temporary smoke deployment.
 
 Grafana 11's Tempo backend returns `plugin.notImplemented` on the generic datasource health API; `verify_runtime.py` uses the datasource's supported proxy `/api/echo` connection test instead. The native smoke substitutes loopback addresses and temporary data directories; it does not validate Docker mounts/networking, real API metrics, backend webhook persistence, or application instrumentation.
 
-Docker's CLI in this WSL distro currently reports that Docker Desktop WSL integration is disabled. Therefore Compose startup/health, real API/worker target UP status, container healthcheck executables, Grafana proxy access and end-to-end backend trace/log delivery must be checked once Docker is available.
+Live Docker validation now passes: all 15 long-running services are healthy; init, migrate and s3-init exited 0; nginx syntax is valid; `verify.sh` passes configuration/rule checks and all 22 scenarios, real API/worker target discovery, three Grafana datasource checks, five provisioned dashboards and Alloy log delivery. The simulator target is optional. Automatic backend tracing remains pending the backend owner's SDK/instrumentation; environment variables alone cannot provide application spans.
 
 ```sh
-docker compose -f docker-compose.yml -f compose.observability.yml up -d
-docker compose -f docker-compose.yml -f compose.observability.yml ps
+docker compose up -d --build
+docker compose ps -a
+docker compose exec -T nginx nginx -t
 sh infra/observability/verify.sh
 ```
 
-`verify.sh` checks merged configuration, rule syntax and all rule unit tests, Alertmanager routing, provisioned datasource health and dashboard availability, and compares discovered UP target counts to running API/worker replicas. The simulator is checked when its service has been integrated. Existing one-shot init/migrate services are not expected to remain running.
+`verify.sh` uses include only, checks all configured service health and successful one-shot completion, rule syntax/unit tests, Alertmanager configuration, datasource health, dashboards and logs, and compares discovered UP target counts to running API/worker replicas. A missing simulator does not fail verification. Existing one-shot services are expected to exit successfully.
+
+Authentication, files and operations regression smokes pass without source edits. This host has no `localhost` resolver entry; the Python files/operations runs used an in-memory `localhost` → `127.0.0.1` resolver shim, preserving the HTTPS URL/Host. No host resolver files were edited.
+
+HTTPS Grafana login, authenticated `/grafana/` HTML and its build asset pass through nginx. All five provisioned dashboards successfully query real API/worker Prometheus metrics; a small real meter sample exercised 201/200/409/422 outcomes. A `TrackBIntegrationTest` alert sent through Alertmanager appears in both the published Mailpit inbox (`127.0.0.1:8025`) and authenticated `GET /api/v1/alerts/recent`. No backend SDK or application source was changed.

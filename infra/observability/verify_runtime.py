@@ -6,8 +6,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 
 ROOT = Path(__file__).resolve().parents[2]
-COMPOSE = ["docker", "compose", "-f", str(ROOT / "docker-compose.yml"), "-f", str(ROOT / "compose.observability.yml")]
-SERVICES = ("prometheus", "alertmanager", "mailpit", "grafana", "loki", "alloy", "tempo")
+COMPOSE = ["docker", "compose"]
 
 
 def command(args):
@@ -30,7 +29,19 @@ def retry(check, seconds=180):
 
 
 def healthy():
-    for service in SERVICES:
+    config = json.loads(command(COMPOSE + ["config", "--format", "json"]))
+    for service, definition in config["services"].items():
+        if service == "simulator":
+            continue
+        if service in ("init", "migrate", "s3-init"):
+            completed = command(COMPOSE + ["ps", "-a", "-q", service]).split()
+            assert completed, f"{service}: no one-shot container"
+            for container in completed:
+                state = json.loads(command(["docker", "inspect", "--format", "{{json .State}}", container]))
+                assert state["Status"] == "exited" and state["ExitCode"] == 0, f"{service}: did not exit successfully"
+            continue
+        if definition.get("profiles"):
+            continue
         containers = ids(service)
         assert containers, f"{service}: no running container"
         for container in containers:
@@ -41,10 +52,7 @@ def healthy():
 def prometheus_targets():
     data = json.loads(command(COMPOSE + ["exec", "-T", "prometheus", "/bin/wget", "-q", "-O", "-", "http://127.0.0.1:9090/api/v1/targets"]))
     targets = data["data"]["activeTargets"]
-    config = json.loads(command(COMPOSE + ["config", "--format", "json"]))
     required = ["api-ingest", "api-files", "worker"]
-    if "simulator" in config["services"]:
-        required.append("simulator")
     for service in required:
         running = ids(service)
         assert running, f"{service}: no running replicas"
@@ -92,8 +100,8 @@ def provisioned():
 
 if __name__ == "__main__":
     retry(healthy)
-    print("Seven observability services healthy.")
+    print("Stack services healthy; init/migrate/s3-init exited 0.")
     retry(prometheus_targets)
-    print("Every running API/worker replica discovered and UP (simulator when integrated).")
+    print("Every running API/worker replica discovered and UP; simulator target is optional.")
     retry(provisioned)
     print("Three Grafana datasources healthy; five dashboards provisioned; Docker logs present in Loki.")

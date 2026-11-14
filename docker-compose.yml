@@ -1,5 +1,17 @@
 name: filegrid
 
+include: [compose.observability.yml]
+
+x-otel: &otel-environment
+  OTEL_RESOURCE_ATTRIBUTES: service.namespace=filegrid,deployment.environment=demo
+  OTEL_TRACES_EXPORTER: otlp
+  OTEL_METRICS_EXPORTER: none
+  OTEL_LOGS_EXPORTER: none
+  OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4317
+  OTEL_EXPORTER_OTLP_INSECURE: "true"
+  OTEL_PYTHON_LOG_CORRELATION: "true"
+
 x-backend: &backend
   image: filegrid-backend:0.1.0
   restart: unless-stopped
@@ -177,8 +189,9 @@ services:
   api-ingest:
     <<: *backend
     environment:
-      <<: *backend-environment
+      <<: [*backend-environment, *otel-environment]
       ROLE: ingest
+      OTEL_SERVICE_NAME: api-ingest
     networks:
       - edge
       - internal
@@ -189,8 +202,9 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     environment:
-      <<: *backend-environment
+      <<: [*backend-environment, *otel-environment]
       ROLE: files
+      OTEL_SERVICE_NAME: api-files
     networks:
       - edge
       - internal
@@ -198,8 +212,9 @@ services:
   worker:
     <<: *backend
     environment:
-      <<: *backend-environment
+      <<: [*backend-environment, *otel-environment]
       ROLE: worker
+      OTEL_SERVICE_NAME: worker
 
   nginx:
     image: filegrid-frontend:0.1.0
@@ -212,6 +227,7 @@ services:
       - certs:/etc/nginx/tls:ro
     networks:
       - edge
+      - internal
     depends_on:
       init:
         condition: service_completed_successfully

@@ -2,7 +2,7 @@
 set -eu
 project_root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 cd "$project_root"
-compose() { docker compose -f docker-compose.yml -f compose.observability.yml "$@"; }
+compose() { docker compose "$@"; }
 compose config --quiet
 compose run --rm --no-deps --entrypoint /bin/promtool prometheus check config /etc/prometheus/prometheus.yml
 compose run --rm --no-deps --entrypoint /bin/promtool prometheus check rules /etc/prometheus/rules/filegrid.yml
