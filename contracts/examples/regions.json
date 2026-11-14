@@ -1,0 +1,29 @@
+{
+  "items": [
+    {
+      "id": "470e5894-87b3-5c00-89ef-56e643f0617d",
+      "code": "MUNTENIA",
+      "name": "Muntenia",
+      "center": { "type": "Point", "coordinates": [26.1025, 44.4268] },
+      "bounds": { "minLon": 23.5, "minLat": 43.6, "maxLon": 28.2, "maxLat": 45.5 }
+    },
+    {
+      "id": "5f84f2f2-55f3-5e84-88c2-46c38cec96d9",
+      "code": "BANAT",
+      "name": "Banat",
+      "center": { "type": "Point", "coordinates": [21.2087, 45.7489] },
+      "bounds": { "minLon": 20.5, "minLat": 44.8, "maxLon": 22.5, "maxLat": 46.3 }
+    },
+    {
+      "id": "5795ee56-17ff-56c6-a6cb-e340918f0753",
+      "code": "DOBROGEA",
+      "name": "Dobrogea",
+      "center": { "type": "Point", "coordinates": [28.6500, 44.1800] },
+      "bounds": { "minLon": 27.5, "minLat": 43.6, "maxLon": 29.7, "maxLat": 45.5 }
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 3,
+  "totalPages": 1
+}

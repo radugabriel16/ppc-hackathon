@@ -7,6 +7,7 @@ info:
     operator (METER_READING, OUTAGE_RECORD, CONNECTION_DOCUMENT, DRONE_VIDEO),
     routes each to a configurable storage backend, guarantees integrity, and
     exposes map/statistics views. See PHASE1.md for the build plan.
+    Cookie-authenticated mutations require Origin matching APP_ORIGIN.
 servers:
   - url: /api/v1
 tags:
@@ -54,7 +55,9 @@ paths:
               $ref: "#/components/schemas/LoginRequest"
       responses:
         "200":
-          description: Logged in; session cookie set.
+          description: >
+            Logged in; Secure, HttpOnly, SameSite=Lax session cookie set.
+            A Secure, SameSite=Lax filegrid_csrf cookie supplies X-CSRF-Token.
           headers:
             Set-Cookie:
               schema:
@@ -65,8 +68,21 @@ paths:
                 $ref: "#/components/schemas/Me"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "422":
           $ref: "#/components/responses/ValidationError"
+        "429":
+          description: Too many login attempts (10 per transport peer per minute).
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                minimum: 1
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /auth/logout:
     post:
@@ -293,7 +309,7 @@ paths:
                   $ref: "#/components/schemas/FileUploadMetadata"
       responses:
         "201":
-          description: Created; file is STAGING or VERIFYING.
+          description: Created; content stored, linked domain row committed, file is READY.
           content:
             application/json:
               schema:
@@ -414,7 +430,7 @@ paths:
     post:
       operationId: createUploads
       tags: [uploads]
-      summary: Start a resumable multipart upload session.
+      summary: Start an owner-scoped resumable DRONE_VIDEO upload on S3.
       security:
         - cookieAuth: []
           csrfHeader: []
@@ -436,14 +452,22 @@ paths:
                   externalValue: "./examples/upload-session.json"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
         "422":
           $ref: "#/components/responses/ValidationError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /uploads/{id}/parts/{partNumber}:
     put:
       operationId: putUploadsIdPartsPartNumber
       tags: [uploads]
-      summary: Upload one part (idempotent; re-sending the same part is a no-op).
+      summary: Upload a part; identical retries are no-ops, closed or expired sessions are rejected.
       security:
         - cookieAuth: []
           csrfHeader: []
@@ -477,14 +501,26 @@ paths:
                 $ref: "#/components/schemas/UploadPartResult"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
-        "422":
-          description: X-Part-SHA256 does not match the received bytes.
+        "409":
+          description: Upload session is no longer active.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "422":
+          description: Invalid part number, size, hash, or conflicting re-send.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /uploads/{id}:
     get:
@@ -502,6 +538,8 @@ paths:
                 $ref: "#/components/schemas/UploadSessionStatus"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
     delete:
@@ -518,8 +556,18 @@ paths:
           description: Aborted.
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          description: Completed upload cannot be aborted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /uploads/{id}/complete:
     post:
@@ -551,14 +599,20 @@ paths:
                 $ref: "#/components/schemas/UploadCompleteResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          description: Missing parts or part/session mismatch.
+          description: Missing parts or closed/expired upload session.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ------------------------------------------------------------- metering ---
   /meter-readings/ingest:
@@ -915,6 +969,24 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /alerts/webhook:
+    post:
+      operationId: createAlertsWebhook
+      tags: [admin]
+      summary: Internal Alertmanager v4 webhook; not exposed through nginx.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AlertmanagerWebhook"
+      responses:
+        "204":
+          description: Alerts persisted.
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
   /alerts/recent:
     get:
       operationId: getAlertsRecent
@@ -942,6 +1014,7 @@ components:
       type: apiKey
       in: header
       name: X-CSRF-Token
+      description: Must match both the filegrid_csrf cookie and the server-side session token.
     simulatorBearer:
       type: http
       scheme: bearer
@@ -1082,9 +1155,13 @@ components:
       properties:
         username:
           type: string
+          minLength: 1
+          maxLength: 64
         password:
           type: string
           format: password
+          minLength: 1
+          maxLength: 1024
     Me:
       type: object
       properties:
@@ -1337,6 +1414,10 @@ components:
       type: object
       required: [category, caseId, documentTypeId]
       properties:
+        regionId:
+          type: string
+          format: uuid
+          description: Optional assertion; must match the connection case client's region.
         category:
           type: string
           enum: [CONNECTION_DOCUMENT]
@@ -1350,6 +1431,10 @@ components:
       type: object
       required: [category, assetId, startedAt, severity]
       properties:
+        regionId:
+          type: string
+          format: uuid
+          description: Optional assertion; must match the asset's region.
         category:
           type: string
           enum: [OUTAGE_RECORD]
@@ -1368,6 +1453,10 @@ components:
       type: object
       required: [category, assetId, recordedAt]
       properties:
+        regionId:
+          type: string
+          format: uuid
+          description: Optional assertion; must match the asset's region.
         category:
           type: string
           enum: [DRONE_VIDEO]
@@ -1441,20 +1530,26 @@ components:
     # ------------------------------------------------------------ uploads ---
     UploadSessionCreateRequest:
       type: object
-      required: [category, fileName, sizeBytes]
+      additionalProperties: false
+      required: [category, fileName, sizeBytes, metadata]
       properties:
         category:
-          $ref: "#/components/schemas/FileCategory"
+          type: string
+          enum: [DRONE_VIDEO]
         fileName:
           type: string
+          minLength: 1
+          maxLength: 512
         sizeBytes:
           type: integer
           format: int64
+          minimum: 1
         sha256:
           type: string
           nullable: true
+          pattern: "^[0-9a-f]{64}$"
         metadata:
-          $ref: "#/components/schemas/FileUploadMetadata"
+          $ref: "#/components/schemas/DroneVideoMetadata"
     UploadSessionCreated:
       type: object
       properties:
@@ -1481,6 +1576,7 @@ components:
       properties:
         status:
           type: string
+          enum: [PENDING, UPLOADING, COMPLETING, COMPLETED, ABORTED, EXPIRED]
         receivedParts:
           type: array
           items:
@@ -1721,6 +1817,70 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/ScenarioRun"
+    AlertmanagerWebhook:
+      type: object
+      required: [version, status, receiver, groupKey, alerts]
+      properties:
+        version:
+          type: string
+          enum: ["4"]
+        status:
+          type: string
+          enum: [firing, resolved]
+        receiver:
+          type: string
+        groupKey:
+          type: string
+        groupLabels:
+          type: object
+          additionalProperties:
+            type: string
+        commonLabels:
+          type: object
+          additionalProperties:
+            type: string
+        commonAnnotations:
+          type: object
+          additionalProperties:
+            type: string
+        externalURL:
+          type: string
+        truncatedAlerts:
+          type: integer
+          minimum: 0
+        alerts:
+          type: array
+          maxItems: 1000
+          items:
+            $ref: "#/components/schemas/AlertmanagerAlert"
+    AlertmanagerAlert:
+      type: object
+      required: [status, labels, startsAt]
+      properties:
+        status:
+          type: string
+          enum: [firing, resolved]
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+        annotations:
+          type: object
+          additionalProperties:
+            type: string
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+          nullable: true
+        generatorURL:
+          type: string
+          nullable: true
+        fingerprint:
+          type: string
+          nullable: true
     Alert:
       type: object
       properties:

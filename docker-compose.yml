@@ -1,0 +1,241 @@
+name: filegrid
+
+x-backend: &backend
+  image: filegrid-backend:0.1.0
+  restart: unless-stopped
+  environment: &backend-environment
+    CATALOG_DB_HOST: catalog-db
+    CATALOG_DB_PORT: "5432"
+    CATALOG_DB_NAME: ${CATALOG_DB_NAME:-filegrid_catalog}
+    CATALOG_DB_USER: ${CATALOG_DB_USER:-filegrid}
+    STORAGE_DB_HOST: storage-db
+    STORAGE_DB_PORT: "5432"
+    STORAGE_DB_NAME: ${STORAGE_DB_NAME:-filegrid_storage}
+    STORAGE_DB_USER: ${STORAGE_DB_USER:-filegrid}
+    S3_ENDPOINT_URL: http://seaweedfs:8333
+    S3_REGION: ${S3_REGION:-us-east-1}
+    S3_BUCKET: ${S3_BUCKET:-filegrid}
+    FTP_HOST: ftp
+    FTP_PORT: "2121"
+    FTP_USER: ${FTP_USER:-filegrid}
+    SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-filegrid_session}
+    SESSION_TTL_SECONDS: ${SESSION_TTL_SECONDS:-28800}
+    APP_ORIGIN: ${APP_ORIGIN:-https://localhost}
+    SECRETS_DIR: /run/secrets
+    LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  volumes:
+    - secrets:/run/secrets:ro
+  networks:
+    - internal
+  healthcheck: &backend-healthcheck
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=5)"]
+    interval: 10s
+    timeout: 6s
+    retries: 12
+    start_period: 15s
+  depends_on: &backend-dependencies
+    init:
+      condition: service_completed_successfully
+    migrate:
+      condition: service_completed_successfully
+
+services:
+  init:
+    image: filegrid-init:0.1.0
+    build:
+      context: .
+      dockerfile: infra/init/Dockerfile
+    network_mode: none
+    volumes:
+      - secrets:/run/secrets
+      - certs:/certs
+    restart: "no"
+
+  catalog-db:
+    image: postgis/postgis:16-3.4@sha256:44126d872ac91993766c341e369c539e8196614321765d36a6f1bab0419a5fa5
+    platform: linux/amd64
+    environment:
+      POSTGRES_DB: ${CATALOG_DB_NAME:-filegrid_catalog}
+      POSTGRES_USER: ${CATALOG_DB_USER:-filegrid}
+      POSTGRES_PASSWORD_FILE: /run/secrets/catalog_db_password
+    volumes:
+      - secrets:/run/secrets:ro
+      - catalog-data:/var/lib/postgresql/data
+    networks:
+      - internal
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 15s
+    restart: unless-stopped
+
+  storage-db:
+    image: postgres:16.6-bookworm
+    environment:
+      POSTGRES_DB: ${STORAGE_DB_NAME:-filegrid_storage}
+      POSTGRES_USER: ${STORAGE_DB_USER:-filegrid}
+      POSTGRES_PASSWORD_FILE: /run/secrets/storage_db_password
+    volumes:
+      - secrets:/run/secrets:ro
+      - storage-data:/var/lib/postgresql/data
+      - ./infra/storage-db/init.sql:/docker-entrypoint-initdb.d/001-file-contents.sql:ro
+    networks:
+      - internal
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 15s
+    restart: unless-stopped
+
+  seaweedfs:
+    image: chrislusf/seaweedfs:3.80
+    working_dir: /data
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        mkdir -p /data/master /data/volumes
+        exec weed server -dir=/data/volumes -master.dir=/data/master \
+          -ip=seaweedfs -ip.bind=0.0.0.0 -filer -s3 \
+          -s3.config=/run/secrets/s3.json -volume.max=32 \
+          -master.volumeSizeLimitMB=1024
+    volumes:
+      - secrets:/run/secrets:ro
+      - seaweed-data:/data
+    networks:
+      - internal
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:9333/cluster/status && wget -q -O /dev/null http://127.0.0.1:8888/ && nc -z 127.0.0.1 8333"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 20s
+    restart: unless-stopped
+
+  s3-init:
+    <<: *backend
+    command: ["python", "/app/infra/init/create_bucket.py"]
+    healthcheck:
+      disable: true
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      seaweedfs:
+        condition: service_healthy
+    restart: "no"
+
+  ftp:
+    image: filegrid-ftp:0.1.0
+    build:
+      context: .
+      dockerfile: infra/ftp/Dockerfile
+    environment:
+      FTP_USER: ${FTP_USER:-filegrid}
+      FTP_PORT: "2121"
+    volumes:
+      - secrets:/run/secrets:ro
+      - ftp-data:/data
+    networks:
+      - internal
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "/app/server.py", "--healthcheck"]
+      interval: 10s
+      timeout: 6s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
+  migrate:
+    <<: *backend
+    command: ["python", "-m", "app.core.bootstrap"]
+    healthcheck:
+      disable: true
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      catalog-db:
+        condition: service_healthy
+      storage-db:
+        condition: service_healthy
+    restart: "no"
+
+  api-ingest:
+    <<: *backend
+    environment:
+      <<: *backend-environment
+      ROLE: ingest
+    networks:
+      - edge
+      - internal
+
+  api-files:
+    <<: *backend
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      <<: *backend-environment
+      ROLE: files
+    networks:
+      - edge
+      - internal
+
+  worker:
+    <<: *backend
+    environment:
+      <<: *backend-environment
+      ROLE: worker
+
+  nginx:
+    image: filegrid-frontend:0.1.0
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "443:443"
+    volumes:
+      - certs:/etc/nginx/tls:ro
+    networks:
+      - edge
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      api-files:
+        condition: service_healthy
+      api-ingest:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-check-certificate", "-q", "-O", "/dev/null", "https://127.0.0.1/health/ready"]
+      interval: 10s
+      timeout: 6s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
+networks:
+  edge:
+  internal:
+    internal: true
+
+volumes:
+  secrets:
+  certs:
+  catalog-data:
+  storage-data:
+  seaweed-data:
+  ftp-data:
