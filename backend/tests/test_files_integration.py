@@ -301,7 +301,7 @@ def test_ui_reads_region_filters_pagination_and_pii_free_map(api):
     upload("OUTAGE_RECORD")
     allowed = {
         "ASSETS": {"id", "kind", "assetType", "code", "name"},
-        "ISSUES": {"id", "kind", "assetId", "severity", "status"},
+        "ISSUES": {"id", "kind", "assetId", "severity", "status", "version"},
         "OUTAGES": {"id", "kind", "assetId", "severity", "startedAt", "endedAt"},
     }
     for layer in allowed:

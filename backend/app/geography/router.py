@@ -69,6 +69,7 @@ def map_features(
         properties = func.json_build_object(
             "id", MapIssue.id, "kind", "ISSUE", "assetId", MapIssue.asset_id,
             "severity", MapIssue.severity, "status", MapIssue.status,
+            "version", MapIssue.version,
         )
         statement = (
             select(func.ST_AsGeoJSON(MapIssue.location), properties)

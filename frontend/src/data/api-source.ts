@@ -63,6 +63,18 @@ export class ApiSource implements DataSource {
   private get client() {
     return this.connection.client;
   }
+  getDocumentTypes() {
+    return this.connection.read(sdk.getDocumentTypes({ client: this.client }));
+  }
+  downloadFile(id: string) {
+    return this.connection.read(
+      sdk.getFilesIdDownload({
+        client: this.client,
+        path: { id },
+        parseAs: "blob",
+      }),
+    );
+  }
   async getStorageBenchmark() {
     return storageBenchmark(
       await this.connection.read(

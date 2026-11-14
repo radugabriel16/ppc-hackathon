@@ -25,12 +25,15 @@ import type {
   ForecastPoint,
 } from "./models";
 import type { UploadTransport } from "../upload/types";
+import type { DocumentType } from "../api/gen/types.gen";
 
 // The only boundary the hooks know. Generated DTOs must never escape an ApiSource.
 export interface DataSource {
   readonly kind: "demo" | "mock" | "api";
   readonly uploadScope?: string;
   readonly uploads: UploadTransport;
+  getDocumentTypes?(): Promise<DocumentType[]>;
+  downloadFile?(id: string): Promise<Blob>;
   getSession(): Promise<Session | null>;
   login(input: LoginInput): Promise<Session>;
   logout(): Promise<void>;

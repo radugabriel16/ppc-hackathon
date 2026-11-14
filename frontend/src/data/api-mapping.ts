@@ -70,6 +70,13 @@ export function mapCollection(
     if (g?.type === "Point")
       geometry = { type: "Point", coordinates: coordinate(g.coordinates) };
     else if (
+      layer === "OUTAGES" &&
+      g?.type === "LineString" &&
+      Array.isArray(g.coordinates) &&
+      g.coordinates.length >= 2
+    )
+      geometry = { type: "Point", coordinates: coordinate(g.coordinates[0]) };
+    else if (
       layer === "ASSETS" &&
       g?.type === "LineString" &&
       Array.isArray(g.coordinates) &&
@@ -92,8 +99,6 @@ export function mapCollection(
         type !== "LINE_SEGMENT"
       )
         throw contractError("Map asset type is missing or unsupported.");
-      if ((type === "LINE_SEGMENT") !== (geometry.type === "LineString"))
-        throw contractError("Line segments must use LineString geometry.");
       properties.type = type;
       properties.name =
         typeof p.name === "string"

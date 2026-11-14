@@ -85,6 +85,68 @@ describe("incremental SHA-256", () => {
   });
 });
 describe("upload engine against an in-memory fake server", () => {
+  it.each(["ABORTED", "EXPIRED"] as const)(
+    "does not send parts for a %s session",
+    async (status) => {
+      const { server, options } = setup();
+      vi.spyOn(server, "getStatus").mockResolvedValue({
+        status,
+        receivedParts: [],
+        totalParts: 1,
+      });
+      const put = vi.spyOn(server, "putPart");
+      const engine = new UploadEngine(file(20), input, options);
+      await engine.start();
+      expect(engine.getSnapshot()).toMatchObject({
+        state: "failed",
+        error: expect.stringContaining(status.toLowerCase()),
+      });
+      expect(put).not.toHaveBeenCalled();
+    },
+  );
+  it("sends non-video files directly rather than negotiating a resumable session", async () => {
+    const { server, options } = setup();
+    const direct = vi.fn(async () => ({
+      fileId: "direct-file",
+      status: "READY" as const,
+    }));
+    options.transport = {
+      ...server,
+      direct,
+      create: server.create.bind(server),
+      putPart: server.putPart.bind(server),
+      getStatus: server.getStatus.bind(server),
+      complete: server.complete.bind(server),
+      cancel: server.cancel.bind(server),
+    };
+    const create = vi.spyOn(options.transport, "create");
+    const metadata = {
+      category: "OUTAGE_RECORD" as const,
+      assetId: "asset",
+      startedAt: "2026-11-14T10:00:00Z",
+      severity: "HIGH",
+    };
+    const evidence = file(20, "outage.txt");
+    const engine = new UploadEngine(
+      evidence,
+      {
+        category: "OUTAGE_RECORD",
+        metadata: { region: "BANAT", fileMetadata: metadata },
+      },
+      options,
+    );
+    await engine.start();
+    expect(direct).toHaveBeenCalledWith(
+      evidence,
+      metadata,
+      expect.any(AbortSignal),
+    );
+    expect(create).not.toHaveBeenCalled();
+    expect(engine.getSnapshot()).toMatchObject({
+      state: "verifying",
+      fileId: "direct-file",
+    });
+  });
   it("preserves paused state when paused at the initial status event", async () => {
     const { options, server } = setup();
     const engine = new UploadEngine(file(20), input, options);

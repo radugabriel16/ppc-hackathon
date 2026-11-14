@@ -3,6 +3,7 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
+  type QueryClient,
 } from "@tanstack/react-query";
 import { useSource } from "./context";
 import { AppError } from "./errors";
@@ -13,8 +14,16 @@ import type {
   IssueStatus,
   Region,
   LoginInput,
+  Session,
 } from "./models";
 
+async function cacheSession(cache: QueryClient, session: Session | null) {
+  await cache.cancelQueries();
+  cache.removeQueries({
+    predicate: (query) => query.queryKey[0] !== "session",
+  });
+  cache.setQueryData(["session"], session);
+}
 export function useDemoMode() {
   return useSource().kind === "demo";
 }
@@ -34,10 +43,7 @@ export function useLogin() {
   const cache = useQueryClient();
   return useMutation({
     mutationFn: (input: LoginInput) => source.login(input),
-    onSuccess: (session) => {
-      cache.clear();
-      cache.setQueryData(["session"], session);
-    },
+    onSuccess: (session) => cacheSession(cache, session),
   });
 }
 export function useLogout() {
@@ -45,10 +51,7 @@ export function useLogout() {
   const cache = useQueryClient();
   return useMutation({
     mutationFn: () => source.logout(),
-    onSuccess: () => {
-      cache.clear();
-      cache.setQueryData(["session"], null);
-    },
+    onSuccess: () => cacheSession(cache, null),
   });
 }
 export function useMap(region: Region) {

@@ -68,9 +68,8 @@ export class ApiConnection {
   async identity(result: Promise<ApiResult<Me>>): Promise<Session> {
     const response = await result;
     const me = await this.read(Promise.resolve(response));
-    // Explicit provisional extension: the contract currently specifies no CSRF delivery.
     this.csrfToken =
-      response.response.headers.get("X-CSRF-Token") ?? this.csrfToken;
+      this.cookieToken() ?? response.response.headers.get("X-CSRF-Token") ?? "";
     const role = requireValue(me.role, "Me.role");
     if (role !== "OPERATOR" && role !== "MANAGER")
       throw contractError("API returned an unknown role.");
@@ -80,11 +79,19 @@ export class ApiConnection {
     };
   }
   mutationHeaders() {
-    if (!this.csrfToken)
+    const token = this.cookieToken() ?? this.csrfToken;
+    if (!token)
       throw contractError(
-        "The API did not supply a CSRF token. Mutations are disabled; the auth contract must define token delivery.",
+        "The CSRF cookie is missing. Sign in again before making changes.",
       );
-    return { "X-CSRF-Token": this.csrfToken };
+    return { "X-CSRF-Token": token };
+  }
+  private cookieToken() {
+    if (typeof document === "undefined") return undefined;
+    return document.cookie
+      .split("; ")
+      .find((cookie) => cookie.startsWith("filegrid_csrf="))
+      ?.slice("filegrid_csrf=".length);
   }
   clearSession() {
     this.csrfToken = "";

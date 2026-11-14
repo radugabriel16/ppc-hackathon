@@ -4,7 +4,9 @@ import {
   getUploadsId,
   createUploadsIdComplete,
   deleteUploadsId,
+  createFiles,
 } from "../api/gen/sdk.gen";
+import type { FileUploadMetadata } from "../api/gen/types.gen";
 import type {
   UploadInput,
   UploadStatus,
@@ -15,17 +17,38 @@ import { ApiConnection, contractError, requireValue } from "./api-client";
 
 export class ApiUploadTransport implements UploadTransport {
   constructor(private api: ApiConnection) {}
+  async direct(file: File, metadata: FileUploadMetadata, signal: AbortSignal) {
+    const data = await this.api.read(
+      createFiles({
+        client: this.api.client,
+        signal,
+        headers: this.api.mutationHeaders(),
+        body: { file, metadata },
+      }),
+    );
+    if (data.status !== "READY")
+      throw contractError("Expected READY after direct upload.");
+    return { fileId: requireValue(data.id, "file.id"), status: data.status };
+  }
   async create(input: UploadInput, signal: AbortSignal) {
-    // UI-only region/simulation flags are not FileUploadMetadata. Never send an invalid union.
+    const metadata = input.metadata.fileMetadata;
+    if (
+      input.category !== "DRONE_VIDEO" ||
+      metadata?.category !== "DRONE_VIDEO"
+    )
+      throw contractError(
+        "Resumable uploads require drone video asset and recording metadata.",
+      );
     const data = await this.api.read(
       createUploads({
         client: this.api.client,
         signal,
         headers: this.api.mutationHeaders(),
         body: {
-          category: input.category,
+          category: "DRONE_VIDEO",
           fileName: input.fileName,
           sizeBytes: input.sizeBytes,
+          metadata,
         },
       }),
     );
@@ -66,13 +89,6 @@ export class ApiUploadTransport implements UploadTransport {
       getUploadsId({ client: this.api.client, signal, path: { id } }),
     );
     const status = requireValue(data.status, "upload.status");
-    if (
-      status !== "STAGING" &&
-      status !== "VERIFYING" &&
-      status !== "READY" &&
-      status !== "CORRUPT"
-    )
-      throw contractError(`Unsupported upload status: ${status}.`);
     return {
       status,
       receivedParts: requireValue(data.receivedParts, "receivedParts"),
