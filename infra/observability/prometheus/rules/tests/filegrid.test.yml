@@ -1,0 +1,564 @@
+rule_files:
+- ../filegrid.yml
+evaluation_interval: 30s
+tests:
+- name: Meter error fires after hold, not immediately
+  interval: 1m
+  input_series:
+  - series: filegrid_meter_ingest_total{job="api-ingest",instance="ingest-1:8000",result="error"}
+    values: 0+1x15
+  alert_rule_test:
+  - eval_time: 2m
+    alertname: MeterIngestErrors
+    exp_alerts: []
+  - eval_time: 4m
+    alertname: MeterIngestErrors
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+        team: filegrid
+        job: api-ingest
+      exp_annotations:
+        summary: Meter ingest failures on api-ingest
+        description: Unexpected errors or storage-unavailable outcomes occurred within five minutes; duplicate/conflict/invalid
+          inputs are separate outcomes.
+- name: Meter unavailable fires after hold, not immediately
+  interval: 1m
+  input_series:
+  - series: filegrid_meter_ingest_total{job="api-ingest",instance="ingest-1:8000",result="unavailable"}
+    values: 0+1x15
+  alert_rule_test:
+  - eval_time: 2m
+    alertname: MeterIngestErrors
+    exp_alerts: []
+  - eval_time: 4m
+    alertname: MeterIngestErrors
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+        team: filegrid
+        job: api-ingest
+      exp_annotations:
+        summary: Meter ingest failures on api-ingest
+        description: Unexpected errors or storage-unavailable outcomes occurred within five minutes; duplicate/conflict/invalid
+          inputs are separate outcomes.
+- name: Healthy / invalid / duplicate outcomes do not trigger operational errors
+  interval: 1m
+  input_series:
+  - series: filegrid_meter_ingest_total{job="api-ingest",result="created"}
+    values: 0+10x15
+  - series: filegrid_meter_ingest_total{job="api-ingest",result="duplicate"}
+    values: 0+10x15
+  - series: filegrid_meter_ingest_total{job="api-ingest",result="invalid"}
+    values: 0+10x15
+  alert_rule_test:
+  - eval_time: 8m
+    alertname: MeterIngestErrors
+    exp_alerts: []
+  - eval_time: 8m
+    alertname: MeterConflicts
+    exp_alerts: []
+- name: Conflict fires; identical duplicates are independent
+  interval: 1m
+  input_series:
+  - series: filegrid_meter_ingest_total{job="api-ingest",result="conflict"}
+    values: 0+1x15
+  - series: filegrid_meter_ingest_total{job="api-ingest",result="duplicate"}
+    values: 0+20x15
+  alert_rule_test:
+  - eval_time: 3m
+    alertname: MeterConflicts
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        team: filegrid
+        job: api-ingest
+      exp_annotations:
+        summary: Conflicting meter payloads on api-ingest
+        description: A reading key was reused with different content within five minutes. Identical duplicates do
+          not trigger this alert.
+- name: Meter failure clears after its lookback expires
+  interval: 1m
+  input_series:
+  - series: filegrid_meter_ingest_total{job="api-ingest",result="error"}
+    values: 0 1 1 1 1 1 1 1 1 1 1
+  alert_rule_test:
+  - eval_time: 3m
+    alertname: MeterIngestErrors
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+        team: filegrid
+        job: api-ingest
+      exp_annotations:
+        summary: Meter ingest failures on api-ingest
+        description: Unexpected errors or storage-unavailable outcomes occurred within five minutes; duplicate/conflict/invalid
+          inputs are separate outcomes.
+  - eval_time: 9m
+    alertname: MeterIngestErrors
+    exp_alerts: []
+- name: Outage p95 crosses the availability budget
+  interval: 1m
+  input_series:
+  - series: filegrid_file_time_to_available_seconds_bucket{category="OUTAGE_RECORD",le="0.1"}
+    values: 0+0x15
+  - series: filegrid_file_time_to_available_seconds_bucket{category="OUTAGE_RECORD",le="1"}
+    values: 0+0x15
+  - series: filegrid_file_time_to_available_seconds_bucket{category="OUTAGE_RECORD",le="10"}
+    values: 0+100x15
+  - series: filegrid_file_time_to_available_seconds_bucket{category="OUTAGE_RECORD",le="+Inf"}
+    values: 0+100x15
+  alert_rule_test:
+  - eval_time: 2m
+    alertname: OutageNotAvailable
+    exp_alerts: []
+  - eval_time: 8m
+    alertname: OutageNotAvailable
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+        team: filegrid
+        category: OUTAGE_RECORD
+      exp_annotations:
+        summary: Outage availability p95 exceeds 5 seconds
+        description: Completed OUTAGE_RECORD observations have p95 time-to-available above five seconds. Pending
+          files are not represented by this histogram.
+- name: Fast outages and slow non-outages do not fire the outage rule
+  interval: 1m
+  input_series:
+  - series: filegrid_file_time_to_available_seconds_bucket{category="OUTAGE_RECORD",le="0.1"}
+    values: 0+100x15
+  - series: filegrid_file_time_to_available_seconds_bucket{category="OUTAGE_RECORD",le="1"}
+    values: 0+100x15
+  - series: filegrid_file_time_to_available_seconds_bucket{category="OUTAGE_RECORD",le="10"}
+    values: 0+100x15
+  - series: filegrid_file_time_to_available_seconds_bucket{category="OUTAGE_RECORD",le="+Inf"}
+    values: 0+100x15
+  - series: filegrid_file_time_to_available_seconds_bucket{category="DRONE_VIDEO",le="0.1"}
+    values: 0+0x15
+  - series: filegrid_file_time_to_available_seconds_bucket{category="DRONE_VIDEO",le="1"}
+    values: 0+0x15
+  - series: filegrid_file_time_to_available_seconds_bucket{category="DRONE_VIDEO",le="10"}
+    values: 0+100x15
+  - series: filegrid_file_time_to_available_seconds_bucket{category="DRONE_VIDEO",le="+Inf"}
+    values: 0+100x15
+  alert_rule_test:
+  - eval_time: 8m
+    alertname: OutageNotAvailable
+    exp_alerts: []
+- name: Each circuit replica is evaluated separately; half-open is not open
+  interval: 1m
+  input_series:
+  - series: filegrid_circuit_state{job="api-files",instance="files-1:8000",storage="ftp"}
+    values: 2+0x15
+  - series: filegrid_circuit_state{job="api-files",instance="files-2:8000",storage="ftp"}
+    values: 0+0x15
+  - series: filegrid_circuit_state{job="worker",instance="worker-1:8000",storage="s3"}
+    values: 1+0x15
+  alert_rule_test:
+  - eval_time: 0m
+    alertname: StorageCircuitOpen
+    exp_alerts: []
+  - eval_time: 2m
+    alertname: StorageCircuitOpen
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+        team: filegrid
+        job: api-files
+        instance: files-1:8000
+        storage: ftp
+      exp_annotations:
+        summary: 'Storage circuit open: ftp'
+        description: 'The circuit has remained open for one minute on api-files / files-1:8000. Backend encoding:
+          0 closed, 1 half-open, 2 open.'
+- name: A circuit closes and resolves
+  interval: 1m
+  input_series:
+  - series: filegrid_circuit_state{job="api-files",instance="files-1:8000",storage="ftp"}
+    values: 2 2 0 0 0 0
+  alert_rule_test:
+  - eval_time: 1m
+    alertname: StorageCircuitOpen
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+        team: filegrid
+        job: api-files
+        instance: files-1:8000
+        storage: ftp
+      exp_annotations:
+        summary: 'Storage circuit open: ftp'
+        description: 'The circuit has remained open for one minute on api-files / files-1:8000. Backend encoding:
+          0 closed, 1 half-open, 2 open.'
+  - eval_time: 3m
+    alertname: StorageCircuitOpen
+    exp_alerts: []
+- name: Integrity mismatch fires and later resolves
+  interval: 1m
+  input_series:
+  - series: filegrid_integrity_failures_total{job="api-files",category="CONNECTION_DOCUMENT",storage="s3"}
+    values: 0 1 1 1 1 1 1 1 1 1
+  alert_rule_test:
+  - eval_time: 2m
+    alertname: IntegrityFailure
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+        team: filegrid
+        category: CONNECTION_DOCUMENT
+        storage: s3
+      exp_annotations:
+        summary: 'Integrity failure: CONNECTION_DOCUMENT / s3'
+        description: At least one verified content mismatch was reported within five minutes. Inspect audit records
+          without including file contents or customer data in notifications.
+  - eval_time: 9m
+    alertname: IntegrityFailure
+    exp_alerts: []
+- name: A counter reset alone is not an integrity event
+  interval: 1m
+  input_series:
+  - series: filegrid_integrity_failures_total{category="DRONE_VIDEO",storage="s3"}
+    values: 10 0 0 0 0 0 0 0
+  alert_rule_test:
+  - eval_time: 3m
+    alertname: IntegrityFailure
+    exp_alerts: []
+- name: Stalled worker sessions fire; idle APIs do not publish actionable counts
+  interval: 1m
+  input_series:
+  - series: filegrid_upload_sessions_stalled{job="worker",instance="worker-1:8000"}
+    values: 1+0x15
+  - series: filegrid_upload_sessions_stalled{job="api-files",instance="files-1:8000"}
+    values: 9+0x15
+  alert_rule_test:
+  - eval_time: 1m
+    alertname: VideoUploadsStalled
+    exp_alerts: []
+  - eval_time: 3m
+    alertname: VideoUploadsStalled
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        team: filegrid
+        category: DRONE_VIDEO
+        job: worker
+        instance: worker-1:8000
+      exp_annotations:
+        summary: Video uploads stalled on worker-1:8000
+        description: The worker reports stalled resumable sessions for two minutes. Current backend accepts only
+          DRONE_VIDEO uploads; its stall cutoff is ten minutes without progress.
+- name: Session progress clears stalled alert
+  interval: 1m
+  input_series:
+  - series: filegrid_upload_sessions_stalled{job="worker",instance="worker-1:8000"}
+    values: 1 1 1 0 0 0
+  alert_rule_test:
+  - eval_time: 2m
+    alertname: VideoUploadsStalled
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        team: filegrid
+        category: DRONE_VIDEO
+        job: worker
+        instance: worker-1:8000
+      exp_annotations:
+        summary: Video uploads stalled on worker-1:8000
+        description: The worker reports stalled resumable sessions for two minutes. Current backend accepts only
+          DRONE_VIDEO uploads; its stall cutoff is ten minutes without progress.
+  - eval_time: 4m
+    alertname: VideoUploadsStalled
+    exp_alerts: []
+- name: Slow METER_READING storage breaches its own category budget
+  interval: 1m
+  input_series:
+  - series: filegrid_storage_operation_duration_seconds_bucket{category="METER_READING",le="0.1"}
+    values: 0+0x15
+  - series: filegrid_storage_operation_duration_seconds_bucket{category="METER_READING",le="1"}
+    values: 0+0x15
+  - series: filegrid_storage_operation_duration_seconds_bucket{category="METER_READING",le="10"}
+    values: 0+100x15
+  - series: filegrid_storage_operation_duration_seconds_bucket{category="METER_READING",le="+Inf"}
+    values: 0+100x15
+  alert_rule_test:
+  - eval_time: 8m
+    alertname: CategoryLatencySLO
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        team: filegrid
+        category: METER_READING
+      exp_annotations:
+        summary: 'Storage p95 latency budget exceeded: METER_READING'
+        description: 'p95 exceeds the demo category budget: METER_READING 0.25s, OUTAGE_RECORD 1s, CONNECTION_DOCUMENT
+          2.5s, DRONE_VIDEO 5s. Buckets combine storages, operations and outcomes within each category.'
+- name: Slow OUTAGE_RECORD storage breaches its own category budget
+  interval: 1m
+  input_series:
+  - series: filegrid_storage_operation_duration_seconds_bucket{category="OUTAGE_RECORD",le="0.1"}
+    values: 0+0x15
+  - series: filegrid_storage_operation_duration_seconds_bucket{category="OUTAGE_RECORD",le="1"}
+    values: 0+0x15
+  - series: filegrid_storage_operation_duration_seconds_bucket{category="OUTAGE_RECORD",le="10"}
+    values: 0+100x15
+  - series: filegrid_storage_operation_duration_seconds_bucket{category="OUTAGE_RECORD",le="+Inf"}
+    values: 0+100x15
+  alert_rule_test:
+  - eval_time: 8m
+    alertname: CategoryLatencySLO
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        team: filegrid
+        category: OUTAGE_RECORD
+      exp_annotations:
+        summary: 'Storage p95 latency budget exceeded: OUTAGE_RECORD'
+        description: 'p95 exceeds the demo category budget: METER_READING 0.25s, OUTAGE_RECORD 1s, CONNECTION_DOCUMENT
+          2.5s, DRONE_VIDEO 5s. Buckets combine storages, operations and outcomes within each category.'
+- name: Slow CONNECTION_DOCUMENT storage breaches its own category budget
+  interval: 1m
+  input_series:
+  - series: filegrid_storage_operation_duration_seconds_bucket{category="CONNECTION_DOCUMENT",le="0.1"}
+    values: 0+0x15
+  - series: filegrid_storage_operation_duration_seconds_bucket{category="CONNECTION_DOCUMENT",le="1"}
+    values: 0+0x15
+  - series: filegrid_storage_operation_duration_seconds_bucket{category="CONNECTION_DOCUMENT",le="10"}
+    values: 0+100x15
+  - series: filegrid_storage_operation_duration_seconds_bucket{category="CONNECTION_DOCUMENT",le="+Inf"}
+    values: 0+100x15
+  alert_rule_test:
+  - eval_time: 8m
+    alertname: CategoryLatencySLO
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        team: filegrid
+        category: CONNECTION_DOCUMENT
+      exp_annotations:
+        summary: 'Storage p95 latency budget exceeded: CONNECTION_DOCUMENT'
+        description: 'p95 exceeds the demo category budget: METER_READING 0.25s, OUTAGE_RECORD 1s, CONNECTION_DOCUMENT
+          2.5s, DRONE_VIDEO 5s. Buckets combine storages, operations and outcomes within each category.'
+- name: Slow DRONE_VIDEO storage breaches its own category budget
+  interval: 1m
+  input_series:
+  - series: filegrid_storage_operation_duration_seconds_bucket{category="DRONE_VIDEO",le="0.1"}
+    values: 0+0x15
+  - series: filegrid_storage_operation_duration_seconds_bucket{category="DRONE_VIDEO",le="1"}
+    values: 0+0x15
+  - series: filegrid_storage_operation_duration_seconds_bucket{category="DRONE_VIDEO",le="10"}
+    values: 0+100x15
+  - series: filegrid_storage_operation_duration_seconds_bucket{category="DRONE_VIDEO",le="+Inf"}
+    values: 0+100x15
+  alert_rule_test:
+  - eval_time: 8m
+    alertname: CategoryLatencySLO
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        team: filegrid
+        category: DRONE_VIDEO
+      exp_annotations:
+        summary: 'Storage p95 latency budget exceeded: DRONE_VIDEO'
+        description: 'p95 exceeds the demo category budget: METER_READING 0.25s, OUTAGE_RECORD 1s, CONNECTION_DOCUMENT
+          2.5s, DRONE_VIDEO 5s. Buckets combine storages, operations and outcomes within each category.'
+- name: All category budgets healthy
+  interval: 1m
+  input_series:
+  - series: filegrid_storage_operation_duration_seconds_bucket{category="METER_READING",le="0.1"}
+    values: 0+100x15
+  - series: filegrid_storage_operation_duration_seconds_bucket{category="METER_READING",le="1"}
+    values: 0+100x15
+  - series: filegrid_storage_operation_duration_seconds_bucket{category="METER_READING",le="10"}
+    values: 0+100x15
+  - series: filegrid_storage_operation_duration_seconds_bucket{category="METER_READING",le="+Inf"}
+    values: 0+100x15
+  - series: filegrid_storage_operation_duration_seconds_bucket{category="OUTAGE_RECORD",le="0.1"}
+    values: 0+100x15
+  - series: filegrid_storage_operation_duration_seconds_bucket{category="OUTAGE_RECORD",le="1"}
+    values: 0+100x15
+  - series: filegrid_storage_operation_duration_seconds_bucket{category="OUTAGE_RECORD",le="10"}
+    values: 0+100x15
+  - series: filegrid_storage_operation_duration_seconds_bucket{category="OUTAGE_RECORD",le="+Inf"}
+    values: 0+100x15
+  - series: filegrid_storage_operation_duration_seconds_bucket{category="CONNECTION_DOCUMENT",le="0.1"}
+    values: 0+100x15
+  - series: filegrid_storage_operation_duration_seconds_bucket{category="CONNECTION_DOCUMENT",le="1"}
+    values: 0+100x15
+  - series: filegrid_storage_operation_duration_seconds_bucket{category="CONNECTION_DOCUMENT",le="10"}
+    values: 0+100x15
+  - series: filegrid_storage_operation_duration_seconds_bucket{category="CONNECTION_DOCUMENT",le="+Inf"}
+    values: 0+100x15
+  - series: filegrid_storage_operation_duration_seconds_bucket{category="DRONE_VIDEO",le="0.1"}
+    values: 0+100x15
+  - series: filegrid_storage_operation_duration_seconds_bucket{category="DRONE_VIDEO",le="1"}
+    values: 0+100x15
+  - series: filegrid_storage_operation_duration_seconds_bucket{category="DRONE_VIDEO",le="10"}
+    values: 0+100x15
+  - series: filegrid_storage_operation_duration_seconds_bucket{category="DRONE_VIDEO",le="+Inf"}
+    values: 0+100x15
+  alert_rule_test:
+  - eval_time: 8m
+    alertname: CategoryLatencySLO
+    exp_alerts: []
+- name: All configured jobs up
+  interval: 1m
+  input_series:
+  - series: up{job="api-ingest",instance="api-ingest-1:8000"}
+    values: 1+0x15
+  - series: up{job="api-files",instance="api-files-1:8000"}
+    values: 1+0x15
+  - series: up{job="worker",instance="worker-1:8000"}
+    values: 1+0x15
+  - series: up{job="simulator",instance="simulator-1:8000"}
+    values: 1+0x15
+  alert_rule_test:
+  - eval_time: 8m
+    alertname: InstanceDown
+    exp_alerts: []
+- name: A down replica fires even when its sibling is up
+  interval: 1m
+  input_series:
+  - series: up{job="api-ingest",instance="api-ingest-1:8000"}
+    values: 1+0x15
+  - series: up{job="api-files",instance="api-files-1:8000"}
+    values: 1+0x15
+  - series: up{job="worker",instance="worker-1:8000"}
+    values: 1+0x15
+  - series: up{job="simulator",instance="simulator-1:8000"}
+    values: 1+0x15
+  - series: up{job="api-files",instance="files-2:8000"}
+    values: 0+0x15
+  alert_rule_test:
+  - eval_time: 1m
+    alertname: InstanceDown
+    exp_alerts: []
+  - eval_time: 3m
+    alertname: InstanceDown
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+        team: filegrid
+        job: api-files
+        instance: files-2:8000
+      exp_annotations:
+        summary: 'Metrics unavailable: api-files'
+        description: A discovered exporter is down, or Docker DNS has removed every target for this job. Inspect
+          service replicas and the metrics listener.
+- name: DNS removing every simulator replica still raises InstanceDown
+  interval: 1m
+  input_series:
+  - series: up{job="api-ingest",instance="api-ingest-1:8000"}
+    values: 1+0x15
+  - series: up{job="api-files",instance="api-files-1:8000"}
+    values: 1+0x15
+  - series: up{job="worker",instance="worker-1:8000"}
+    values: 1+0x15
+  alert_rule_test:
+  - eval_time: 3m
+    alertname: InstanceDown
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+        team: filegrid
+        job: simulator
+      exp_annotations:
+        summary: 'Metrics unavailable: simulator'
+        description: A discovered exporter is down, or Docker DNS has removed every target for this job. Inspect
+          service replicas and the metrics listener.
+- name: Scrape recovery clears InstanceDown
+  interval: 1m
+  input_series:
+  - series: up{job="api-ingest",instance="api-ingest-1:8000"}
+    values: 1+0x15
+  - series: up{job="api-files",instance="api-files-1:8000"}
+    values: 1+0x15
+  - series: up{job="worker",instance="worker-1:8000"}
+    values: 1+0x15
+  - series: up{job="simulator",instance="simulator-1:8000"}
+    values: 1+0x15
+  - series: up{job="api-files",instance="files-2:8000"}
+    values: 0 0 0 1 1 1
+  alert_rule_test:
+  - eval_time: 2m
+    alertname: InstanceDown
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+        team: filegrid
+        job: api-files
+        instance: files-2:8000
+      exp_annotations:
+        summary: 'Metrics unavailable: api-files'
+        description: A discovered exporter is down, or Docker DNS has removed every target for this job. Inspect
+          service replicas and the metrics listener.
+  - eval_time: 4m
+    alertname: InstanceDown
+    exp_alerts: []
+- name: Missing meter readings fire per region, ignore replica duplicates, and recover
+  interval: 1m
+  input_series:
+  - series: filegrid_meter_readings_missing{job="api-files",instance="files-1:8000",region="north"}
+    values: 0 0 3 3 3 3 0 0 0 0
+  - series: filegrid_meter_readings_missing{job="api-files",instance="files-2:8000",region="north"}
+    values: 0 0 3 3 3 3 0 0 0 0
+  - series: filegrid_meter_readings_missing{job="api-files",instance="files-1:8000",region="south"}
+    values: 0+0x9
+  alert_rule_test:
+  - eval_time: 3m
+    alertname: MeterReadingsMissing
+    exp_alerts: []
+  - eval_time: 5m
+    alertname: MeterReadingsMissing
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        team: filegrid
+        category: METER_READING
+        region: north
+      exp_annotations:
+        summary: 'Meter readings missing in region north'
+        description: The worker reports internal reading gaps on recently active meters in this region for two
+          minutes. Every replica exports the same shared snapshot, so the maximum is used rather than a sum.
+  - eval_time: 9m
+    alertname: MeterReadingsMissing
+    exp_alerts: []
+- name: Document access failures above threshold fire and recover
+  interval: 1m
+  input_series:
+  - series: filegrid_document_access_total{job="api-files",instance="files-1:8000",action="download",outcome="failure"}
+    values: 0 3 6 9 12 15 15 15 15 15 15 15 15 15 15 15
+  - series: filegrid_document_access_total{job="api-files",instance="files-2:8000",action="download",outcome="failure"}
+    values: 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+  - series: filegrid_document_access_total{job="api-files",instance="files-1:8000",action="download",outcome="success"}
+    values: 0+100x15
+  alert_rule_test:
+  - eval_time: 3m
+    alertname: DocumentAccessAnomaly
+    exp_alerts: []
+  - eval_time: 6m
+    alertname: DocumentAccessAnomaly
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        team: filegrid
+        category: CONNECTION_DOCUMENT
+        action: download
+      exp_annotations:
+        summary: 'Document download failures are anomalous'
+        description: More than five document accesses failed within five minutes, summed over replicas. The backend
+          emits outcomes requested, success and failure only; failure means the access did not complete or verify.
+  - eval_time: 14m
+    alertname: DocumentAccessAnomaly
+    exp_alerts: []
+- name: Successful or low-volume document access never alerts
+  interval: 1m
+  input_series:
+  - series: filegrid_document_access_total{job="api-files",instance="files-1:8000",action="download",outcome="success"}
+    values: 0+50x15
+  - series: filegrid_document_access_total{job="api-files",instance="files-1:8000",action="view",outcome="failure"}
+    values: 0 1 1 2 2 3 3 3 3 3 3 3 3 3 3 3
+  alert_rule_test:
+  - eval_time: 8m
+    alertname: DocumentAccessAnomaly
+    exp_alerts: []

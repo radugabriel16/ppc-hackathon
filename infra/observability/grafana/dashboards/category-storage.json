@@ -33,7 +33,7 @@
     {
       "title": "Overview",
       "type": "link",
-      "url": "/d/filegrid-overview",
+      "url": "/grafana/d/filegrid-overview",
       "targetBlank": false,
       "includeVars": true,
       "keepTime": true
@@ -41,7 +41,7 @@
     {
       "title": "Category x Storage",
       "type": "link",
-      "url": "/d/filegrid-category-storage",
+      "url": "/grafana/d/filegrid-category-storage",
       "targetBlank": false,
       "includeVars": true,
       "keepTime": true
@@ -49,7 +49,7 @@
     {
       "title": "Meter ingestion",
       "type": "link",
-      "url": "/d/filegrid-meter-ingestion",
+      "url": "/grafana/d/filegrid-meter-ingestion",
       "targetBlank": false,
       "includeVars": true,
       "keepTime": true
@@ -57,7 +57,7 @@
     {
       "title": "Resilience",
       "type": "link",
-      "url": "/d/filegrid-resilience",
+      "url": "/grafana/d/filegrid-resilience",
       "targetBlank": false,
       "includeVars": true,
       "keepTime": true
@@ -65,7 +65,7 @@
     {
       "title": "Uploads",
       "type": "link",
-      "url": "/d/filegrid-uploads",
+      "url": "/grafana/d/filegrid-uploads",
       "targetBlank": false,
       "includeVars": true,
       "keepTime": true
@@ -241,7 +241,7 @@
       {
         "name": "successful_outcome",
         "label": "Successful outcome",
-        "description": "Exact outcome label emitted for successful storage operations. Section 4 does not define outcome values; confirm this default with the exporter.",
+        "description": "Successful storage-operation label. Verified value: success (backend/app/storage/resilience.py).",
         "type": "textbox",
         "query": "success",
         "current": {
@@ -275,7 +275,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "Select the same **operation** for fair storage comparisons; All combines operation distributions. Quantiles aggregate histogram **bucket rates by le/category/storage**, not averages of instance quantiles. Error fraction = (all operations − successful operations) / all operations. Set **Successful outcome** to the exporter’s exact success label; §4 does not define outcome values. If the success series is missing or there are no operations, the ratio stays **No data**, not a fabricated zero. Bytes are transferred I/O, not stored capacity. Missing matrix cells remain empty."
+        "content": "Select the same **operation** for fair storage comparisons; All combines operation distributions. Quantiles aggregate histogram **bucket rates by le/category/storage**, not averages of instance quantiles. Error fraction = (all operations − successful operations) / all operations. Set **Successful outcome** to the exporter’s exact success label; The backend emits `success` for successful operations (verified in storage/resilience.py). If the success series is missing or there are no operations, the ratio stays **No data**, not a fabricated zero. Bytes are transferred I/O, not stored capacity. Missing matrix cells remain empty."
       }
     },
     {

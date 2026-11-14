@@ -33,7 +33,7 @@
     {
       "title": "Overview",
       "type": "link",
-      "url": "/d/filegrid-overview",
+      "url": "/grafana/d/filegrid-overview",
       "targetBlank": false,
       "includeVars": true,
       "keepTime": true
@@ -41,7 +41,7 @@
     {
       "title": "Category x Storage",
       "type": "link",
-      "url": "/d/filegrid-category-storage",
+      "url": "/grafana/d/filegrid-category-storage",
       "targetBlank": false,
       "includeVars": true,
       "keepTime": true
@@ -49,7 +49,7 @@
     {
       "title": "Meter ingestion",
       "type": "link",
-      "url": "/d/filegrid-meter-ingestion",
+      "url": "/grafana/d/filegrid-meter-ingestion",
       "targetBlank": false,
       "includeVars": true,
       "keepTime": true
@@ -57,7 +57,7 @@
     {
       "title": "Resilience",
       "type": "link",
-      "url": "/d/filegrid-resilience",
+      "url": "/grafana/d/filegrid-resilience",
       "targetBlank": false,
       "includeVars": true,
       "keepTime": true
@@ -65,7 +65,7 @@
     {
       "title": "Uploads",
       "type": "link",
-      "url": "/d/filegrid-uploads",
+      "url": "/grafana/d/filegrid-uploads",
       "targetBlank": false,
       "includeVars": true,
       "keepTime": true
@@ -254,7 +254,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "Metrics: **PHASE1.md §4** · datasource **prometheus**. Histograms use standard `_bucket` / `_count` series. Job/instance scope every query; category/storage/operation scope storage panels, and category scopes availability/rejection panels. Ingestion and upload-session gauges have no category label. **No data is not a healthy zero.** Circuit values are raw because the numeric encoding is unspecified. Upload gauges are shown per exporter to avoid double-counting shared session inventories."
+        "content": "Metrics: **PHASE1.md §4** · datasource **prometheus**. Histograms use standard `_bucket` / `_count` series. Job/instance scope every query; category/storage/operation scope storage panels, and category scopes availability/rejection panels. Ingestion and upload-session gauges have no category label. **No data is not a healthy zero.** Circuit states follow the verified backend encoding: 0 closed, 1 half-open, 2 open. Upload gauges are shown per exporter to avoid double-counting shared session inventories."
       }
     },
     {
@@ -1186,9 +1186,9 @@
     },
     {
       "id": 13,
-      "title": "Circuit state by storage — raw encoding",
-      "description": "Raw per-exporter circuit gauge. Section 4 defines storage as the label but does not specify the numeric closed/open/half-open encoding. Values are not summed or mapped to guessed states.",
-      "type": "timeseries",
+      "title": "Circuit state per storage / exporter",
+      "description": "Backend encoding verified in storage/resilience.py: 0 closed, 1 half-open, 2 open. Exporters remain separate.",
+      "type": "state-timeline",
       "pluginVersion": "11.0.0",
       "datasource": {
         "type": "prometheus",
@@ -1205,56 +1205,64 @@
           "unit": "short",
           "noValue": "No data",
           "color": {
-            "mode": "palette-classic"
+            "mode": "thresholds"
           },
-          "mappings": [],
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Closed",
+                  "color": "green"
+                },
+                "1": {
+                  "text": "Half-open",
+                  "color": "yellow"
+                },
+                "2": {
+                  "text": "Open",
+                  "color": "red"
+                }
+              }
+            }
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
                 "color": "green",
                 "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 2
               }
             ]
           },
           "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "stepAfter",
-            "lineWidth": 2,
-            "fillOpacity": 0,
-            "showPoints": "never",
-            "spanNulls": false,
-            "axisPlacement": "auto",
-            "axisLabel": "",
-            "axisColorMode": "text",
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
+            "lineWidth": 1,
+            "fillOpacity": 80,
+            "spanNulls": false
           },
           "decimals": 0
         },
         "overrides": []
       },
       "options": {
+        "showValue": "always",
+        "alignValue": "left",
+        "mergeValues": true,
+        "rowHeight": 0.8,
         "legend": {
-          "showLegend": true,
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
+          "showLegend": false
         },
         "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
+          "mode": "single",
+          "sort": "none"
         }
       },
       "targets": [

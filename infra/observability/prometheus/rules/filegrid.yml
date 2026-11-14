@@ -1,0 +1,117 @@
+# Only metrics verified in backend/app/core/metrics.py, plus Prometheus up.
+# MeterReadingsMissing / DocumentAccessAnomaly are blocked by missing instruments;
+# see ../../MERGE_NOTES.md. Thresholds are explicit demo budgets, not agreed SLOs.
+groups:
+- name: filegrid
+  interval: 30s
+  rules:
+  - alert: MeterIngestErrors
+    expr: sum by (job) (increase(filegrid_meter_ingest_total{job="api-ingest",result=~"error|unavailable"}[5m]))
+      > 0
+    for: 2m
+    labels:
+      severity: critical
+      team: filegrid
+    annotations:
+      summary: Meter ingest failures on {{ $labels.job }}
+      description: Unexpected errors or storage-unavailable outcomes occurred within five minutes; duplicate/conflict/invalid
+        inputs are separate outcomes.
+  - alert: MeterConflicts
+    expr: sum by (job) (increase(filegrid_meter_ingest_total{job="api-ingest",result="conflict"}[5m])) > 0
+    for: 1m
+    labels:
+      severity: warning
+      team: filegrid
+    annotations:
+      summary: Conflicting meter payloads on {{ $labels.job }}
+      description: A reading key was reused with different content within five minutes. Identical duplicates do
+        not trigger this alert.
+  - alert: OutageNotAvailable
+    expr: histogram_quantile(0.95, sum by (le, category) (rate(filegrid_file_time_to_available_seconds_bucket{category="OUTAGE_RECORD"}[5m])))
+      > 5
+    for: 2m
+    labels:
+      severity: critical
+      team: filegrid
+    annotations:
+      summary: Outage availability p95 exceeds 5 seconds
+      description: Completed OUTAGE_RECORD observations have p95 time-to-available above five seconds. Pending files
+        are not represented by this histogram.
+  - alert: StorageCircuitOpen
+    expr: filegrid_circuit_state == 2
+    for: 1m
+    labels:
+      severity: critical
+      team: filegrid
+    annotations:
+      summary: 'Storage circuit open: {{ $labels.storage }}'
+      description: 'The circuit has remained open for one minute on {{ $labels.job }} / {{ $labels.instance }}.
+        Backend encoding: 0 closed, 1 half-open, 2 open.'
+  - alert: IntegrityFailure
+    expr: sum by (category, storage) (increase(filegrid_integrity_failures_total[5m])) > 0
+    for: 0m
+    labels:
+      severity: critical
+      team: filegrid
+    annotations:
+      summary: 'Integrity failure: {{ $labels.category }} / {{ $labels.storage }}'
+      description: At least one verified content mismatch was reported within five minutes. Inspect audit records
+        without including file contents or customer data in notifications.
+  - alert: VideoUploadsStalled
+    expr: filegrid_upload_sessions_stalled{job="worker"} > 0
+    for: 2m
+    labels:
+      severity: warning
+      team: filegrid
+      category: DRONE_VIDEO
+    annotations:
+      summary: Video uploads stalled on {{ $labels.instance }}
+      description: The worker reports stalled resumable sessions for two minutes. Current backend accepts only DRONE_VIDEO
+        uploads; its stall cutoff is ten minutes without progress.
+  - alert: CategoryLatencySLO
+    expr: (histogram_quantile(0.95, sum by (le, category) (rate(filegrid_storage_operation_duration_seconds_bucket{category="METER_READING"}[5m])))
+      > 0.25) or (histogram_quantile(0.95, sum by (le, category) (rate(filegrid_storage_operation_duration_seconds_bucket{category="OUTAGE_RECORD"}[5m])))
+      > 1) or (histogram_quantile(0.95, sum by (le, category) (rate(filegrid_storage_operation_duration_seconds_bucket{category="CONNECTION_DOCUMENT"}[5m])))
+      > 2.5) or (histogram_quantile(0.95, sum by (le, category) (rate(filegrid_storage_operation_duration_seconds_bucket{category="DRONE_VIDEO"}[5m])))
+      > 5)
+    for: 2m
+    labels:
+      severity: warning
+      team: filegrid
+    annotations:
+      summary: 'Storage p95 latency budget exceeded: {{ $labels.category }}'
+      description: 'p95 exceeds the demo category budget: METER_READING 0.25s, OUTAGE_RECORD 1s, CONNECTION_DOCUMENT
+        2.5s, DRONE_VIDEO 5s. Buckets combine storages, operations and outcomes within each category.'
+  - alert: InstanceDown
+    expr: (up{job=~"api-ingest|api-files|worker|simulator"} == 0) or absent(up{job="api-ingest"}) or absent(up{job="api-files"})
+      or absent(up{job="worker"}) or absent(up{job="simulator"})
+    for: 2m
+    labels:
+      severity: critical
+      team: filegrid
+    annotations:
+      summary: 'Metrics unavailable: {{ $labels.job }}'
+      description: A discovered exporter is down, or Docker DNS has removed every target for this job. Inspect service
+        replicas and the metrics listener.
+  - alert: MeterReadingsMissing
+    expr: max by (region) (filegrid_meter_readings_missing) > 0
+    for: 2m
+    labels:
+      severity: warning
+      team: filegrid
+      category: METER_READING
+    annotations:
+      summary: 'Meter readings missing in region {{ $labels.region }}'
+      description: The worker reports internal reading gaps on recently active meters in this region for two minutes.
+        Every replica exports the same shared snapshot, so the maximum is used rather than a sum.
+  - alert: DocumentAccessAnomaly
+    expr: sum by (action) (increase(filegrid_document_access_total{outcome="failure"}[5m])) > 5
+    for: 2m
+    labels:
+      severity: warning
+      team: filegrid
+      category: CONNECTION_DOCUMENT
+    annotations:
+      summary: 'Document {{ $labels.action }} failures are anomalous'
+      description: More than five document accesses failed within five minutes, summed over replicas. The backend
+        emits outcomes requested, success and failure only; failure means the access did not complete or verify.
