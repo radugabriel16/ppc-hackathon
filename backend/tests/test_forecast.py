@@ -116,6 +116,94 @@ def test_catalog_topology_does_not_change_per_meter_model_predictions(service, g
         service.predict_segment(history, SEGMENT)
 
 
+def test_tomorrow_bridge_preserves_observations_and_uses_model(service, golden_history):
+    from app.forecast.service import bridge_intraday
+
+    slots = golden_history.slots.copy()
+    slots[-1, :, 2:] = np.nan
+    history = History(
+        golden_history.meters, golden_history.start, golden_history.end,
+        slots, golden_history.arrival.copy(),
+    )
+    as_of = (history.end - pd.Timedelta(hours=10)).to_pydatetime()
+    bridged, mask = bridge_intraday(history, as_of)
+    assert mask.sum() == len(history.meters) * 2
+    np.testing.assert_array_equal(bridged.slots[-1, :, :2], slots[-1, :, :2])
+    np.testing.assert_allclose(
+        bridged.slots[-1, :, 2:], np.median(slots[[-8, -15, -22, -29], :, 2:], axis=0),
+    )
+    assert np.isnan(history.slots[-1, :, 2:]).all()
+    result = predict(service, history, SEGMENT, as_of=as_of)
+    assert result["bridged"] and result["bridge"]["persistedAsReadings"] is False
+    assert result["method"] == "hgb_smooth" and not result["fallbackUsed"]
+    assert all(p["bridged"] and not p["fallbackUsed"] for p in result["forecasts"])
+    expected = service.predict_segment(bridged, SEGMENT, include_meters=True)
+    assert [p["predictedEnergyKwh"] for p in result["forecasts"]] == [
+        p["predictedEnergyKwh"] for p in expected["forecasts"]
+    ]
+
+
+def test_bridge_does_not_hide_old_gaps_or_invent_sparse_profiles(service, golden_history):
+    slots = golden_history.slots.copy()
+    slots[-1, :, 3] = np.nan
+    slots[-2, 0, 0] = np.nan
+    slots[[-8, -15, -22], 1, 3] = np.nan
+    history = History(
+        golden_history.meters, golden_history.start, golden_history.end,
+        slots, golden_history.arrival,
+    )
+    as_of = (history.end - pd.Timedelta(hours=1)).to_pydatetime()
+    result = predict(service, history, SEGMENT, as_of=as_of)
+    assert result["meters"][0]["forecasts"][0]["fallbackUsed"]
+    observed = history.snapshot(history.end)[-28:, 0]
+    expected_baseline = observed[np.isfinite(observed)][-7:].mean()
+    assert result["meters"][0]["forecasts"][0]["predictedEnergyKwh"] == pytest.approx(
+        expected_baseline, abs=1e-6,
+    )
+    assert result["meters"][1]["forecasts"][0]["fallbackUsed"]
+    assert not result["meters"][2]["forecasts"][0]["fallbackUsed"]
+    historical = predict(service, history, SEGMENT, as_of=history.end.to_pydatetime())
+    assert not historical["bridged"]
+    assert all(m["forecasts"][0]["fallbackUsed"] for m in historical["meters"])
+
+
+def test_unknown_client_type_uses_model_without_inventing_metadata(service, golden_history):
+    metadata = golden_history.meters.copy()
+    metadata.loc[0, "client_type"] = None
+    history = History(
+        metadata, golden_history.start, golden_history.end,
+        golden_history.slots, golden_history.arrival,
+    )
+    result = predict(service, history, SEGMENT)
+    assert not result["fallbackUsed"] and result["method"] == "hgb_smooth"
+    assert result["unknownClientTypeMeters"] == 1
+    assert result["meters"][0]["clientTypeUnknown"]
+    assert metadata.loc[0, "client_type"] is None
+
+
+def test_eight_meter_subregion_uses_same_per_meter_model_and_sums(service, golden_history):
+    metadata = pd.concat([golden_history.meters, golden_history.meters.iloc[:1]], ignore_index=True)
+    metadata.loc[7, "id"] = str(uuid.uuid4())
+    metadata.loc[7, "external_code"] = "RO-MUNTENIA-1-008"
+    subregion = str(uuid.uuid4())
+    metadata["segment_id"] = subregion
+    metadata["segment"] = "MUNTENIA-1"
+    history = History(
+        metadata, golden_history.start, golden_history.end,
+        np.concatenate([golden_history.slots, golden_history.slots[:, :1]], axis=1),
+        np.concatenate([golden_history.arrival, golden_history.arrival[:, :1]], axis=1),
+    )
+    result = predict(service, history, subregion)
+    assert result["fallbackUsed"] is False
+    assert result["segmentId"] == subregion
+    assert len(result["meters"]) == 8
+    for day, point in enumerate(result["forecasts"]):
+        assert point["expectedMeters"] == point["eligibleMeters"] == 8
+        assert point["predictedEnergyKwh"] == pytest.approx(sum(
+            meter["forecasts"][day]["predictedEnergyKwh"] for meter in result["meters"]
+        ), abs=1e-5)
+
+
 def test_authentication_and_invalid_parameters(monkeypatch):
     from app.core.settings import get_settings
 

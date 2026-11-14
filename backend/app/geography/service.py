@@ -1,7 +1,13 @@
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.models.geography import NetworkAsset, Subregion
 from app.models.issues import MapIssue
+
+
+def point_geojson(column):
+    return func.json_build_object(
+        "type", "Point", "coordinates", func.json_build_array(func.ST_X(column), func.ST_Y(column)),
+    )
 
 
 def region_filter(model, region_id):

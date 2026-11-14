@@ -49,7 +49,8 @@ def api():
                 client.headers["X-CSRF-Token"] = client.cookies["filegrid_csrf"]
 
             def create(**changes):
-                asset = client.get(BASE + "/assets").json()["items"][0]
+                assets = client.get(BASE + "/assets?size=100").json()["items"]
+                asset = next(row for row in assets if row["code"].startswith("MUN-"))
                 return client.post(BASE + "/map-issues", json={
                     "assetId": asset["id"], "location": {
                         "type": "Point", "coordinates": [26.1, 44.4],
@@ -60,7 +61,7 @@ def api():
     finally:
         with Session(get_catalog_engine()) as db:
             db.execute(delete(AuditEvent).where(AuditEvent.request_id == run_id))
-            db.execute(delete(MapIssue).where(MapIssue.description == run_id))
+            db.execute(delete(MapIssue).where(MapIssue.description.endswith(run_id)))
             db.execute(delete(Alert).where(Alert.payload["labels"]["testRun"].astext == run_id))
             db.execute(delete(ScenarioRun).where(ScenarioRun.profile == run_id))
             db.execute(delete(UserSession).where(UserSession.id.in_(session_ids)))
@@ -146,7 +147,7 @@ def test_audit_failure_rolls_back_issue_mutation(api, operation):
     finally:
         event.remove(Session, "before_flush", reject_audit)
     with Session(get_catalog_engine()) as db:
-        rows = db.scalars(select(MapIssue).where(MapIssue.description == run_id)).all()
+        rows = db.scalars(select(MapIssue).where(MapIssue.description.endswith(run_id))).all()
         if operation == "create":
             assert rows == []
         else:

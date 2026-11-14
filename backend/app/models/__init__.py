@@ -7,6 +7,7 @@ from app.models.metering import Meter, MeterReading  # noqa: F401
 from app.models.outages import Outage  # noqa: F401
 from app.models.inspections import VideoInspection  # noqa: F401
 from app.models.issues import MapIssue  # noqa: F401
+from app.models.forecast import ForecastRun, SegmentThreshold  # noqa: F401
 from app.models.auth import AppUser, UserSession  # noqa: F401
 from app.models.audit import AuditEvent  # noqa: F401
 from app.models.uploads import UploadPart, UploadSession  # noqa: F401

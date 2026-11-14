@@ -134,6 +134,10 @@ def seed(session: Session) -> None:
             assets.append(asset)
     session.flush()
 
+    # Correct synthetic asset points before meter triggers copy their locations.
+    from fixtures.geography import seed_geography
+    seed_geography(session)
+
     # --- document types ------------------------------------------------------
     doc_types = []
     for dt in DOCUMENT_TYPES:
@@ -244,6 +248,7 @@ def seed(session: Session) -> None:
                 asset_id=asset.id,
                 location=point(26.11 + 0.01 * i, 44.43 + 0.01 * i),
                 description=f"Demo issue {i}",
+                is_historical=True,
                 severity=severities[i - 1],
                 status=IssueStatus.OPEN,
                 created_at=NOW - timedelta(days=i),
@@ -254,6 +259,8 @@ def seed(session: Session) -> None:
     session.flush()
     from fixtures.geography import seed_geography
     seed_geography(session)
+    from fixtures.meters import seed_meters
+    seed_meters(session)
     session.commit()
 
 

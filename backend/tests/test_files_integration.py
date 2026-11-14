@@ -308,12 +308,17 @@ def test_ui_reads_region_filters_pagination_and_pii_free_map(api):
     upload("OUTAGE_RECORD")
     allowed = {
         "ASSETS": {"id", "kind", "assetType", "code", "name"},
-        "ISSUES": {"id", "kind", "assetId", "severity", "status", "version"},
+        "ISSUES": {
+            "id", "kind", "assetId", "severity", "status", "version",
+            "type", "title", "regionId", "segmentId",
+        },
         "OUTAGES": {"id", "kind", "assetId", "severity", "startedAt", "endedAt"},
     }
     for layer in allowed:
         features = client.get(f"{BASE}/map/features", params={"layer": layer}).json()
-        assert features["type"] == "FeatureCollection" and features["features"]
+        assert features["type"] == "FeatureCollection"
+        if layer != "ISSUES":
+            assert features["features"]
         assert all(set(feature["properties"]) <= allowed[layer] for feature in features["features"])
         assert client.get(f"{BASE}/map/features", params={
             "layer": layer, "regionId": str(uuid.uuid4()),

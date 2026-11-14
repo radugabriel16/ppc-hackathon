@@ -19,6 +19,44 @@ UTC = timezone.utc
 CLIENT_TYPES = {"RESIDENTIAL", "COMMERCIAL", "INDUSTRIAL"}
 
 
+def last_complete_interval(now):
+    """Allow the generator's maximum two-minute delivery delay after each UTC slot."""
+    available = now - timedelta(minutes=2)
+    return available.replace(
+        hour=available.hour // 6 * 6, minute=0, second=0, microsecond=0,
+    )
+
+
+def finalize_history(connection, summary, completed_end, as_of):
+    from sqlalchemy import select, text
+    from sqlalchemy.orm import Session
+    from app.forecast.service import READINGS
+    from app.forecast.thresholds import calibrate_threshold
+    from app.models.geography import Subregion
+
+    with Session(connection) as db:
+        summary["thresholds"] = []
+        for segment in db.scalars(select(Subregion).order_by(Subregion.code)).all():
+            complete = db.execute(text(READINGS.replace(
+                "m.asset_id = :segment", "m.subregion_id = :segment",
+            )), {
+                "segment": segment.id, "start": completed_end - timedelta(hours=6),
+                "end": completed_end, "cutoff": as_of,
+            }).all()
+            expected = db.scalar(text(
+                "SELECT count(*) FROM meters WHERE subregion_id=:id"
+            ), {"id": segment.id})
+            if len(complete) != expected:
+                raise ValueError(f"Latest completed six-hour interval is incomplete for {segment.code}")
+            config = calibrate_threshold(db, segment.id, as_of)
+            summary["thresholds"].append({
+                "segment": segment.code, "dailyEnergyKwh": float(config.daily_energy_kwh),
+                "source": config.source, "calibration": config.calibration,
+            })
+        db.flush()
+    return summary
+
+
 def match_profiles(meters, profiles):
     """Reserve matching typed profiles first; never assign types to catalog meters."""
     used = set()
@@ -33,7 +71,15 @@ def match_profiles(meters, profiles):
             and (kind is None or profile["client_type"] == kind)
         ), None)
         if source is None:
-            raise ValueError(f"No unused history-v2 profile for {meter['external_code']}")
+            candidates = [
+                profile for profile in profiles if profile["region"] == meter["region"]
+                and (kind is None or profile["client_type"] == kind)
+            ]
+            if not candidates:
+                raise ValueError(f"No unused history-v2 profile for {meter['external_code']}")
+            # The delivered demo has 126 profiles; the catalog has 144 meters.
+            index = int(hashlib.sha256(meter["external_code"].encode()).hexdigest(), 16)
+            source = candidates[index % len(candidates)]
         used.add(source["id"])
         matches.append((meter, source))
     return matches
@@ -81,6 +127,7 @@ def seed_history(generator_source, schema_source, days, seed):
     from app.core.db import get_catalog_engine, get_storage_engine
 
     now = datetime.now(UTC)
+    completed_end = last_complete_interval(now)
     origin = (now - timedelta(minutes=10)).replace(hour=0, minute=0, second=0, microsecond=0)
     if origin.date().isoformat() < "2026-05-14":
         raise ValueError("The live model requires an origin on/after 2026-05-14")
@@ -90,6 +137,8 @@ def seed_history(generator_source, schema_source, days, seed):
         "synthetic": True, "generator": "filegrid-history-v2", "seed": seed,
         "start": start.isoformat(), "asOf": now.isoformat(),
         "origin": origin.date().isoformat(), "days": days,
+        "tomorrowOrigin": (now.date() + timedelta(days=1)).isoformat(),
+        "lastCompleteIntervalEnd": completed_end.isoformat(),
     }
     with get_catalog_engine().begin() as connection:
         db = connection.connection.driver_connection
@@ -98,7 +147,7 @@ def seed_history(generator_source, schema_source, days, seed):
             cursor.execute("LOCK TABLE meter_readings IN SHARE ROW EXCLUSIVE MODE")
             cursor.execute("""
                 SELECT m.id::text, m.external_code, c.client_type::text,
-                       a.id::text AS segment_id, r.id::text AS region_id, r.code AS region
+                       m.subregion_id::text AS segment_id, r.id::text AS region_id, r.code AS region
                 FROM meters m JOIN network_assets a ON a.id = m.asset_id
                 JOIN regions r ON r.id = a.region_id
                 LEFT JOIN clients c ON c.id = m.client_id
@@ -163,7 +212,7 @@ def seed_history(generator_source, schema_source, days, seed):
                             right = datetime.fromisoformat(row["interval_end"])
                             received = datetime.fromisoformat(row["received_at"])
                             # Do not backdate availability or write unfinished/future readings.
-                            if received > now:
+                            if right > completed_end or received > now:
                                 continue
                             for gap_start, gap_end in uncovered(left, right, intervals):
                                 energy = row["energy_kwh"] * ((gap_end - gap_start) / (right - left))
@@ -172,7 +221,9 @@ def seed_history(generator_source, schema_source, days, seed):
                                 ))
             summary["candidates"] = len(pending)
             if not pending:
-                return {**summary, "inserted": 0, "filesInserted": 0, "payloadsInserted": 0}
+                return finalize_history(connection, {
+                    **summary, "inserted": 0, "filesInserted": 0, "payloadsInserted": 0,
+                }, completed_end, now)
             cursor.execute("""
                 CREATE TEMP TABLE seed_history_readings (
                     id uuid, meter_id uuid, reading_key text, seq integer,
@@ -226,6 +277,7 @@ def seed_history(generator_source, schema_source, days, seed):
                 FROM seed_history_readings ON CONFLICT DO NOTHING
             """)
             summary["inserted"] = cursor.rowcount
+            finalize_history(connection, summary, completed_end, now)
     return summary
 
 

@@ -22,6 +22,7 @@ from app.jobs.orphans import delete_orphan_contents
 from app.jobs.maintenance import integrity_scrub, reconcile_files
 from app.jobs.meter_gaps import detect_meter_gaps
 from app.jobs.reminders import send_reminders
+from app.jobs.missing_documents import missing_document_issues
 from app.jobs.scheduling import job_run
 from app.models.enums import FileStatus
 from app.models.files import File
@@ -153,6 +154,7 @@ def worker_jobs(manager: PolicyManager, key: DocumentKey):
         ("reconcile_files", reconcile_files, (manager, key)),
         ("meter_gaps", detect_meter_gaps, ()),
         ("reminders", send_reminders, ()),
+        ("missing_document_issues", missing_document_issues, ()),
     )
 
 

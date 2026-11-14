@@ -31,6 +31,16 @@ class SeedHistoryTests(unittest.TestCase):
             (self.start + 4 * hour, self.end),
         ])
 
+    def test_latest_interval_accounts_for_delivery_delay_and_midnight(self):
+        self.assertEqual(seed_history.last_complete_interval(
+            self.end + timedelta(minutes=1),
+        ), self.start)
+        self.assertEqual(seed_history.last_complete_interval(
+            self.end + timedelta(minutes=2),
+        ), self.end)
+        self.assertEqual(seed_history.last_complete_interval(self.start),
+                         self.start - timedelta(hours=6))
+
     def test_repeat_after_filling_gaps_inserts_nothing(self):
         hour = timedelta(hours=1)
         existing = [(self.start + hour, self.start + 2 * hour)]
@@ -82,3 +92,14 @@ class SeedHistoryTests(unittest.TestCase):
         self.assertIsNone(untyped["client_type"])
         with self.assertRaisesRegex(ValueError, "No unused history-v2 profile"):
             seed_history.match_profiles([typed], profiles[:1])
+
+    def test_profiles_can_be_reused_deterministically_for_144_catalog_meters(self):
+        meters = [
+            {"id": str(index), "external_code": f"RO-BANAT-1-{index:03d}",
+             "region": "BANAT", "client_type": "RESIDENTIAL"}
+            for index in range(48)
+        ]
+        profiles = [{"id": "profile", "region": "BANAT", "client_type": "RESIDENTIAL"}]
+        matches = seed_history.match_profiles(meters, profiles)
+        self.assertEqual(len(matches), 48)
+        self.assertEqual(matches, seed_history.match_profiles(meters, profiles))

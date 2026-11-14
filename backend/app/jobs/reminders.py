@@ -36,6 +36,7 @@ def reminder_candidates():
             )
 
         issues = db.scalars(select(MapIssue.id).where(
+            MapIssue.is_historical.is_(False),
             MapIssue.status != IssueStatus.RESOLVED,
             MapIssue.created_at <= now() - timedelta(hours=settings.reminder_after_hours),
             unsent("issue", MapIssue.id),

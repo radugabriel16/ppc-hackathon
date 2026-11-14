@@ -166,6 +166,7 @@ paths:
       tags: [geography]
       summary: List meters, optionally filtered by region.
       parameters:
+        - $ref: "#/components/parameters/SegmentIdQuery"
         - $ref: "#/components/parameters/SubregionIdQuery"
         - $ref: "#/components/parameters/RegionIdQuery"
         - $ref: "#/components/parameters/Page"
@@ -186,6 +187,8 @@ paths:
       tags: [geography]
       summary: GeoJSON features for the map UI. Never exposes client name/email.
       parameters:
+        - $ref: "#/components/parameters/IncludeHistorical"
+        - $ref: "#/components/parameters/SegmentIdQuery"
         - $ref: "#/components/parameters/SubregionIdQuery"
         - $ref: "#/components/parameters/RegionIdQuery"
         - name: layer
@@ -232,6 +235,19 @@ paths:
       tags: [documents]
       summary: List connection cases, optionally filtered by region.
       parameters:
+        - $ref: "#/components/parameters/SegmentIdQuery"
+        - $ref: "#/components/parameters/SubregionIdQuery"
+        - $ref: "#/components/parameters/ClientIdQuery"
+        - $ref: "#/components/parameters/QueryFrom"
+        - $ref: "#/components/parameters/QueryTo"
+        - name: status
+          in: query
+          schema: {type: string, enum: [OPEN, CLOSED]}
+        - name: type
+          in: query
+          description: Filter cases with a linked non-historical issue of this type.
+          schema:
+            $ref: "#/components/schemas/IssueType"
         - $ref: "#/components/parameters/RegionIdQuery"
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/Size"
@@ -705,6 +721,19 @@ paths:
       tags: [map-issues]
       summary: List issues, optionally filtered by region and subregion.
       parameters:
+        - $ref: "#/components/parameters/IncludeHistorical"
+        - $ref: "#/components/parameters/SegmentIdQuery"
+        - $ref: "#/components/parameters/ClientIdQuery"
+        - $ref: "#/components/parameters/QueryFrom"
+        - $ref: "#/components/parameters/QueryTo"
+        - name: type
+          in: query
+          schema:
+            $ref: "#/components/schemas/IssueType"
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/IssueStatus"
         - $ref: "#/components/parameters/RegionIdQuery"
         - $ref: "#/components/parameters/SubregionIdQuery"
         - $ref: "#/components/parameters/Page"
@@ -785,6 +814,173 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+
+  /stats/issues:
+    get:
+      operationId: getIssueStats
+      tags: [stats]
+      summary: Counts by issue type and status, excluding historical issues by default.
+      parameters:
+        - $ref: "#/components/parameters/RegionIdQuery"
+        - $ref: "#/components/parameters/SegmentIdQuery"
+        - $ref: "#/components/parameters/IncludeHistorical"
+      responses:
+        "200":
+          description: Operational counts.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        type: {$ref: "#/components/schemas/IssueType"}
+                        status: {$ref: "#/components/schemas/IssueStatus"}
+                        count: {type: integer}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+
+  /clients/missing-documents:
+    get:
+      operationId: getClientsMissingDocuments
+      tags: [documents]
+      summary: Clients with incomplete READY-document checklists on connection cases.
+      parameters:
+        - $ref: "#/components/parameters/RegionIdQuery"
+        - $ref: "#/components/parameters/SegmentIdQuery"
+        - $ref: "#/components/parameters/SubregionIdQuery"
+        - name: status
+          in: query
+          description: Optional connection case status; both included by default.
+          schema: {type: string, enum: [OPEN, CLOSED]}
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: One row per client with missing document types per case.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PageMeta"
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ClientMissingDocuments"
+        "401": {$ref: "#/components/responses/Unauthorized"}
+
+  /forecast/runs:
+    post:
+      operationId: createForecastRun
+      tags: [stats]
+      summary: Persist forecasts for tomorrow and the next two UTC days within one scope.
+      description: >
+        Segment means geographical subregion (18 total, six per region), not network asset.
+        Inference runs in a worker thread, not the event loop; returns the completed run.
+        Only scoped meters are read/predicted. Baseline use is explicit. Operational
+        energy thresholds are kWh/day, not physical kW capacity or outage probability.
+        Exceedances create at most one issue and alert per segment/date across reruns.
+      security:
+        - cookieAuth: []
+          csrfHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForecastRunCreate"
+      responses:
+        "201":
+          description: Completed and persisted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForecastRun"
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "503":
+          description: Calculation failed; run remains queryable.
+          headers:
+            Location:
+              schema: {type: string}
+              description: URL of the persisted failed run.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+
+  /forecast/runs/{id}:
+    get:
+      operationId: getForecastRun
+      tags: [stats]
+      summary: Read a durable forecast run, its segment results and newly created issues.
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: Run state, including explicit failure details if failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForecastRun"
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "404": {$ref: "#/components/responses/NotFound"}
+
+  /forecast/thresholds:
+    get:
+      operationId: getForecastThresholds
+      tags: [stats]
+      summary: Configured daily operational energy thresholds per subregion.
+      responses:
+        "200":
+          description: All segment thresholds.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SegmentThreshold"
+        "401": {$ref: "#/components/responses/Unauthorized"}
+
+  /forecast/thresholds/{segmentId}:
+    put:
+      operationId: updateForecastThreshold
+      tags: [stats]
+      summary: Update a positive finite daily threshold (MANAGER only, audited).
+      security:
+        - cookieAuth: []
+          csrfHeader: []
+      parameters:
+        - name: segmentId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dailyEnergyKwh]
+              properties:
+                dailyEnergyKwh: {type: number, minimum: 0, exclusiveMinimum: true}
+      responses:
+        "200":
+          description: Saved threshold.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SegmentThreshold"
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "422": {$ref: "#/components/responses/ValidationError"}
 
   # ----------------------------------------------------------------- stats ---
   /stats/storage-benchmark:
@@ -1213,6 +1409,30 @@ components:
       description: Token from the `simulator_token` secret. Only accepted on /meter-readings/ingest.
 
   parameters:
+    IncludeHistorical:
+      name: includeHistorical
+      in: query
+      description: Include retained historical issues; true requires MANAGER.
+      schema: {type: boolean, default: false}
+    SegmentIdQuery:
+      name: segmentId
+      in: query
+      description: Geographic segment UUID; identical to subregionId.
+      schema: {type: string, format: uuid}
+    ClientIdQuery:
+      name: clientId
+      in: query
+      schema: {type: string, format: uuid}
+    QueryFrom:
+      name: from
+      in: query
+      description: Inclusive created/opened timestamp (UTC).
+      schema: {type: string, format: date-time}
+    QueryTo:
+      name: to
+      in: query
+      description: Exclusive created/opened timestamp; must follow from.
+      schema: {type: string, format: date-time}
     StatsFrom:
       name: from
       in: query
@@ -1318,6 +1538,86 @@ components:
             $ref: "#/components/schemas/Error"
 
   schemas:
+    IssueType:
+      type: string
+      enum: [OUTAGE_REPORT, OUTAGE_VIDEO, DRONE_DETECTED, ML_FORECAST, MISSING_DOCUMENTS]
+    ForecastRunCreate:
+      type: object
+      required: [scope]
+      description: >
+        country accepts no IDs; region requires only regionId; segment requires
+        segmentId and optionally a matching regionId.
+      properties:
+        scope: {type: string, enum: [country, region, segment]}
+        regionId: {type: string, format: uuid}
+        segmentId: {type: string, format: uuid}
+    SegmentThreshold:
+      type: object
+      description: >
+        Defaults use p95 of complete daily segment totals in the preceding 28 UTC
+        days times 1.03 (minimum 14 complete days). Explicit manager overrides
+        are preserved. Limits are daily energy, not physical kW capacity.
+      properties:
+        segmentId: {type: string, format: uuid}
+        regionId: {type: string, format: uuid}
+        dailyEnergyKwh: {type: number, minimum: 0, exclusiveMinimum: true}
+        source: {type: string, enum: [UNCONFIGURED, HISTORY_P95, MANUAL]}
+        calibration:
+          type: object
+          nullable: true
+          properties:
+            startInclusive: {type: string, format: date}
+            endExclusive: {type: string, format: date}
+            sampleDays: {type: integer}
+            percentile: {type: integer}
+            multiplier: {type: number}
+            p95Kwh: {type: number}
+            asOf: {type: string, format: date-time}
+    ForecastRun:
+      type: object
+      required: [id, scope, status, segments, createdIssues]
+      properties:
+        id: {type: string, format: uuid}
+        scope: {type: string, enum: [country, region, segment]}
+        regionId: {type: string, format: uuid, nullable: true}
+        segmentId: {type: string, format: uuid, nullable: true}
+        status: {type: string, enum: [RUNNING, COMPLETED, FAILED]}
+        createdAt: {type: string, format: date-time}
+        completedAt: {type: string, format: date-time, nullable: true}
+        error: {type: string, nullable: true}
+        segments:
+          type: array
+          items:
+            allOf:
+              - $ref: "#/components/schemas/SegmentForecast"
+              - type: object
+                properties:
+                  regionId: {type: string, format: uuid}
+                  thresholdKwh: {type: number}
+                  thresholdSource: {type: string, enum: [UNCONFIGURED, HISTORY_P95, MANUAL]}
+                  thresholdCalibration:
+                    type: object
+                    nullable: true
+                    additionalProperties: true
+        createdIssues:
+          type: array
+          items: {$ref: "#/components/schemas/MapIssue"}
+    ClientMissingDocuments:
+      type: object
+      properties:
+        clientId: {type: string, format: uuid}
+        externalCode: {type: string}
+        regionId: {type: string, format: uuid}
+        segmentId: {type: string, format: uuid, nullable: true}
+        cases:
+          type: array
+          items:
+            type: object
+            properties:
+              caseId: {type: string, format: uuid}
+              missingDocumentTypes:
+                type: array
+                items: {$ref: "#/components/schemas/DocumentType"}
     ForecastMetadata:
       type: object
       required: [schemaVersion, predictionKind, units, dataSource, origin, asOf,
@@ -1338,6 +1638,28 @@ components:
         uncertaintyIntervalsAvailable: {type: boolean, enum: [false]}
         predictsOutageProbability: {type: boolean, enum: [false]}
         fallbackUsed: {type: boolean}
+        bridged:
+          type: boolean
+          description: >
+            Tomorrow-origin forecasts may bridge missing slots of today only,
+            using the median of at least two matching slots from the prior four
+            same weekdays. Estimates remain private inference state, not readings
+            or baseline predictions; historical gaps are not bridged.
+        bridge:
+          type: object
+          nullable: true
+          properties:
+            method: {type: string, enum: [SAME_WEEKDAY_SLOT_MEDIAN]}
+            date: {type: string, format: date}
+            intervals: {type: integer, minimum: 1}
+            asOf: {type: string, format: date-time}
+            persistedAsReadings: {type: boolean, enum: [false]}
+        unknownClientTypeMeters:
+          type: integer
+          minimum: 0
+          description: >
+            Untyped meters use the model with all client-type indicators unset;
+            client metadata is never inferred or modified.
         generatedAt: {type: string, format: date-time}
     ForecastDay:
       type: object
@@ -1351,12 +1673,15 @@ components:
         changeVsReferencePct: {type: number, nullable: true}
         status: {type: string, enum: [READY, INSUFFICIENT_DATA]}
         fallbackUsed: {type: boolean}
+        bridged: {type: boolean}
     SegmentForecastDay:
       allOf:
         - $ref: "#/components/schemas/ForecastDay"
         - type: object
           required: [expectedMeters, eligibleMeters]
           properties:
+            thresholdKwh: {type: number}
+            excessKwh: {type: number, nullable: true}
             expectedMeters: {type: integer, minimum: 1}
             eligibleMeters: {type: integer, minimum: 0}
     MeterForecastDay:
@@ -1378,6 +1703,8 @@ components:
         meterId: {type: string, format: uuid}
         meter: {type: string}
         segmentId: {type: string, format: uuid}
+        bridged: {type: boolean}
+        clientTypeUnknown: {type: boolean}
         forecasts:
           type: array
           minItems: 3
@@ -1615,6 +1942,13 @@ components:
     Meter:
       type: object
       properties:
+        regionId: {type: string, format: uuid}
+        segmentId: {type: string, format: uuid, nullable: true}
+        location:
+          type: object
+          allOf:
+            - $ref: "#/components/schemas/GeoPoint"
+          nullable: true
         subregionId:
           type: string
           format: uuid
@@ -2032,6 +2366,17 @@ components:
       type: object
       required: [assetId, location, severity]
       properties:
+        type:
+          type: string
+          enum: [OUTAGE_REPORT, OUTAGE_VIDEO, DRONE_DETECTED]
+          default: OUTAGE_REPORT
+          description: ML_FORECAST and MISSING_DOCUMENTS are generated by the backend.
+        regionId: {type: string, format: uuid}
+        segmentId: {type: string, format: uuid}
+        subregionId: {type: string, format: uuid}
+        fileId: {type: string, format: uuid}
+        meterId: {type: string, format: uuid}
+        clientId: {type: string, format: uuid}
         assetId:
           type: string
           format: uuid
@@ -2064,6 +2409,16 @@ components:
     MapIssue:
       type: object
       properties:
+        type: {$ref: "#/components/schemas/IssueType"}
+        title: {type: string}
+        isHistorical: {type: boolean}
+        regionId: {type: string, format: uuid, nullable: true}
+        segmentId: {type: string, format: uuid, nullable: true}
+        fileId: {type: string, format: uuid, nullable: true}
+        meterId: {type: string, format: uuid, nullable: true}
+        clientId: {type: string, format: uuid, nullable: true}
+        caseId: {type: string, format: uuid, nullable: true}
+        forecastDate: {type: string, format: date, nullable: true}
         subregionId:
           type: string
           format: uuid

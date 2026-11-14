@@ -26,6 +26,7 @@ from app.documents.router import router as documents_router
 from app.documents.encryption import DocumentKey
 from app.files.router import router as files_router
 from app.forecast.router import router as forecast_router
+from app.forecast.runs import router as forecast_runs_router
 from app.forecast.service import ForecastRuntime
 from app.geography.router import router as geography_router
 from app.issues.router import router as issues_router
@@ -53,6 +54,7 @@ FILES_ROLE_ROUTERS = (
     alerts_router,
     stats_router,
     forecast_router,
+    forecast_runs_router,
 )
 
 

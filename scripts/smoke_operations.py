@@ -72,9 +72,10 @@ print(json.dumps({
         for path in ("/alerts/webhook", "/alerts/webhook/", "/alerts/%77ebhook"):
             request(path, "POST", {}, expected=404)
         login("operator")
-        _, assets = request("/assets")
+        _, assets = request("/assets?size=100")
+        asset = next(row for row in assets["items"] if row["code"].startswith("MUN-"))
         _, issue = request("/map-issues", "POST", {
-            "assetId": assets["items"][0]["id"], "severity": "HIGH",
+            "assetId": asset["id"], "severity": "HIGH",
             "description": run_id, "location": {"type": "Point", "coordinates": [26.1, 44.4]},
         }, expected=201)
         path = f"/map-issues/{issue['id']}/status"
@@ -176,7 +177,7 @@ from app.models.jobs import ScenarioRun
 data = json.load(sys.stdin)
 with Session(get_catalog_engine()) as db:
     db.execute(delete(AuditEvent).where(AuditEvent.request_id == data["runId"]))
-    db.execute(delete(MapIssue).where(MapIssue.description == data["runId"]))
+    db.execute(delete(MapIssue).where(MapIssue.description.endswith(data["runId"])))
     db.execute(delete(Alert).where(Alert.payload["labels"]["testRun"].astext == data["runId"]))
     db.execute(delete(ScenarioRun).where(ScenarioRun.profile == data["runId"]))
     db.execute(delete(UserSession).where(UserSession.id.in_([uuid.UUID(x) for x in data["sessions"]])))

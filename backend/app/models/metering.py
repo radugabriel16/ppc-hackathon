@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
+from geoalchemy2 import Geometry
 from sqlalchemy import CheckConstraint, ForeignKey, Index, Numeric, String, TIMESTAMP, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -12,6 +13,7 @@ from app.models.base import Base, UUIDPkMixin
 class Meter(UUIDPkMixin, Base):
     __tablename__ = "meters"
 
+    location = mapped_column(Geometry("POINT", srid=4326), nullable=True)
     subregion_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("subregions.id", ondelete="SET NULL"), index=True,
     )

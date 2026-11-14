@@ -3,16 +3,28 @@ import uuid
 from datetime import datetime
 
 from geoalchemy2 import Geometry
-from sqlalchemy import Enum, ForeignKey, Integer, String, TIMESTAMP, Text
+from sqlalchemy import Boolean, Date, Enum, ForeignKey, Integer, String, TIMESTAMP, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, UUIDPkMixin
-from app.models.enums import IssueSeverity, IssueStatus
+from app.models.enums import IssueSeverity, IssueStatus, IssueType
 
 
 class MapIssue(UUIDPkMixin, Base):
     __tablename__ = "map_issues"
 
+    is_historical: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"), index=True)
+    type: Mapped[IssueType] = mapped_column(
+        Enum(IssueType, name="issue_type"), default=IssueType.OUTAGE_REPORT,
+        server_default="OUTAGE_REPORT", nullable=False,
+    )
+    title: Mapped[str] = mapped_column(Text, default="Outage report", server_default="Outage report")
+    region_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("regions.id"), index=True)
+    file_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("files.id"), index=True)
+    meter_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("meters.id"), index=True)
+    client_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("clients.id"), index=True)
+    case_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("connection_cases.id"), index=True)
+    forecast_date = mapped_column(Date, nullable=True)
     subregion_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("subregions.id", ondelete="SET NULL"), index=True,
     )

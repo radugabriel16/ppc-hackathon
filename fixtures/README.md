@@ -20,7 +20,15 @@ from the seed for contract examples and demo/mock maps.
 
 Run `python -m fixtures.geography` from the backend container to re-seed geometry
 without deleting any history. Bootstrap also runs it after migrations and seeds.
-Meters use their asset's representative point; issues use their actual location.
+Meters have stored EPSG:4326 points; existing rows initially use their asset's
+representative point. `fixtures.meters.seed_meters` preserves existing meter IDs,
+codes and links and fills each of the 18 subregions to exactly eight meters
+(144 total), using deterministic IDs/codes and typed synthetic clients. It refuses
+to remove meters if a subregion already has more than eight. New segments without
+assets receive a deterministic LINE_SEGMENT asset. Threshold defaults are inserted
+only when absent, preserving manager configuration. Bootstrap runs this seed;
+`python -m fixtures.meters` can safely rerun it without resetting any history.
+Issues use their actual location.
 Files use linked meter/asset/client locations when available. Documents without
 a client location, and unlinked files, use their parent region's representative
 point. Boundary ties use the first subregion code (`ST_Covers`, not `ST_Contains`).

@@ -5,6 +5,7 @@ COPY backend/requirements-test.txt backend/requirements.txt /tmp/test-dependenci
 RUN pip install --no-cache-dir -q -r /tmp/test-dependencies/requirements-test.txt
 COPY backend/tests /app/backend/tests
 COPY backend/pytest.ini /app/backend/pytest.ini
+COPY scripts/seed_history.py /app/scripts/seed_history.py
 COPY model-ML/filegrid-history-v2 /app/model-ML/filegrid-history-v2
 COPY model-ML/filegrid-model-handoff/examples /app/model-ML/filegrid-model-handoff/examples
 USER 10001:10001

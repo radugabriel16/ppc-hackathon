@@ -70,13 +70,43 @@ def load_model(directory: Path | None = None) -> tuple[ForecastService | None, s
         return None, f"Forecast model unavailable: {exc}"
 
 
-def predict(service: ForecastService, history: History, segment: str) -> dict:
-    # Missing client types are not silently reclassified as residential.
+def bridge_intraday(history: History, as_of: datetime) -> tuple[History, np.ndarray]:
+    """Bridge only today's missing slots for tomorrow's origin, never old gaps."""
+    bridged = np.zeros(history.slots.shape, dtype=bool)
+    if history.end != pd.Timestamp(as_of).normalize() + pd.Timedelta(days=1):
+        return history, bridged
+    slots, arrival = history.slots.copy(), history.arrival.copy()
+    available = np.isfinite(slots) & (arrival <= pd.Timestamp(as_of).value)
+    slots[~available] = np.nan
+    day = len(slots) - 1
+    if day < 28:
+        return history, bridged
+    for meter in range(len(history.meters)):
+        for slot in range(4):
+            if available[day, meter, slot]:
+                continue
+            samples = slots[[day - offset for offset in (7, 14, 21, 28)], meter, slot]
+            samples = samples[np.isfinite(samples)]
+            if len(samples) < 2:
+                continue
+            slots[day, meter, slot] = np.median(samples)
+            arrival[day, meter, slot] = pd.Timestamp(as_of).value
+            bridged[day, meter, slot] = True
+    return History(history.meters, history.start, history.end, slots, arrival), bridged
+
+
+def predict(
+    service: ForecastService, history: History, segment: str, *, as_of: datetime | None = None,
+) -> dict:
+    # Unknown types retain all-zero model indicators; no catalog type is invented.
     known_types = history.meters.client_type.isin(
         ["RESIDENTIAL", "COMMERCIAL", "INDUSTRIAL"]
     ).to_numpy()
+    observed = history.snapshot(history.end)
+    history, bridged = bridge_intraday(history, as_of) if as_of else (
+        history, np.zeros(history.slots.shape, dtype=bool),
+    )
     slots = history.slots.copy()
-    slots[:, ~known_types, :] = np.nan
     for index in range(len(history.meters)):
         days = np.flatnonzero(np.isfinite(history.slots[:, index, :]).any(axis=1))
         if not len(days) or len(history.slots) - days[0] < 28:
@@ -87,17 +117,26 @@ def predict(service: ForecastService, history: History, segment: str) -> dict:
     result = service.predict_segment(
         model_history, segment, include_meters=True, expected_meters=len(history.meters)
     )
-    observed = history.snapshot(history.end)
     result["fallbackUsed"] = False
+    result["bridged"] = bool(bridged.any())
+    result["bridge"] = {
+        "method": "SAME_WEEKDAY_SLOT_MEDIAN",
+        "date": (history.end - pd.Timedelta(days=1)).date().isoformat(),
+        "intervals": int(bridged.sum()),
+        "asOf": as_of.isoformat(),
+        "persistedAsReadings": False,
+    } if bridged.any() else None
+    result["unknownClientTypeMeters"] = int((~known_types).sum())
     for meter in result["meters"]:
         index = history.meters.index[history.meters.id == meter["meterId"]][0]
+        meter["bridged"] = bool(bridged[:, index].any())
+        meter["clientTypeUnknown"] = not bool(known_types[index])
         recent = observed[-28:, index]
         recent = recent[np.isfinite(recent)][-7:]
         for point in meter["forecasts"]:
+            point["bridged"] = meter["bridged"]
             point["fallbackUsed"] = point["status"] != "READY"
-            point["fallbackReason"] = (
-                "INSUFFICIENT_HISTORY" if known_types[index] else "MISSING_CLIENT_TYPE"
-            ) if point["fallbackUsed"] else None
+            point["fallbackReason"] = "INSUFFICIENT_HISTORY" if point["fallbackUsed"] else None
             if point["fallbackUsed"]:
                 result["fallbackUsed"] = True
                 point.update(
@@ -110,6 +149,7 @@ def predict(service: ForecastService, history: History, segment: str) -> dict:
         meters = [meter["forecasts"][index] for meter in result["meters"]]
         complete = all(m["status"] == "READY" for m in meters)
         fallback = any(m["fallbackUsed"] for m in meters)
+        point["bridged"] = any(m["bridged"] for m in meters)
         point["fallbackUsed"] = fallback
         if fallback:
             point.update(
@@ -133,21 +173,35 @@ class ForecastRuntime:
         self.cache: OrderedDict[tuple[str, date], tuple[float, dict]] = OrderedDict()
 
     def get(self, db: Session, segment: str, origin: date) -> dict:
+        return self._get(db, segment, origin)
+
+    def get_subregion(self, db: Session, segment: str, origin: date) -> dict:
+        return self._get(db, segment, origin, subregion=True)
+
+    def _get(self, db: Session, segment: str, origin: date, *, subregion=False) -> dict:
         if self.service is None:
             raise HTTPException(503, {
                 "code": "FORECAST_UNAVAILABLE",
                 "message": self.error or "Forecast model unavailable",
             }, headers={"Retry-After": "300"})
-        key = (segment, origin)
+        key = (f"{'subregion' if subregion else 'asset'}:{segment}", origin)
         # Sync FastAPI handlers run in its threadpool; serialize the shared estimator
         # and bound both cache memory and duplicate concurrent predictions.
         with self.lock:
             cached = self.cache.get(key)
-            if cached and time.monotonic() - cached[0] < 300:
+            if not subregion and cached and time.monotonic() - cached[0] < 300:
                 self.cache.move_to_end(key)
                 return cached[1]
+            metadata_sql = METERS if not subregion else """
+                SELECT m.id::text, m.external_code, c.client_type::text,
+                       s.id::text AS segment_id, s.code AS segment, r.code AS region
+                FROM meters m JOIN subregions s ON s.id=m.subregion_id
+                JOIN regions r ON r.id=s.region_id
+                LEFT JOIN clients c ON c.id=m.client_id
+                WHERE s.id=:segment ORDER BY m.id
+            """
             meters = pd.DataFrame(db.execute(
-                text(METERS), {"segment": segment}
+                text(metadata_sql), {"segment": segment}
             ).mappings().all(), columns=[
                 "id", "external_code", "client_type", "segment_id", "segment", "region",
             ])
@@ -157,15 +211,27 @@ class ForecastRuntime:
                 })
             end = pd.Timestamp(origin, tz="UTC")
             start = end - pd.Timedelta(days=730)
-            readings = pd.DataFrame(db.execute(text(READINGS), {
+            readings_sql = READINGS.replace("m.asset_id = :segment", "m.subregion_id = :segment") if subregion else READINGS
+            cutoff = min(
+                (end + pd.Timedelta(minutes=10)).to_pydatetime(),
+                datetime.now(timezone.utc),
+            )
+            readings = pd.DataFrame(db.execute(text(readings_sql), {
                 "segment": segment, "start": start.to_pydatetime(),
                 "end": end.to_pydatetime(),
-                "cutoff": (end + pd.Timedelta(minutes=10)).to_pydatetime(),
+                "cutoff": cutoff,
             }).mappings().all(), columns=[
                 "meter_id", "interval_start", "interval_end", "energy_kwh", "received_at",
             ])
             history = History.from_frames(meters, readings, start, end)
-            result = predict(self.service, history, segment)
+            result = predict(self.service, history, segment, as_of=cutoff) if subregion else predict(
+                self.service, history, segment,
+            )
+            if subregion:
+                result["asOf"] = cutoff.isoformat()
+                result["lastCompletedDay"] = min(
+                    origin - timedelta(days=1), cutoff.date() - timedelta(days=1),
+                ).isoformat()
             self.cache[key] = (time.monotonic(), result)
             self.cache.move_to_end(key)
             while len(self.cache) > 128:

@@ -85,6 +85,24 @@ import type {
   PatchMapIssuesIdStatusData,
   PatchMapIssuesIdStatusResponses,
   PatchMapIssuesIdStatusErrors,
+  GetIssueStatsData,
+  GetIssueStatsResponses,
+  GetIssueStatsErrors,
+  GetClientsMissingDocumentsData,
+  GetClientsMissingDocumentsResponses,
+  GetClientsMissingDocumentsErrors,
+  CreateForecastRunData,
+  CreateForecastRunResponses,
+  CreateForecastRunErrors,
+  GetForecastRunData,
+  GetForecastRunResponses,
+  GetForecastRunErrors,
+  GetForecastThresholdsData,
+  GetForecastThresholdsResponses,
+  GetForecastThresholdsErrors,
+  UpdateForecastThresholdData,
+  UpdateForecastThresholdResponses,
+  UpdateForecastThresholdErrors,
   GetStatsStorageBenchmarkData,
   GetStatsStorageBenchmarkResponses,
   GetStatsStorageBenchmarkErrors,
@@ -808,6 +826,164 @@ export const patchMapIssuesIdStatus = <ThrowOnError extends boolean = false>(
       },
     ],
     url: "/map-issues/{id}/status",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Counts by issue type and status, excluding historical issues by default.
+ */
+export const getIssueStats = <ThrowOnError extends boolean = false>(
+  options?: Options<GetIssueStatsData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).get<
+    GetIssueStatsResponses,
+    GetIssueStatsErrors,
+    ThrowOnError
+  >({
+    security: [
+      {
+        in: "cookie",
+        name: "filegrid_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/stats/issues",
+    ...options,
+  });
+};
+
+/**
+ * Clients with incomplete READY-document checklists on connection cases.
+ */
+export const getClientsMissingDocuments = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<GetClientsMissingDocumentsData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).get<
+    GetClientsMissingDocumentsResponses,
+    GetClientsMissingDocumentsErrors,
+    ThrowOnError
+  >({
+    security: [
+      {
+        in: "cookie",
+        name: "filegrid_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/clients/missing-documents",
+    ...options,
+  });
+};
+
+/**
+ * Persist forecasts for tomorrow and the next two UTC days within one scope.
+ * Segment means geographical subregion (18 total, six per region), not network asset. Inference runs in a worker thread, not the event loop; returns the completed run. Only scoped meters are read/predicted. Baseline use is explicit. Operational energy thresholds are kWh/day, not physical kW capacity or outage probability. Exceedances create at most one issue and alert per segment/date across reruns.
+ *
+ */
+export const createForecastRun = <ThrowOnError extends boolean = false>(
+  options: Options<CreateForecastRunData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    CreateForecastRunResponses,
+    CreateForecastRunErrors,
+    ThrowOnError
+  >({
+    security: [
+      {
+        in: "cookie",
+        name: "filegrid_session",
+        type: "apiKey",
+      },
+      {
+        name: "X-CSRF-Token",
+        type: "apiKey",
+      },
+    ],
+    url: "/forecast/runs",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Read a durable forecast run, its segment results and newly created issues.
+ */
+export const getForecastRun = <ThrowOnError extends boolean = false>(
+  options: Options<GetForecastRunData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).get<
+    GetForecastRunResponses,
+    GetForecastRunErrors,
+    ThrowOnError
+  >({
+    security: [
+      {
+        in: "cookie",
+        name: "filegrid_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/forecast/runs/{id}",
+    ...options,
+  });
+};
+
+/**
+ * Configured daily operational energy thresholds per subregion.
+ */
+export const getForecastThresholds = <ThrowOnError extends boolean = false>(
+  options?: Options<GetForecastThresholdsData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).get<
+    GetForecastThresholdsResponses,
+    GetForecastThresholdsErrors,
+    ThrowOnError
+  >({
+    security: [
+      {
+        in: "cookie",
+        name: "filegrid_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/forecast/thresholds",
+    ...options,
+  });
+};
+
+/**
+ * Update a positive finite daily threshold (MANAGER only, audited).
+ */
+export const updateForecastThreshold = <ThrowOnError extends boolean = false>(
+  options: Options<UpdateForecastThresholdData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).put<
+    UpdateForecastThresholdResponses,
+    UpdateForecastThresholdErrors,
+    ThrowOnError
+  >({
+    security: [
+      {
+        in: "cookie",
+        name: "filegrid_session",
+        type: "apiKey",
+      },
+      {
+        name: "X-CSRF-Token",
+        type: "apiKey",
+      },
+    ],
+    url: "/forecast/thresholds/{segmentId}",
     ...options,
     headers: {
       "Content-Type": "application/json",

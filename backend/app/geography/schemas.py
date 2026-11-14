@@ -35,7 +35,15 @@ class AssetResource(ApiModel):
 
 class MeterResource(ApiModel):
     id: UUID
+    region_id: UUID
+    segment_id: UUID | None = None
+    location: dict | None = None
     subregion_id: UUID | None = None
     external_code: str
     asset_id: UUID
     client_id: UUID | None
+
+    @field_validator("location", mode="before")
+    @classmethod
+    def parse_location(cls, value):
+        return json.loads(value) if isinstance(value, str) else value

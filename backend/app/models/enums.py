@@ -53,6 +53,14 @@ class IssueStatus(str, enum.Enum):
     RESOLVED = "RESOLVED"
 
 
+class IssueType(str, enum.Enum):
+    OUTAGE_REPORT = "OUTAGE_REPORT"
+    OUTAGE_VIDEO = "OUTAGE_VIDEO"
+    DRONE_DETECTED = "DRONE_DETECTED"
+    ML_FORECAST = "ML_FORECAST"
+    MISSING_DOCUMENTS = "MISSING_DOCUMENTS"
+
+
 class UserRole(str, enum.Enum):
     OPERATOR = "OPERATOR"
     MANAGER = "MANAGER"
