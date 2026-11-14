@@ -1,0 +1,16 @@
+{
+  "id": "c017705f-d311-5da8-ac26-e307ad205031",
+  "regionId": "470e5894-87b3-5c00-89ef-56e643f0617d",
+  "category": "OUTAGE_RECORD",
+  "originalName": "outage-2026-01-10.json",
+  "mediaType": "application/json",
+  "sizeBytes": 4096,
+  "sha256": "d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2",
+  "storageBackend": "ftp",
+  "fallbackUsed": false,
+  "status": "READY",
+  "encrypted": false,
+  "createdAt": "2026-01-10T08:00:00Z",
+  "readyAt": "2026-01-10T08:00:02Z",
+  "lastVerifiedAt": "2026-01-10T08:00:02Z"
+}

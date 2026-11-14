@@ -1,0 +1,32 @@
+# FileGrid per-category storage policy.
+# Validated by backend/app/core/policy_schema.py at startup and on reload
+# (GET /api/v1/admin/policies, POST /api/v1/admin/policies/reload).
+#
+# Validation rules enforced in code:
+#   - resumable: true is only allowed when backend == s3
+#   - backend == db is only allowed when maxSizeBytes <= 1 MiB (1048576)
+#   - fallback (if set) must differ from backend
+categories:
+  METER_READING:
+    backend: db
+    maxSizeBytes: 51200
+    maxConcurrency: 200
+
+  OUTAGE_RECORD:
+    backend: ftp
+    fallback: s3
+    maxSizeBytes: 10485760
+    maxConcurrency: 32
+
+  CONNECTION_DOCUMENT:
+    backend: s3
+    encryption: aes-256-gcm
+    maxSizeBytes: 20971520
+    maxConcurrency: 16
+
+  DRONE_VIDEO:
+    backend: s3
+    resumable: true
+    chunkSizeBytes: 16777216
+    maxSizeBytes: 5368709120
+    maxConcurrency: 4

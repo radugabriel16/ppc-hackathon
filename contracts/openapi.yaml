@@ -1,0 +1,1736 @@
+openapi: 3.0.3
+info:
+  title: FileGrid API
+  version: "0.1.0"
+  description: >
+    FileGrid ingests four file categories for an electricity distribution
+    operator (METER_READING, OUTAGE_RECORD, CONNECTION_DOCUMENT, DRONE_VIDEO),
+    routes each to a configurable storage backend, guarantees integrity, and
+    exposes map/statistics views. See PHASE1.md for the build plan.
+servers:
+  - url: /api/v1
+tags:
+  - name: auth
+    description: Login, logout and session identity.
+  - name: geography
+    description: Regions, network assets, meters and map features.
+  - name: documents
+    description: Clients, connection cases and document-type references.
+  - name: files
+    description: Direct upload, listing, download and integrity verification of files.
+  - name: uploads
+    description: Resumable multipart upload protocol for large files.
+  - name: metering
+    description: Smart-meter reading ingest and queries.
+  - name: map-issues
+    description: Operator-reported issues pinned to network assets.
+  - name: stats
+    description: Storage/operational statistics and recommendations.
+  - name: policies
+    description: Per-category storage policy inspection and reload.
+  - name: admin
+    description: Administrative operations (simulator control, scenario runs, alerts).
+  - name: health
+    description: Liveness/readiness probes.
+  - name: observability
+    description: Prometheus metrics endpoint.
+
+security:
+  - cookieAuth: []
+
+paths:
+  # ---------------------------------------------------------------- auth ---
+  /auth/login:
+    post:
+      operationId: createAuthLogin
+      tags: [auth]
+      summary: Log in with username/password, start a cookie session.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Logged in; session cookie set.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /auth/logout:
+    post:
+      operationId: createAuthLogout
+      tags: [auth]
+      summary: Log out, invalidate the current session.
+      security:
+        - cookieAuth: []
+          csrfHeader: []
+      responses:
+        "204":
+          description: Logged out.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /auth/me:
+    get:
+      operationId: getAuthMe
+      tags: [auth]
+      summary: Current authenticated user.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ----------------------------------------------------------- geography ---
+  /regions:
+    get:
+      operationId: getRegions
+      tags: [geography]
+      summary: List regions (Muntenia, Banat, Dobrogea demo set).
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegionPage"
+              examples:
+                default:
+                  externalValue: "./examples/regions.json"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /assets:
+    get:
+      operationId: getAssets
+      tags: [geography]
+      summary: List network assets, optionally filtered by region.
+      parameters:
+        - $ref: "#/components/parameters/RegionIdQuery"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NetworkAssetPage"
+              examples:
+                default:
+                  externalValue: "./examples/assets.json"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /meters:
+    get:
+      operationId: getMeters
+      tags: [geography]
+      summary: List meters, optionally filtered by region.
+      parameters:
+        - $ref: "#/components/parameters/RegionIdQuery"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeterPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /map/features:
+    get:
+      operationId: getMapFeatures
+      tags: [geography]
+      summary: GeoJSON features for the map UI. Never exposes client name/email.
+      parameters:
+        - $ref: "#/components/parameters/RegionIdQuery"
+        - name: layer
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/MapLayer"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeoJsonFeatureCollection"
+              examples:
+                default:
+                  externalValue: "./examples/map-features.json"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ----------------------------------------------------------- documents ---
+  /clients:
+    get:
+      operationId: getClients
+      tags: [documents]
+      summary: List clients, optionally filtered by region.
+      parameters:
+        - $ref: "#/components/parameters/RegionIdQuery"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /connection-cases:
+    get:
+      operationId: getConnectionCases
+      tags: [documents]
+      summary: List connection cases, optionally filtered by region.
+      parameters:
+        - $ref: "#/components/parameters/RegionIdQuery"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectionCasePage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /connection-cases/{id}/documents:
+    get:
+      operationId: getConnectionCasesIdDocuments
+      tags: [documents]
+      summary: Document checklist for a connection case.
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CaseDocumentChecklist"
+              examples:
+                default:
+                  externalValue: "./examples/case-checklist.json"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /document-types:
+    get:
+      operationId: getDocumentTypes
+      tags: [documents]
+      summary: Reference list of connection-document types.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DocumentType"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ---------------------------------------------------------------- files ---
+  /files:
+    post:
+      operationId: createFiles
+      tags: [files]
+      summary: >
+        Upload a file directly (OUTAGE_RECORD, CONNECTION_DOCUMENT, or a
+        DRONE_VIDEO no larger than one chunk). METER_READING is never
+        accepted here; use /meter-readings/ingest. Larger DRONE_VIDEOs use
+        the resumable /uploads protocol.
+      security:
+        - cookieAuth: []
+          csrfHeader: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, metadata]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                metadata:
+                  $ref: "#/components/schemas/FileUploadMetadata"
+      responses:
+        "201":
+          description: Created; file is STAGING or VERIFYING.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileResource"
+              examples:
+                default:
+                  externalValue: "./examples/file.json"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          description: File exceeds the category's maxSizeBytes policy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    get:
+      operationId: getFiles
+      tags: [files]
+      summary: List files with filters.
+      parameters:
+        - $ref: "#/components/parameters/RegionIdQuery"
+        - name: category
+          in: query
+          schema:
+            $ref: "#/components/schemas/FileCategory"
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/FileStatus"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FilePage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /files/{id}:
+    get:
+      operationId: getFilesId
+      tags: [files]
+      summary: File metadata.
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileResource"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /files/{id}/download:
+    get:
+      operationId: getFilesIdDownload
+      tags: [files]
+      summary: >
+        Download the original bytes. Integrity is always verified: files
+        <=10MB are fully read and checked before sending; larger files are
+        hashed while streaming and the connection is aborted on mismatch.
+        CONNECTION_DOCUMENT downloads are audited.
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: File bytes.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: File is CORRUPT; integrity check failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /files/{id}/verify:
+    get:
+      operationId: getFilesIdVerify
+      tags: [files]
+      summary: Re-read (and decrypt if needed) the stored object and compare SHA-256.
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileVerifyResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # -------------------------------------------------------------- uploads ---
+  /uploads:
+    post:
+      operationId: createUploads
+      tags: [uploads]
+      summary: Start a resumable multipart upload session.
+      security:
+        - cookieAuth: []
+          csrfHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadSessionCreateRequest"
+      responses:
+        "201":
+          description: Upload session created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadSessionCreated"
+              examples:
+                default:
+                  externalValue: "./examples/upload-session.json"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /uploads/{id}/parts/{partNumber}:
+    put:
+      operationId: putUploadsIdPartsPartNumber
+      tags: [uploads]
+      summary: Upload one part (idempotent; re-sending the same part is a no-op).
+      security:
+        - cookieAuth: []
+          csrfHeader: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+        - name: partNumber
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - name: X-Part-SHA256
+          in: header
+          required: true
+          schema:
+            type: string
+            pattern: "^[0-9a-f]{64}$"
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: Part stored.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadPartResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          description: X-Part-SHA256 does not match the received bytes.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /uploads/{id}:
+    get:
+      operationId: getUploadsId
+      tags: [uploads]
+      summary: Upload session status and received parts.
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadSessionStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteUploadsId
+      tags: [uploads]
+      summary: Abort the upload session (aborts the S3 multipart upload too).
+      security:
+        - cookieAuth: []
+          csrfHeader: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "204":
+          description: Aborted.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /uploads/{id}/complete:
+    post:
+      operationId: createUploadsIdComplete
+      tags: [uploads]
+      summary: Complete the upload once all parts are received.
+      security:
+        - cookieAuth: []
+          csrfHeader: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sha256]
+              properties:
+                sha256:
+                  type: string
+                  pattern: "^[0-9a-f]{64}$"
+      responses:
+        "202":
+          description: Accepted; file moves to VERIFYING.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadCompleteResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Missing parts or part/session mismatch.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ------------------------------------------------------------- metering ---
+  /meter-readings/ingest:
+    post:
+      operationId: createMeterReadingsIngest
+      tags: [metering]
+      summary: >
+        Ingest one smart-meter reading. Only this endpoint accepts the
+        simulator bearer token. Idempotent on (meterExternalCode, readingKey).
+      security:
+        - simulatorBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeterReadingIngestRequest"
+            examples:
+              default:
+                externalValue: "./examples/meter-reading-ingest.json"
+      responses:
+        "201":
+          description: New reading stored.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeterReading"
+        "200":
+          description: Same readingKey + same SHA-256 (duplicate delivery).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeterReading"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: Same readingKey, different payload.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /meter-readings:
+    get:
+      operationId: getMeterReadings
+      tags: [metering]
+      summary: Query stored meter readings.
+      parameters:
+        - name: meterId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeterReadingPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ------------------------------------------------------------ map-issues ---
+  /map-issues:
+    post:
+      operationId: createMapIssues
+      tags: [map-issues]
+      summary: Report a new map issue pinned to a network asset.
+      security:
+        - cookieAuth: []
+          csrfHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MapIssueCreateRequest"
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MapIssue"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /map-issues/{id}/status:
+    patch:
+      operationId: patchMapIssuesIdStatus
+      tags: [map-issues]
+      summary: Update a map issue's status (optimistic concurrency via version).
+      security:
+        - cookieAuth: []
+          csrfHeader: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MapIssueStatusUpdateRequest"
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MapIssue"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Version conflict (stale `version`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ----------------------------------------------------------------- stats ---
+  /stats/storage-benchmark:
+    get:
+      operationId: getStatsStorageBenchmark
+      tags: [stats]
+      summary: Latency/throughput/error-rate comparison across storages and categories.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageBenchmarkStats"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /stats/recommendations:
+    get:
+      operationId: getStatsRecommendations
+      tags: [stats]
+      summary: Which storage fits which category, and why, based on observed data.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageRecommendations"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /stats/meters:
+    get:
+      operationId: getStatsMeters
+      tags: [stats]
+      summary: Patterns/anomalies in meter readings.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeterStats"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /stats/outages/hotspots:
+    get:
+      operationId: getStatsOutagesHotspots
+      tags: [stats]
+      summary: Assets/regions with the most outages.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OutageHotspots"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ----------------------------------------------------------------- admin ---
+  /admin/policies:
+    get:
+      operationId: getAdminPolicies
+      tags: [policies, admin]
+      summary: Current effective storage policy configuration.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PoliciesConfig"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /admin/policies/reload:
+    post:
+      operationId: createAdminPoliciesReload
+      tags: [policies, admin]
+      summary: Reload and re-validate config/policies.yaml from disk (MANAGER only, audited).
+      security:
+        - cookieAuth: []
+          csrfHeader: []
+      responses:
+        "200":
+          description: Reloaded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PoliciesConfig"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          description: New policy file failed validation; old policy kept active.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /admin/simulator/status:
+    get:
+      operationId: getAdminSimulatorStatus
+      tags: [admin]
+      summary: Smart-meter simulator status.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimulatorStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /admin/simulator/start:
+    post:
+      operationId: createAdminSimulatorStart
+      tags: [admin]
+      summary: Start the simulator with a given profile/volume.
+      security:
+        - cookieAuth: []
+          csrfHeader: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SimulatorStartRequest"
+      responses:
+        "202":
+          description: Accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimulatorStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /admin/simulator/stop:
+    post:
+      operationId: createAdminSimulatorStop
+      tags: [admin]
+      summary: Stop the simulator.
+      security:
+        - cookieAuth: []
+          csrfHeader: []
+      responses:
+        "202":
+          description: Accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimulatorStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /admin/simulator/backfill:
+    post:
+      operationId: createAdminSimulatorBackfill
+      tags: [admin]
+      summary: Backfill historical readings for demo purposes.
+      security:
+        - cookieAuth: []
+          csrfHeader: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SimulatorBackfillRequest"
+      responses:
+        "202":
+          description: Accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScenarioRun"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /admin/scenario-runs:
+    get:
+      operationId: getAdminScenarioRuns
+      tags: [admin]
+      summary: History of simulator/scenario runs.
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScenarioRunPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /alerts/recent:
+    get:
+      operationId: getAlertsRecent
+      tags: [admin]
+      summary: Recent automated alerts (business requirement breaches, section 4).
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Alert"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: filegrid_session
+    csrfHeader:
+      type: apiKey
+      in: header
+      name: X-CSRF-Token
+    simulatorBearer:
+      type: http
+      scheme: bearer
+      description: Token from the `simulator_token` secret. Only accepted on /meter-readings/ingest.
+
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    Size:
+      name: size
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 20
+    RegionIdQuery:
+      name: regionId
+      in: query
+      schema:
+        type: string
+        format: uuid
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    Unauthorized:
+      description: Not authenticated.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Authenticated but not authorized for this action.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource does not exist.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    ValidationError:
+      description: Request failed schema/business validation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    PayloadTooLarge:
+      description: Body exceeds the category's maxSizeBytes policy.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    ServiceUnavailable:
+      description: Bulkhead full or dependent storage down.
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    # ------------------------------------------------------------ errors ---
+    FieldError:
+      type: object
+      properties:
+        field:
+          type: string
+        message:
+          type: string
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        fieldErrors:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldError"
+        requestId:
+          type: string
+          nullable: true
+
+    # ----------------------------------------------------------- enums ---
+    FileCategory:
+      type: string
+      enum: [METER_READING, OUTAGE_RECORD, CONNECTION_DOCUMENT, DRONE_VIDEO]
+    StorageBackend:
+      type: string
+      enum: [db, ftp, s3]
+    FileStatus:
+      type: string
+      enum: [STAGING, VERIFYING, READY, FAILED, CORRUPT]
+    AssetType:
+      type: string
+      enum: [SUBSTATION, TRANSFORMER, LINE_SEGMENT]
+    ClientType:
+      type: string
+      enum: [RESIDENTIAL, COMMERCIAL, INDUSTRIAL]
+    CaseStatus:
+      type: string
+      enum: [OPEN, CLOSED]
+    IssueSeverity:
+      type: string
+      enum: [LOW, MEDIUM, HIGH, CRITICAL]
+    IssueStatus:
+      type: string
+      enum: [OPEN, IN_PROGRESS, RESOLVED]
+    UserRole:
+      type: string
+      enum: [OPERATOR, MANAGER]
+    MapLayer:
+      type: string
+      enum: [ASSETS, ISSUES, OUTAGES]
+
+    # ------------------------------------------------------------- auth ---
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+          format: password
+    Me:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        role:
+          $ref: "#/components/schemas/UserRole"
+
+    # -------------------------------------------------------- geography ---
+    GeoPoint:
+      type: object
+      description: GeoJSON Point, coordinates as [lon, lat].
+      properties:
+        type:
+          type: string
+          enum: [Point]
+        coordinates:
+          type: array
+          items:
+            type: number
+          minItems: 2
+          maxItems: 2
+    Region:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        center:
+          $ref: "#/components/schemas/GeoPoint"
+        bounds:
+          type: object
+          additionalProperties: true
+    RegionPage:
+      allOf:
+        - $ref: "#/components/schemas/PageMeta"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/Region"
+    NetworkAsset:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        regionId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        type:
+          $ref: "#/components/schemas/AssetType"
+        ratedCapacityKw:
+          type: number
+          nullable: true
+    NetworkAssetPage:
+      allOf:
+        - $ref: "#/components/schemas/PageMeta"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/NetworkAsset"
+    Meter:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        externalCode:
+          type: string
+        assetId:
+          type: string
+          format: uuid
+        clientId:
+          type: string
+          format: uuid
+          nullable: true
+    MeterPage:
+      allOf:
+        - $ref: "#/components/schemas/PageMeta"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/Meter"
+    GeoJsonFeature:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [Feature]
+        geometry:
+          type: object
+          additionalProperties: true
+        properties:
+          type: object
+          additionalProperties: true
+    GeoJsonFeatureCollection:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [FeatureCollection]
+        features:
+          type: array
+          items:
+            $ref: "#/components/schemas/GeoJsonFeature"
+
+    # --------------------------------------------------------- pagination ---
+    PageMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+        totalPages:
+          type: integer
+
+    # --------------------------------------------------------- documents ---
+    Client:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        regionId:
+          type: string
+          format: uuid
+        externalCode:
+          type: string
+        clientType:
+          $ref: "#/components/schemas/ClientType"
+    ClientPage:
+      allOf:
+        - $ref: "#/components/schemas/PageMeta"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/Client"
+    ConnectionCase:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        clientId:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/CaseStatus"
+        openedAt:
+          type: string
+          format: date-time
+        dueAt:
+          type: string
+          format: date-time
+          nullable: true
+    ConnectionCasePage:
+      allOf:
+        - $ref: "#/components/schemas/PageMeta"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/ConnectionCase"
+    DocumentType:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        requiredForConnection:
+          type: boolean
+    ClientDocument:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        caseId:
+          type: string
+          format: uuid
+        documentTypeId:
+          type: string
+          format: uuid
+        fileId:
+          type: string
+          format: uuid
+        uploadedAt:
+          type: string
+          format: date-time
+    CaseDocumentChecklist:
+      type: object
+      properties:
+        caseId:
+          type: string
+          format: uuid
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClientDocument"
+        missingDocumentTypes:
+          type: array
+          items:
+            $ref: "#/components/schemas/DocumentType"
+
+    # -------------------------------------------------------------- files ---
+    FileUploadMetadata:
+      description: >
+        oneOf by category. CONNECTION_DOCUMENT needs caseId+documentTypeId,
+        OUTAGE_RECORD needs assetId+startedAt+severity+description,
+        DRONE_VIDEO needs assetId+recordedAt. METER_READING is never
+        accepted on this endpoint.
+      oneOf:
+        - $ref: "#/components/schemas/ConnectionDocumentMetadata"
+        - $ref: "#/components/schemas/OutageRecordMetadata"
+        - $ref: "#/components/schemas/DroneVideoMetadata"
+      discriminator:
+        propertyName: category
+        mapping:
+          CONNECTION_DOCUMENT: "#/components/schemas/ConnectionDocumentMetadata"
+          OUTAGE_RECORD: "#/components/schemas/OutageRecordMetadata"
+          DRONE_VIDEO: "#/components/schemas/DroneVideoMetadata"
+    ConnectionDocumentMetadata:
+      type: object
+      required: [category, caseId, documentTypeId]
+      properties:
+        category:
+          type: string
+          enum: [CONNECTION_DOCUMENT]
+        caseId:
+          type: string
+          format: uuid
+        documentTypeId:
+          type: string
+          format: uuid
+    OutageRecordMetadata:
+      type: object
+      required: [category, assetId, startedAt, severity]
+      properties:
+        category:
+          type: string
+          enum: [OUTAGE_RECORD]
+        assetId:
+          type: string
+          format: uuid
+        startedAt:
+          type: string
+          format: date-time
+        severity:
+          type: string
+        description:
+          type: string
+          nullable: true
+    DroneVideoMetadata:
+      type: object
+      required: [category, assetId, recordedAt]
+      properties:
+        category:
+          type: string
+          enum: [DRONE_VIDEO]
+        assetId:
+          type: string
+          format: uuid
+        recordedAt:
+          type: string
+          format: date-time
+    FileResource:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        regionId:
+          type: string
+          format: uuid
+        category:
+          $ref: "#/components/schemas/FileCategory"
+        originalName:
+          type: string
+        mediaType:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+        sha256:
+          type: string
+        storageBackend:
+          $ref: "#/components/schemas/StorageBackend"
+        fallbackUsed:
+          type: boolean
+        status:
+          $ref: "#/components/schemas/FileStatus"
+        encrypted:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        readyAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastVerifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+    FilePage:
+      allOf:
+        - $ref: "#/components/schemas/PageMeta"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/FileResource"
+    FileVerifyResult:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        expectedSha256:
+          type: string
+        actualSha256:
+          type: string
+        checkedAt:
+          type: string
+          format: date-time
+
+    # ------------------------------------------------------------ uploads ---
+    UploadSessionCreateRequest:
+      type: object
+      required: [category, fileName, sizeBytes]
+      properties:
+        category:
+          $ref: "#/components/schemas/FileCategory"
+        fileName:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+        sha256:
+          type: string
+          nullable: true
+        metadata:
+          $ref: "#/components/schemas/FileUploadMetadata"
+    UploadSessionCreated:
+      type: object
+      properties:
+        uploadId:
+          type: string
+          format: uuid
+        chunkSize:
+          type: integer
+          format: int64
+        totalParts:
+          type: integer
+        expiresAt:
+          type: string
+          format: date-time
+    UploadPartResult:
+      type: object
+      properties:
+        partNumber:
+          type: integer
+        etag:
+          type: string
+    UploadSessionStatus:
+      type: object
+      properties:
+        status:
+          type: string
+        receivedParts:
+          type: array
+          items:
+            type: integer
+        totalParts:
+          type: integer
+    UploadCompleteResponse:
+      type: object
+      properties:
+        fileId:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/FileStatus"
+
+    # ----------------------------------------------------------- metering ---
+    MeterReadingIngestRequest:
+      type: object
+      required: [meterExternalCode, readingKey, seq, intervalStart, intervalEnd, energyKwh]
+      properties:
+        meterExternalCode:
+          type: string
+        readingKey:
+          type: string
+        seq:
+          type: integer
+        intervalStart:
+          type: string
+          format: date-time
+        intervalEnd:
+          type: string
+          format: date-time
+        energyKwh:
+          type: number
+    MeterReading:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        meterId:
+          type: string
+          format: uuid
+        readingKey:
+          type: string
+        seq:
+          type: integer
+        intervalStart:
+          type: string
+          format: date-time
+        intervalEnd:
+          type: string
+          format: date-time
+        energyKwh:
+          type: number
+        receivedAt:
+          type: string
+          format: date-time
+    MeterReadingPage:
+      allOf:
+        - $ref: "#/components/schemas/PageMeta"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/MeterReading"
+
+    # --------------------------------------------------------- map-issues ---
+    MapIssueCreateRequest:
+      type: object
+      required: [assetId, location, severity]
+      properties:
+        assetId:
+          type: string
+          format: uuid
+        videoInspectionId:
+          type: string
+          format: uuid
+          nullable: true
+        videoOffsetSeconds:
+          type: integer
+          nullable: true
+        location:
+          $ref: "#/components/schemas/GeoPoint"
+        description:
+          type: string
+          nullable: true
+        severity:
+          $ref: "#/components/schemas/IssueSeverity"
+    MapIssueStatusUpdateRequest:
+      type: object
+      required: [status, version]
+      properties:
+        status:
+          $ref: "#/components/schemas/IssueStatus"
+        assignedTeamLabel:
+          type: string
+          nullable: true
+        version:
+          type: integer
+          description: Must match the issue's current version (optimistic concurrency).
+    MapIssue:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        assetId:
+          type: string
+          format: uuid
+        location:
+          $ref: "#/components/schemas/GeoPoint"
+        description:
+          type: string
+          nullable: true
+        severity:
+          $ref: "#/components/schemas/IssueSeverity"
+        status:
+          $ref: "#/components/schemas/IssueStatus"
+        assignedTeamLabel:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        resolvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        version:
+          type: integer
+
+    # ------------------------------------------------------------- policies ---
+    CategoryPolicy:
+      type: object
+      properties:
+        backend:
+          $ref: "#/components/schemas/StorageBackend"
+        fallback:
+          $ref: "#/components/schemas/StorageBackend"
+        maxSizeBytes:
+          type: integer
+          format: int64
+        maxConcurrency:
+          type: integer
+        encryption:
+          type: string
+          nullable: true
+        resumable:
+          type: boolean
+        chunkSizeBytes:
+          type: integer
+          format: int64
+          nullable: true
+    PoliciesConfig:
+      type: object
+      properties:
+        categories:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/CategoryPolicy"
+
+    # --------------------------------------------------------------- stats ---
+    StorageBenchmarkStats:
+      type: object
+      description: Latency (p50/p95/p99), throughput and error rate per category/storage.
+      additionalProperties: true
+    StorageRecommendations:
+      type: object
+      description: Narrative + data-backed recommendation per category.
+      additionalProperties: true
+    MeterStats:
+      type: object
+      description: Patterns/anomalies observed in meter readings.
+      additionalProperties: true
+    OutageHotspots:
+      type: object
+      description: Assets/regions ranked by outage frequency.
+      additionalProperties: true
+
+    # --------------------------------------------------------------- admin ---
+    SimulatorStatus:
+      type: object
+      properties:
+        running:
+          type: boolean
+        profile:
+          type: string
+          nullable: true
+        readingsPerSecond:
+          type: number
+          nullable: true
+    SimulatorStartRequest:
+      type: object
+      properties:
+        profile:
+          type: string
+        readingsPerSecond:
+          type: number
+    SimulatorBackfillRequest:
+      type: object
+      properties:
+        profile:
+          type: string
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+    ScenarioRun:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        profile:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: string
+          format: date-time
+          nullable: true
+        counters:
+          type: object
+          additionalProperties: true
+    ScenarioRunPage:
+      allOf:
+        - $ref: "#/components/schemas/PageMeta"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/ScenarioRun"
+    Alert:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        severity:
+          type: string
+        message:
+          type: string
+        occurredAt:
+          type: string
+          format: date-time

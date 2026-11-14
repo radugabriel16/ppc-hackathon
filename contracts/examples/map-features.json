@@ -1,0 +1,27 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [26.1025, 44.4268] },
+      "properties": {
+        "id": "a2883034-0b23-51fa-850f-90fd86e825dd",
+        "kind": "ASSET",
+        "assetType": "SUBSTATION",
+        "code": "MUN-SUB-001",
+        "name": "Muntenia Substation 1"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [26.11, 44.43] },
+      "properties": {
+        "id": "f4f211f2-5c80-5cd5-894d-0ef4e5781a63",
+        "kind": "ISSUE",
+        "severity": "HIGH",
+        "status": "OPEN",
+        "assetId": "a2883034-0b23-51fa-850f-90fd86e825dd"
+      }
+    }
+  ]
+}

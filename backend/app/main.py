@@ -1,0 +1,113 @@
+"""FastAPI entrypoint. One image, three roles selected by env ROLE (PHASE1.md section 2)."""
+from __future__ import annotations
+
+import logging
+import time
+import uuid
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse, Response
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from sqlalchemy import text
+
+from app.core.db import get_catalog_engine
+from app.core.errors import register_exception_handlers
+from app.core.logging import configure_logging, set_request_id
+from app.core.metrics import REQUEST_DURATION_SECONDS
+from app.core.policy_schema import load_policies
+from app.core.settings import get_settings
+from app.documents.router import router as documents_router
+from app.files.router import router as files_router
+from app.geography.router import router as geography_router
+from app.issues.router import router as issues_router
+from app.jobs.worker import run_worker_loop
+from app.metering.router import router as metering_router
+from app.policies.router import router as policies_router
+from app.uploads.router import router as uploads_router
+from app.auth.router import router as auth_router
+
+logger = logging.getLogger("app.main")
+
+# "files" mounts every domain router except metering, which is ingest-only.
+FILES_ROLE_ROUTERS = (
+    auth_router,
+    geography_router,
+    documents_router,
+    files_router,
+    uploads_router,
+    issues_router,
+    policies_router,
+)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    settings = get_settings()
+    # Fail fast on a malformed policy file rather than at first request.
+    load_policies(settings.policies_path)
+
+    worker_task = None
+    if settings.role == "worker":
+        import asyncio
+
+        worker_task = asyncio.create_task(run_worker_loop())
+
+    yield
+
+    if worker_task is not None:
+        worker_task.cancel()
+
+
+def create_app() -> FastAPI:
+    settings = get_settings()
+    configure_logging(settings.log_level)
+
+    app = FastAPI(title="FileGrid API", version="0.1.0", lifespan=lifespan)
+    register_exception_handlers(app)
+
+    if settings.role == "ingest":
+        app.include_router(metering_router)
+    elif settings.role == "files":
+        for r in FILES_ROLE_ROUTERS:
+            app.include_router(r)
+    # ROLE=worker mounts no HTTP business routers; it only exposes health/metrics
+    # below and runs the background loop started in `lifespan`.
+
+    @app.middleware("http")
+    async def request_context_middleware(request: Request, call_next):
+        request_id = request.headers.get("X-Request-Id") or str(uuid.uuid4())
+        set_request_id(request_id)
+        start = time.perf_counter()
+        response: Response = await call_next(request)
+        duration = time.perf_counter() - start
+        status_class = f"{response.status_code // 100}xx"
+        REQUEST_DURATION_SECONDS.labels(
+            route=request.url.path, method=request.method, status_class=status_class
+        ).observe(duration)
+        response.headers["X-Request-Id"] = request_id
+        return response
+
+    @app.get("/health/live", tags=["health"])
+    async def health_live():
+        return {"status": "ok"}
+
+    @app.get("/health/ready", tags=["health"])
+    async def health_ready():
+        try:
+            engine = get_catalog_engine()
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("readiness check failed: %s", exc)
+            return JSONResponse(status_code=503, content={"status": "not_ready"})
+        return {"status": "ready"}
+
+    @app.get("/metrics", tags=["observability"])
+    async def metrics():
+        return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+    return app
+
+
+app = create_app()
