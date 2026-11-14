@@ -1,6 +1,7 @@
 """Meter and meter-reading models."""
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
 from sqlalchemy import CheckConstraint, ForeignKey, Index, Numeric, String, TIMESTAMP, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
@@ -36,7 +37,7 @@ class MeterReading(UUIDPkMixin, Base):
     seq: Mapped[int] = mapped_column(nullable=False)
     interval_start: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
     interval_end: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
-    energy_kwh: Mapped[float] = mapped_column(Numeric, nullable=False)
+    energy_kwh: Mapped[Decimal] = mapped_column(Numeric, nullable=False)
     file_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("files.id", ondelete="RESTRICT"), unique=True, nullable=False
     )

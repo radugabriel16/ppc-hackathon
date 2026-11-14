@@ -23,6 +23,11 @@ DUMMY_PASSWORD_HASH = PASSWORD_HASH.hash(secrets.token_urlsafe(32))
 
 
 @lru_cache
+def get_simulator_token() -> str:
+    return get_settings().storage_secret("simulator_token")
+
+
+@lru_cache
 def get_session_key() -> bytes:
     key = (Path(get_settings().secrets_dir) / "session_secret").read_bytes().strip()
     if len(key) < 32:

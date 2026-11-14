@@ -3,16 +3,29 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 
 from fastapi import Depends, HTTPException, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.auth.security import parse_session_cookie, tokens_match
+from app.auth.security import get_simulator_token, parse_session_cookie, tokens_match
 from app.core.db import get_catalog_db
 from app.core.settings import get_settings
 from app.models.auth import AppUser, UserSession
 from app.models.enums import UserRole
 
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+simulator_bearer = HTTPBearer(auto_error=False)
+
+
+def require_simulator_token(
+    credentials: HTTPAuthorizationCredentials | None = Depends(simulator_bearer),
+) -> None:
+    if credentials is None or not tokens_match(credentials.credentials, get_simulator_token()):
+        raise HTTPException(
+            status_code=401,
+            detail={"code": "UNAUTHENTICATED", "message": "A valid simulator token is required"},
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 
 def get_current_session(
