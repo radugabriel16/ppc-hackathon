@@ -1,0 +1,483 @@
+{
+  "selectedMethod": "hgb_smooth",
+  "validationStart": "2026-01-14T00:00:00+00:00",
+  "testStart": "2026-05-14T00:00:00+00:00",
+  "observationEndExclusive": "2026-11-14T00:00:00+00:00",
+  "selectionTrainingRows": 50148,
+  "finalTrainingRows": 65268,
+  "trainingRegions": [
+    "BANAT",
+    "DOBROGEA",
+    "MUNTENIA"
+  ],
+  "trainingMeters": 126,
+  "evaluationRegion": "DOBROGEA",
+  "evaluationMeters": 42,
+  "validationOrigins": 118,
+  "testOrigins": 182,
+  "test": {
+    "hgb_smooth": {
+      "horizons": {
+        "1": {
+          "meter": {
+            "rows": 7644,
+            "maeKwh": 2.1767830258656575,
+            "wape": 0.08556825699265048,
+            "rmseKwh": 8.125883510637838
+          },
+          "segment": {
+            "rows": 1092,
+            "maeKwh": 12.095593006212473,
+            "wape": 0.06792453414942441,
+            "rmseKwh": 22.16322814955545
+          },
+          "medianPerMeterWape": 0.07028790885506997,
+          "annualReferenceFraction": 1.0,
+          "predictionCoverage": 1.0
+        },
+        "2": {
+          "meter": {
+            "rows": 7644,
+            "maeKwh": 2.6764527438627472,
+            "wape": 0.1050953579948097,
+            "rmseKwh": 9.499089492583458
+          },
+          "segment": {
+            "rows": 1092,
+            "maeKwh": 14.77268557599563,
+            "wape": 0.08286771589822084,
+            "rmseKwh": 25.790518880627562
+          },
+          "medianPerMeterWape": 0.08482719611863722,
+          "annualReferenceFraction": 1.0,
+          "predictionCoverage": 1.0
+        },
+        "3": {
+          "meter": {
+            "rows": 7644,
+            "maeKwh": 2.9272879007386092,
+            "wape": 0.11486747532743899,
+            "rmseKwh": 10.39203996643606
+          },
+          "segment": {
+            "rows": 1092,
+            "maeKwh": 16.100434023685636,
+            "wape": 0.0902549815337909,
+            "rmseKwh": 28.320208148043402
+          },
+          "medianPerMeterWape": 0.09167164534978559,
+          "annualReferenceFraction": 1.0,
+          "predictionCoverage": 1.0
+        }
+      },
+      "meanSegmentWape": 0.08034907719381205
+    },
+    "seasonal_reference": {
+      "horizons": {
+        "1": {
+          "meter": {
+            "rows": 7644,
+            "maeKwh": 3.1658135633284012,
+            "wape": 0.12444655501205736,
+            "rmseKwh": 11.433190640529626
+          },
+          "segment": {
+            "rows": 1092,
+            "maeKwh": 17.265055686122142,
+            "wape": 0.09695439189640319,
+            "rmseKwh": 31.02354774899104
+          },
+          "medianPerMeterWape": 0.1063050839998365,
+          "annualReferenceFraction": 1.0,
+          "predictionCoverage": 1.0
+        },
+        "2": {
+          "meter": {
+            "rows": 7644,
+            "maeKwh": 3.234030863407044,
+            "wape": 0.12698958804163232,
+            "rmseKwh": 11.596498974901762
+          },
+          "segment": {
+            "rows": 1092,
+            "maeKwh": 17.613611609041374,
+            "wape": 0.09880395512724997,
+            "rmseKwh": 31.431128138068186
+          },
+          "medianPerMeterWape": 0.10801695512957518,
+          "annualReferenceFraction": 1.0,
+          "predictionCoverage": 1.0
+        },
+        "3": {
+          "meter": {
+            "rows": 7644,
+            "maeKwh": 3.270050433794521,
+            "wape": 0.12831755886689408,
+            "rmseKwh": 11.642010762187747
+          },
+          "segment": {
+            "rows": 1092,
+            "maeKwh": 17.738426909100863,
+            "wape": 0.09943715745576583,
+            "rmseKwh": 31.546159901820996
+          },
+          "medianPerMeterWape": 0.10934229680263191,
+          "annualReferenceFraction": 1.0,
+          "predictionCoverage": 1.0
+        }
+      },
+      "meanSegmentWape": 0.09839850149313967
+    },
+    "last_week": {
+      "horizons": {
+        "1": {
+          "meter": {
+            "rows": 7644,
+            "maeKwh": 3.467338773155416,
+            "wape": 0.13629936089011696,
+            "rmseKwh": 11.030810287977243
+          },
+          "segment": {
+            "rows": 1092,
+            "maeKwh": 18.43992347069597,
+            "wape": 0.10355203013649243,
+            "rmseKwh": 30.740622315444938
+          },
+          "medianPerMeterWape": 0.12220249571390684,
+          "annualReferenceFraction": 1.0,
+          "predictionCoverage": 1.0
+        },
+        "2": {
+          "meter": {
+            "rows": 7644,
+            "maeKwh": 3.4495141919152275,
+            "wape": 0.1354508984844974,
+            "rmseKwh": 10.934729995181309
+          },
+          "segment": {
+            "rows": 1092,
+            "maeKwh": 18.313635594322342,
+            "wape": 0.10273075560207115,
+            "rmseKwh": 30.485204523314213
+          },
+          "medianPerMeterWape": 0.12091315744475689,
+          "annualReferenceFraction": 1.0,
+          "predictionCoverage": 1.0
+        },
+        "3": {
+          "meter": {
+            "rows": 7644,
+            "maeKwh": 3.451940619309262,
+            "wape": 0.13545497312384028,
+            "rmseKwh": 10.938871352440763
+          },
+          "segment": {
+            "rows": 1092,
+            "maeKwh": 18.345267853479854,
+            "wape": 0.10283895508111557,
+            "rmseKwh": 30.502614789338217
+          },
+          "medianPerMeterWape": 0.12141327714785244,
+          "annualReferenceFraction": 1.0,
+          "predictionCoverage": 1.0
+        }
+      },
+      "meanSegmentWape": 0.10304058027322638
+    }
+  },
+  "validation": {
+    "seasonal_reference": {
+      "horizons": {
+        "1": {
+          "meter": {
+            "rows": 4956,
+            "maeKwh": 2.7978242691063047,
+            "wape": 0.10464889010491546,
+            "rmseKwh": 9.301277132263301
+          },
+          "segment": {
+            "rows": 708,
+            "maeKwh": 14.646708398317841,
+            "wape": 0.07826294547614461,
+            "rmseKwh": 25.87505073563871
+          },
+          "medianPerMeterWape": 0.09503667893839995,
+          "annualReferenceFraction": 1.0,
+          "predictionCoverage": 1.0
+        },
+        "2": {
+          "meter": {
+            "rows": 4956,
+            "maeKwh": 2.8176067449438276,
+            "wape": 0.10555297381424808,
+            "rmseKwh": 9.295570656937954
+          },
+          "segment": {
+            "rows": 708,
+            "maeKwh": 14.609949518095734,
+            "wape": 0.07818811994451744,
+            "rmseKwh": 25.74676738920465
+          },
+          "medianPerMeterWape": 0.09657031364420213,
+          "annualReferenceFraction": 1.0,
+          "predictionCoverage": 1.0
+        },
+        "3": {
+          "meter": {
+            "rows": 4956,
+            "maeKwh": 2.8346188431564863,
+            "wape": 0.10634372460835163,
+            "rmseKwh": 9.327086935924786
+          },
+          "segment": {
+            "rows": 708,
+            "maeKwh": 14.62155484369071,
+            "wape": 0.07836329970264998,
+            "rmseKwh": 25.77380906938537
+          },
+          "medianPerMeterWape": 0.09819575715604334,
+          "annualReferenceFraction": 1.0,
+          "predictionCoverage": 1.0
+        }
+      },
+      "meanSegmentWape": 0.07827145504110401
+    },
+    "last_week": {
+      "horizons": {
+        "1": {
+          "meter": {
+            "rows": 4956,
+            "maeKwh": 3.7540494743744954,
+            "wape": 0.14041522022314884,
+            "rmseKwh": 12.106094353100769
+          },
+          "segment": {
+            "rows": 708,
+            "maeKwh": 20.502615645480226,
+            "wape": 0.10955328984120791,
+            "rmseKwh": 34.504932704534475
+          },
+          "medianPerMeterWape": 0.12391967745793057,
+          "annualReferenceFraction": 1.0,
+          "predictionCoverage": 1.0
+        },
+        "2": {
+          "meter": {
+            "rows": 4956,
+            "maeKwh": 3.743216910209847,
+            "wape": 0.14022811281718006,
+            "rmseKwh": 12.100290167252458
+          },
+          "segment": {
+            "rows": 708,
+            "maeKwh": 20.367907758474576,
+            "wape": 0.10900300599026629,
+            "rmseKwh": 34.33779028349396
+          },
+          "medianPerMeterWape": 0.1238640841564832,
+          "annualReferenceFraction": 1.0,
+          "predictionCoverage": 1.0
+        },
+        "3": {
+          "meter": {
+            "rows": 4956,
+            "maeKwh": 3.7580785566989503,
+            "wape": 0.14098829267822025,
+            "rmseKwh": 12.175298514921627
+          },
+          "segment": {
+            "rows": 708,
+            "maeKwh": 20.43484956355932,
+            "wape": 0.10951928559217176,
+            "rmseKwh": 34.48784285912613
+          },
+          "medianPerMeterWape": 0.1239189230919751,
+          "annualReferenceFraction": 1.0,
+          "predictionCoverage": 1.0
+        }
+      },
+      "meanSegmentWape": 0.10935852714121531
+    },
+    "hgb_smooth": {
+      "horizons": {
+        "1": {
+          "meter": {
+            "rows": 4956,
+            "maeKwh": 2.0614916913628436,
+            "wape": 0.07710735082390897,
+            "rmseKwh": 6.4738230052773895
+          },
+          "segment": {
+            "rows": 708,
+            "maeKwh": 11.056029127228388,
+            "wape": 0.059076577565121614,
+            "rmseKwh": 18.251375681895954
+          },
+          "medianPerMeterWape": 0.0671356757069827,
+          "annualReferenceFraction": 1.0,
+          "predictionCoverage": 1.0
+        },
+        "2": {
+          "meter": {
+            "rows": 4956,
+            "maeKwh": 2.480244833740118,
+            "wape": 0.09291474704853249,
+            "rmseKwh": 7.921199413999731
+          },
+          "segment": {
+            "rows": 708,
+            "maeKwh": 13.30909218207287,
+            "wape": 0.07122631701058654,
+            "rmseKwh": 22.10996627389304
+          },
+          "medianPerMeterWape": 0.08316014532282578,
+          "annualReferenceFraction": 1.0,
+          "predictionCoverage": 1.0
+        },
+        "3": {
+          "meter": {
+            "rows": 4956,
+            "maeKwh": 2.652193312516511,
+            "wape": 0.09949983784073695,
+            "rmseKwh": 8.810183614877834
+          },
+          "segment": {
+            "rows": 708,
+            "maeKwh": 14.127108068676588,
+            "wape": 0.07571334344070293,
+            "rmseKwh": 24.54631684870929
+          },
+          "medianPerMeterWape": 0.09008544080254102,
+          "annualReferenceFraction": 1.0,
+          "predictionCoverage": 1.0
+        }
+      },
+      "meanSegmentWape": 0.06867207933880369
+    },
+    "hgb_flexible": {
+      "horizons": {
+        "1": {
+          "meter": {
+            "rows": 4956,
+            "maeKwh": 2.011220935061008,
+            "wape": 0.07522704014471031,
+            "rmseKwh": 6.296577133016411
+          },
+          "segment": {
+            "rows": 708,
+            "maeKwh": 10.973703291756484,
+            "wape": 0.058636679248203136,
+            "rmseKwh": 17.96923941148786
+          },
+          "medianPerMeterWape": 0.06704879638787015,
+          "annualReferenceFraction": 1.0,
+          "predictionCoverage": 1.0
+        },
+        "2": {
+          "meter": {
+            "rows": 4956,
+            "maeKwh": 2.441157614063663,
+            "wape": 0.09145046453913536,
+            "rmseKwh": 7.869892151903117
+          },
+          "segment": {
+            "rows": 708,
+            "maeKwh": 13.332547513817888,
+            "wape": 0.07135184299474867,
+            "rmseKwh": 22.309413400590117
+          },
+          "medianPerMeterWape": 0.08213539455833231,
+          "annualReferenceFraction": 1.0,
+          "predictionCoverage": 1.0
+        },
+        "3": {
+          "meter": {
+            "rows": 4956,
+            "maeKwh": 2.6629327575541,
+            "wape": 0.09990273948244485,
+            "rmseKwh": 8.84054213975917
+          },
+          "segment": {
+            "rows": 708,
+            "maeKwh": 14.526987476766921,
+            "wape": 0.07785647187239791,
+            "rmseKwh": 25.038219126309976
+          },
+          "medianPerMeterWape": 0.089681920175529,
+          "annualReferenceFraction": 1.0,
+          "predictionCoverage": 1.0
+        }
+      },
+      "meanSegmentWape": 0.06928166470511658
+    },
+    "ridge": {
+      "horizons": {
+        "1": {
+          "meter": {
+            "rows": 4956,
+            "maeKwh": 2.687880277269241,
+            "wape": 0.10053658153482513,
+            "rmseKwh": 7.942062944925665
+          },
+          "segment": {
+            "rows": 708,
+            "maeKwh": 14.195520185810347,
+            "wape": 0.07585207488907068,
+            "rmseKwh": 22.01939153874577
+          },
+          "medianPerMeterWape": 0.07921039826467913,
+          "annualReferenceFraction": 1.0,
+          "predictionCoverage": 1.0
+        },
+        "2": {
+          "meter": {
+            "rows": 4956,
+            "maeKwh": 3.083549276053091,
+            "wape": 0.11551569308749093,
+            "rmseKwh": 9.175088949088712
+          },
+          "segment": {
+            "rows": 708,
+            "maeKwh": 16.303933254136115,
+            "wape": 0.08725381886247308,
+            "rmseKwh": 25.41458690406091
+          },
+          "medianPerMeterWape": 0.09325517122398239,
+          "annualReferenceFraction": 1.0,
+          "predictionCoverage": 1.0
+        },
+        "3": {
+          "meter": {
+            "rows": 4956,
+            "maeKwh": 3.1775379333094,
+            "wape": 0.11920869704519604,
+            "rmseKwh": 9.50134045313643
+          },
+          "segment": {
+            "rows": 708,
+            "maeKwh": 16.779527693807044,
+            "wape": 0.0899288188975404,
+            "rmseKwh": 26.423023015632296
+          },
+          "medianPerMeterWape": 0.09849560496288888,
+          "annualReferenceFraction": 1.0,
+          "predictionCoverage": 1.0
+        }
+      },
+      "meanSegmentWape": 0.08434490421636139
+    }
+  },
+  "testPredictions": 22932,
+  "testSegmentPredictions": 3276,
+  "modelRefitDuringTest": false,
+  "generatorModified": false,
+  "notes": [
+    "Three daily forecasts issued together at 00:10 UTC, not three forecasts updated with future actuals",
+    "D+2 uses D+1 estimate; D+3 uses both prior estimates, never their actual values",
+    "Newly observed data from previous origins may enter the next origin, not the current 3-day rollout",
+    "All regions before cutoff train a shared model; this is not zero-shot regional validation",
+    "Dobrogea last six months were previously inspected in a one-day experiment; not a pristine project-wide holdout",
+    "No test-based hyperparameter changes or generator changes",
+    "Synthetic energy forecast, not outage probability, physical loading or calibrated uncertainty"
+  ]
+}

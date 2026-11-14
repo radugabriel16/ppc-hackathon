@@ -1,0 +1,14 @@
+-- Run from THIS package directory with psql in a NEW EMPTY database:
+-- psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f import_postgres.psql
+-- CSV files are generated locally by generate.py. No destructive reset is performed.
+\set ON_ERROR_STOP on
+\ir schema_postgres.sql
+BEGIN;
+\copy regiuni FROM 'data/regiuni.csv' WITH (FORMAT csv, HEADER true)
+\copy segmente FROM 'data/segmente.csv' WITH (FORMAT csv, HEADER true)
+\copy contoare FROM 'data/contoare.csv' WITH (FORMAT csv, HEADER true)
+\copy stats_contor FROM 'data/stats_contor.csv' WITH (FORMAT csv, HEADER true)
+\copy stats_avarii FROM 'data/stats_avarii.csv' WITH (FORMAT csv, HEADER true)
+\copy avarii_contoare FROM 'data/avarii_contoare.csv' WITH (FORMAT csv, HEADER true)
+\copy avarii_video FROM 'data/avarii_video.csv' WITH (FORMAT csv, HEADER true)
+COMMIT;

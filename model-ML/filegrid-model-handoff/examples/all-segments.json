@@ -1,0 +1,902 @@
+[
+  {
+    "schemaVersion": "1",
+    "predictionKind": "DAILY_ENERGY_FORECAST",
+    "units": "kWh/day",
+    "dataSource": "SYNTHETIC_DEMO",
+    "origin": "2026-11-14T00:00:00+00:00",
+    "asOf": "2026-11-14T00:10:00+00:00",
+    "lastCompletedDay": "2026-11-13",
+    "horizonDays": 3,
+    "method": "hgb_smooth",
+    "modelTrainingCutoff": "2026-05-14T00:00:00+00:00",
+    "uncertaintyIntervalsAvailable": false,
+    "predictsOutageProbability": false,
+    "segmentId": "2c680eef-7669-5d68-94ab-110dfcb1b4d1",
+    "segment": "SEG-001",
+    "region": "MUNTENIA",
+    "forecasts": [
+      {
+        "date": "2026-11-14",
+        "horizon": 1,
+        "predictedEnergyKwh": 216.140239,
+        "referenceEnergyKwh": 204.614898,
+        "changeVsReferencePct": 5.632699,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-15",
+        "horizon": 2,
+        "predictedEnergyKwh": 217.519575,
+        "referenceEnergyKwh": 202.056101,
+        "changeVsReferencePct": 7.65306,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-16",
+        "horizon": 3,
+        "predictedEnergyKwh": 263.341691,
+        "referenceEnergyKwh": 264.128415,
+        "changeVsReferencePct": -0.297857,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      }
+    ],
+    "modelVersion": "hgb_smooth:3a025fc48832"
+  },
+  {
+    "schemaVersion": "1",
+    "predictionKind": "DAILY_ENERGY_FORECAST",
+    "units": "kWh/day",
+    "dataSource": "SYNTHETIC_DEMO",
+    "origin": "2026-11-14T00:00:00+00:00",
+    "asOf": "2026-11-14T00:10:00+00:00",
+    "lastCompletedDay": "2026-11-13",
+    "horizonDays": 3,
+    "method": "hgb_smooth",
+    "modelTrainingCutoff": "2026-05-14T00:00:00+00:00",
+    "uncertaintyIntervalsAvailable": false,
+    "predictsOutageProbability": false,
+    "segmentId": "2920b9ff-cacf-5ad2-affa-11da75d4b5d2",
+    "segment": "SEG-005",
+    "region": "MUNTENIA",
+    "forecasts": [
+      {
+        "date": "2026-11-14",
+        "horizon": 1,
+        "predictedEnergyKwh": 150.277265,
+        "referenceEnergyKwh": 168.039467,
+        "changeVsReferencePct": -10.570256,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-15",
+        "horizon": 2,
+        "predictedEnergyKwh": 158.17214,
+        "referenceEnergyKwh": 169.694109,
+        "changeVsReferencePct": -6.789846,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-16",
+        "horizon": 3,
+        "predictedEnergyKwh": 254.311063,
+        "referenceEnergyKwh": 272.920008,
+        "changeVsReferencePct": -6.818461,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      }
+    ],
+    "modelVersion": "hgb_smooth:3a025fc48832"
+  },
+  {
+    "schemaVersion": "1",
+    "predictionKind": "DAILY_ENERGY_FORECAST",
+    "units": "kWh/day",
+    "dataSource": "SYNTHETIC_DEMO",
+    "origin": "2026-11-14T00:00:00+00:00",
+    "asOf": "2026-11-14T00:10:00+00:00",
+    "lastCompletedDay": "2026-11-13",
+    "horizonDays": 3,
+    "method": "hgb_smooth",
+    "modelTrainingCutoff": "2026-05-14T00:00:00+00:00",
+    "uncertaintyIntervalsAvailable": false,
+    "predictsOutageProbability": false,
+    "segmentId": "48bca92b-d38d-5d7e-9376-7a46adcd8f28",
+    "segment": "SEG-015",
+    "region": "DOBROGEA",
+    "forecasts": [
+      {
+        "date": "2026-11-14",
+        "horizon": 1,
+        "predictedEnergyKwh": 76.684821,
+        "referenceEnergyKwh": 80.017334,
+        "changeVsReferencePct": -4.164739,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-15",
+        "horizon": 2,
+        "predictedEnergyKwh": 77.075662,
+        "referenceEnergyKwh": 78.747742,
+        "changeVsReferencePct": -2.123337,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-16",
+        "horizon": 3,
+        "predictedEnergyKwh": 73.32016,
+        "referenceEnergyKwh": 74.149623,
+        "changeVsReferencePct": -1.118634,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      }
+    ],
+    "modelVersion": "hgb_smooth:3a025fc48832"
+  },
+  {
+    "schemaVersion": "1",
+    "predictionKind": "DAILY_ENERGY_FORECAST",
+    "units": "kWh/day",
+    "dataSource": "SYNTHETIC_DEMO",
+    "origin": "2026-11-14T00:00:00+00:00",
+    "asOf": "2026-11-14T00:10:00+00:00",
+    "lastCompletedDay": "2026-11-13",
+    "horizonDays": 3,
+    "method": "hgb_smooth",
+    "modelTrainingCutoff": "2026-05-14T00:00:00+00:00",
+    "uncertaintyIntervalsAvailable": false,
+    "predictsOutageProbability": false,
+    "segmentId": "fde297ee-bb71-528d-89fe-9a3690d17977",
+    "segment": "SEG-016",
+    "region": "DOBROGEA",
+    "forecasts": [
+      {
+        "date": "2026-11-14",
+        "horizon": 1,
+        "predictedEnergyKwh": 154.071155,
+        "referenceEnergyKwh": 158.963941,
+        "changeVsReferencePct": -3.077922,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-15",
+        "horizon": 2,
+        "predictedEnergyKwh": 154.194379,
+        "referenceEnergyKwh": 158.765832,
+        "changeVsReferencePct": -2.879368,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-16",
+        "horizon": 3,
+        "predictedEnergyKwh": 199.832351,
+        "referenceEnergyKwh": 206.744347,
+        "changeVsReferencePct": -3.343258,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      }
+    ],
+    "modelVersion": "hgb_smooth:3a025fc48832"
+  },
+  {
+    "schemaVersion": "1",
+    "predictionKind": "DAILY_ENERGY_FORECAST",
+    "units": "kWh/day",
+    "dataSource": "SYNTHETIC_DEMO",
+    "origin": "2026-11-14T00:00:00+00:00",
+    "asOf": "2026-11-14T00:10:00+00:00",
+    "lastCompletedDay": "2026-11-13",
+    "horizonDays": 3,
+    "method": "hgb_smooth",
+    "modelTrainingCutoff": "2026-05-14T00:00:00+00:00",
+    "uncertaintyIntervalsAvailable": false,
+    "predictsOutageProbability": false,
+    "segmentId": "67046cac-b982-5a4a-b552-e80ab83dfb48",
+    "segment": "SEG-004",
+    "region": "MUNTENIA",
+    "forecasts": [
+      {
+        "date": "2026-11-14",
+        "horizon": 1,
+        "predictedEnergyKwh": 580.921655,
+        "referenceEnergyKwh": 536.071582,
+        "changeVsReferencePct": 8.366434,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-15",
+        "horizon": 2,
+        "predictedEnergyKwh": 573.846687,
+        "referenceEnergyKwh": 552.306946,
+        "changeVsReferencePct": 3.899958,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-16",
+        "horizon": 3,
+        "predictedEnergyKwh": 622.871969,
+        "referenceEnergyKwh": 628.722217,
+        "changeVsReferencePct": -0.930498,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      }
+    ],
+    "modelVersion": "hgb_smooth:3a025fc48832"
+  },
+  {
+    "schemaVersion": "1",
+    "predictionKind": "DAILY_ENERGY_FORECAST",
+    "units": "kWh/day",
+    "dataSource": "SYNTHETIC_DEMO",
+    "origin": "2026-11-14T00:00:00+00:00",
+    "asOf": "2026-11-14T00:10:00+00:00",
+    "lastCompletedDay": "2026-11-13",
+    "horizonDays": 3,
+    "method": "hgb_smooth",
+    "modelTrainingCutoff": "2026-05-14T00:00:00+00:00",
+    "uncertaintyIntervalsAvailable": false,
+    "predictsOutageProbability": false,
+    "segmentId": "382cae4c-bfd2-51e6-9931-b2c1e041f43c",
+    "segment": "SEG-009",
+    "region": "BANAT",
+    "forecasts": [
+      {
+        "date": "2026-11-14",
+        "horizon": 1,
+        "predictedEnergyKwh": 119.082671,
+        "referenceEnergyKwh": 114.208966,
+        "changeVsReferencePct": 4.267358,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-15",
+        "horizon": 2,
+        "predictedEnergyKwh": 119.012924,
+        "referenceEnergyKwh": 120.924459,
+        "changeVsReferencePct": -1.580767,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-16",
+        "horizon": 3,
+        "predictedEnergyKwh": 167.710417,
+        "referenceEnergyKwh": 168.579654,
+        "changeVsReferencePct": -0.515624,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      }
+    ],
+    "modelVersion": "hgb_smooth:3a025fc48832"
+  },
+  {
+    "schemaVersion": "1",
+    "predictionKind": "DAILY_ENERGY_FORECAST",
+    "units": "kWh/day",
+    "dataSource": "SYNTHETIC_DEMO",
+    "origin": "2026-11-14T00:00:00+00:00",
+    "asOf": "2026-11-14T00:10:00+00:00",
+    "lastCompletedDay": "2026-11-13",
+    "horizonDays": 3,
+    "method": "hgb_smooth",
+    "modelTrainingCutoff": "2026-05-14T00:00:00+00:00",
+    "uncertaintyIntervalsAvailable": false,
+    "predictsOutageProbability": false,
+    "segmentId": "2955b0aa-ebdf-5453-ab7d-90cc043f04f1",
+    "segment": "SEG-013",
+    "region": "DOBROGEA",
+    "forecasts": [
+      {
+        "date": "2026-11-14",
+        "horizon": 1,
+        "predictedEnergyKwh": 283.575728,
+        "referenceEnergyKwh": 274.016514,
+        "changeVsReferencePct": 3.488554,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-15",
+        "horizon": 2,
+        "predictedEnergyKwh": 283.492586,
+        "referenceEnergyKwh": 271.513654,
+        "changeVsReferencePct": 4.411908,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-16",
+        "horizon": 3,
+        "predictedEnergyKwh": 323.11034,
+        "referenceEnergyKwh": 330.695457,
+        "changeVsReferencePct": -2.293686,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      }
+    ],
+    "modelVersion": "hgb_smooth:3a025fc48832"
+  },
+  {
+    "schemaVersion": "1",
+    "predictionKind": "DAILY_ENERGY_FORECAST",
+    "units": "kWh/day",
+    "dataSource": "SYNTHETIC_DEMO",
+    "origin": "2026-11-14T00:00:00+00:00",
+    "asOf": "2026-11-14T00:10:00+00:00",
+    "lastCompletedDay": "2026-11-13",
+    "horizonDays": 3,
+    "method": "hgb_smooth",
+    "modelTrainingCutoff": "2026-05-14T00:00:00+00:00",
+    "uncertaintyIntervalsAvailable": false,
+    "predictsOutageProbability": false,
+    "segmentId": "f539a8fb-f818-5f3c-9c6d-26ca937b049f",
+    "segment": "SEG-007",
+    "region": "BANAT",
+    "forecasts": [
+      {
+        "date": "2026-11-14",
+        "horizon": 1,
+        "predictedEnergyKwh": 101.680857,
+        "referenceEnergyKwh": 98.996068,
+        "changeVsReferencePct": 2.712016,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-15",
+        "horizon": 2,
+        "predictedEnergyKwh": 102.195778,
+        "referenceEnergyKwh": 103.321809,
+        "changeVsReferencePct": -1.089829,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-16",
+        "horizon": 3,
+        "predictedEnergyKwh": 97.094562,
+        "referenceEnergyKwh": 94.009862,
+        "changeVsReferencePct": 3.281252,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      }
+    ],
+    "modelVersion": "hgb_smooth:3a025fc48832"
+  },
+  {
+    "schemaVersion": "1",
+    "predictionKind": "DAILY_ENERGY_FORECAST",
+    "units": "kWh/day",
+    "dataSource": "SYNTHETIC_DEMO",
+    "origin": "2026-11-14T00:00:00+00:00",
+    "asOf": "2026-11-14T00:10:00+00:00",
+    "lastCompletedDay": "2026-11-13",
+    "horizonDays": 3,
+    "method": "hgb_smooth",
+    "modelTrainingCutoff": "2026-05-14T00:00:00+00:00",
+    "uncertaintyIntervalsAvailable": false,
+    "predictsOutageProbability": false,
+    "segmentId": "0343762d-7bf4-5ffe-87c3-859692b835b3",
+    "segment": "SEG-006",
+    "region": "MUNTENIA",
+    "forecasts": [
+      {
+        "date": "2026-11-14",
+        "horizon": 1,
+        "predictedEnergyKwh": 81.590821,
+        "referenceEnergyKwh": 82.637695,
+        "changeVsReferencePct": -1.266823,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-15",
+        "horizon": 2,
+        "predictedEnergyKwh": 81.868074,
+        "referenceEnergyKwh": 81.730756,
+        "changeVsReferencePct": 0.168013,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-16",
+        "horizon": 3,
+        "predictedEnergyKwh": 91.762592,
+        "referenceEnergyKwh": 92.145928,
+        "changeVsReferencePct": -0.41601,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      }
+    ],
+    "modelVersion": "hgb_smooth:3a025fc48832"
+  },
+  {
+    "schemaVersion": "1",
+    "predictionKind": "DAILY_ENERGY_FORECAST",
+    "units": "kWh/day",
+    "dataSource": "SYNTHETIC_DEMO",
+    "origin": "2026-11-14T00:00:00+00:00",
+    "asOf": "2026-11-14T00:10:00+00:00",
+    "lastCompletedDay": "2026-11-13",
+    "horizonDays": 3,
+    "method": "hgb_smooth",
+    "modelTrainingCutoff": "2026-05-14T00:00:00+00:00",
+    "uncertaintyIntervalsAvailable": false,
+    "predictsOutageProbability": false,
+    "segmentId": "319bae21-fa16-566c-996b-6b55613639de",
+    "segment": "SEG-003",
+    "region": "MUNTENIA",
+    "forecasts": [
+      {
+        "date": "2026-11-14",
+        "horizon": 1,
+        "predictedEnergyKwh": 451.497601,
+        "referenceEnergyKwh": 408.999328,
+        "changeVsReferencePct": 10.390793,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-15",
+        "horizon": 2,
+        "predictedEnergyKwh": 437.382607,
+        "referenceEnergyKwh": 415.448018,
+        "changeVsReferencePct": 5.279743,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-16",
+        "horizon": 3,
+        "predictedEnergyKwh": 592.814137,
+        "referenceEnergyKwh": 612.529576,
+        "changeVsReferencePct": -3.218692,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      }
+    ],
+    "modelVersion": "hgb_smooth:3a025fc48832"
+  },
+  {
+    "schemaVersion": "1",
+    "predictionKind": "DAILY_ENERGY_FORECAST",
+    "units": "kWh/day",
+    "dataSource": "SYNTHETIC_DEMO",
+    "origin": "2026-11-14T00:00:00+00:00",
+    "asOf": "2026-11-14T00:10:00+00:00",
+    "lastCompletedDay": "2026-11-13",
+    "horizonDays": 3,
+    "method": "hgb_smooth",
+    "modelTrainingCutoff": "2026-05-14T00:00:00+00:00",
+    "uncertaintyIntervalsAvailable": false,
+    "predictsOutageProbability": false,
+    "segmentId": "357912a0-348b-50fd-a159-31324ca6a424",
+    "segment": "SEG-002",
+    "region": "MUNTENIA",
+    "forecasts": [
+      {
+        "date": "2026-11-14",
+        "horizon": 1,
+        "predictedEnergyKwh": 204.698553,
+        "referenceEnergyKwh": 198.072476,
+        "changeVsReferencePct": 3.345279,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-15",
+        "horizon": 2,
+        "predictedEnergyKwh": 201.176144,
+        "referenceEnergyKwh": 192.23,
+        "changeVsReferencePct": 4.653875,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-16",
+        "horizon": 3,
+        "predictedEnergyKwh": 304.108955,
+        "referenceEnergyKwh": 300.91744,
+        "changeVsReferencePct": 1.060595,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      }
+    ],
+    "modelVersion": "hgb_smooth:3a025fc48832"
+  },
+  {
+    "schemaVersion": "1",
+    "predictionKind": "DAILY_ENERGY_FORECAST",
+    "units": "kWh/day",
+    "dataSource": "SYNTHETIC_DEMO",
+    "origin": "2026-11-14T00:00:00+00:00",
+    "asOf": "2026-11-14T00:10:00+00:00",
+    "lastCompletedDay": "2026-11-13",
+    "horizonDays": 3,
+    "method": "hgb_smooth",
+    "modelTrainingCutoff": "2026-05-14T00:00:00+00:00",
+    "uncertaintyIntervalsAvailable": false,
+    "predictsOutageProbability": false,
+    "segmentId": "21a975b0-3df4-55f6-8477-143b6f92970a",
+    "segment": "SEG-011",
+    "region": "BANAT",
+    "forecasts": [
+      {
+        "date": "2026-11-14",
+        "horizon": 1,
+        "predictedEnergyKwh": 125.931521,
+        "referenceEnergyKwh": 120.152544,
+        "changeVsReferencePct": 4.8097,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-15",
+        "horizon": 2,
+        "predictedEnergyKwh": 123.840637,
+        "referenceEnergyKwh": 120.530361,
+        "changeVsReferencePct": 2.746425,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-16",
+        "horizon": 3,
+        "predictedEnergyKwh": 177.5077,
+        "referenceEnergyKwh": 180.148965,
+        "changeVsReferencePct": -1.466156,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      }
+    ],
+    "modelVersion": "hgb_smooth:3a025fc48832"
+  },
+  {
+    "schemaVersion": "1",
+    "predictionKind": "DAILY_ENERGY_FORECAST",
+    "units": "kWh/day",
+    "dataSource": "SYNTHETIC_DEMO",
+    "origin": "2026-11-14T00:00:00+00:00",
+    "asOf": "2026-11-14T00:10:00+00:00",
+    "lastCompletedDay": "2026-11-13",
+    "horizonDays": 3,
+    "method": "hgb_smooth",
+    "modelTrainingCutoff": "2026-05-14T00:00:00+00:00",
+    "uncertaintyIntervalsAvailable": false,
+    "predictsOutageProbability": false,
+    "segmentId": "c1e2e5e5-d98a-51ce-9179-e536415dad7b",
+    "segment": "SEG-012",
+    "region": "BANAT",
+    "forecasts": [
+      {
+        "date": "2026-11-14",
+        "horizon": 1,
+        "predictedEnergyKwh": 370.470874,
+        "referenceEnergyKwh": 365.35747,
+        "changeVsReferencePct": 1.399562,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-15",
+        "horizon": 2,
+        "predictedEnergyKwh": 367.188569,
+        "referenceEnergyKwh": 381.481499,
+        "changeVsReferencePct": -3.74669,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-16",
+        "horizon": 3,
+        "predictedEnergyKwh": 678.20468,
+        "referenceEnergyKwh": 698.502681,
+        "changeVsReferencePct": -2.90593,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      }
+    ],
+    "modelVersion": "hgb_smooth:3a025fc48832"
+  },
+  {
+    "schemaVersion": "1",
+    "predictionKind": "DAILY_ENERGY_FORECAST",
+    "units": "kWh/day",
+    "dataSource": "SYNTHETIC_DEMO",
+    "origin": "2026-11-14T00:00:00+00:00",
+    "asOf": "2026-11-14T00:10:00+00:00",
+    "lastCompletedDay": "2026-11-13",
+    "horizonDays": 3,
+    "method": "hgb_smooth",
+    "modelTrainingCutoff": "2026-05-14T00:00:00+00:00",
+    "uncertaintyIntervalsAvailable": false,
+    "predictsOutageProbability": false,
+    "segmentId": "577d9c17-df87-51fb-870e-e5ae9a3eb4f5",
+    "segment": "SEG-018",
+    "region": "DOBROGEA",
+    "forecasts": [
+      {
+        "date": "2026-11-14",
+        "horizon": 1,
+        "predictedEnergyKwh": 175.662182,
+        "referenceEnergyKwh": 175.693612,
+        "changeVsReferencePct": -0.017889,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-15",
+        "horizon": 2,
+        "predictedEnergyKwh": 174.923875,
+        "referenceEnergyKwh": 177.611103,
+        "changeVsReferencePct": -1.512984,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-16",
+        "horizon": 3,
+        "predictedEnergyKwh": 296.32353,
+        "referenceEnergyKwh": 302.369382,
+        "changeVsReferencePct": -1.999492,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      }
+    ],
+    "modelVersion": "hgb_smooth:3a025fc48832"
+  },
+  {
+    "schemaVersion": "1",
+    "predictionKind": "DAILY_ENERGY_FORECAST",
+    "units": "kWh/day",
+    "dataSource": "SYNTHETIC_DEMO",
+    "origin": "2026-11-14T00:00:00+00:00",
+    "asOf": "2026-11-14T00:10:00+00:00",
+    "lastCompletedDay": "2026-11-13",
+    "horizonDays": 3,
+    "method": "hgb_smooth",
+    "modelTrainingCutoff": "2026-05-14T00:00:00+00:00",
+    "uncertaintyIntervalsAvailable": false,
+    "predictsOutageProbability": false,
+    "segmentId": "ef80aa12-f93b-5b2b-a114-f9a0d2e8d43b",
+    "segment": "SEG-010",
+    "region": "BANAT",
+    "forecasts": [
+      {
+        "date": "2026-11-14",
+        "horizon": 1,
+        "predictedEnergyKwh": 193.511353,
+        "referenceEnergyKwh": 187.766089,
+        "changeVsReferencePct": 3.059799,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-15",
+        "horizon": 2,
+        "predictedEnergyKwh": 198.849827,
+        "referenceEnergyKwh": 194.000558,
+        "changeVsReferencePct": 2.499616,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-16",
+        "horizon": 3,
+        "predictedEnergyKwh": 329.666107,
+        "referenceEnergyKwh": 334.796548,
+        "changeVsReferencePct": -1.532406,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      }
+    ],
+    "modelVersion": "hgb_smooth:3a025fc48832"
+  },
+  {
+    "schemaVersion": "1",
+    "predictionKind": "DAILY_ENERGY_FORECAST",
+    "units": "kWh/day",
+    "dataSource": "SYNTHETIC_DEMO",
+    "origin": "2026-11-14T00:00:00+00:00",
+    "asOf": "2026-11-14T00:10:00+00:00",
+    "lastCompletedDay": "2026-11-13",
+    "horizonDays": 3,
+    "method": "hgb_smooth",
+    "modelTrainingCutoff": "2026-05-14T00:00:00+00:00",
+    "uncertaintyIntervalsAvailable": false,
+    "predictsOutageProbability": false,
+    "segmentId": "d5e69e81-e9a6-55d9-ae9f-19c1761aff02",
+    "segment": "SEG-014",
+    "region": "DOBROGEA",
+    "forecasts": [
+      {
+        "date": "2026-11-14",
+        "horizon": 1,
+        "predictedEnergyKwh": 143.152684,
+        "referenceEnergyKwh": 149.272537,
+        "changeVsReferencePct": -4.099785,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-15",
+        "horizon": 2,
+        "predictedEnergyKwh": 143.365257,
+        "referenceEnergyKwh": 142.858015,
+        "changeVsReferencePct": 0.355068,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-16",
+        "horizon": 3,
+        "predictedEnergyKwh": 192.098915,
+        "referenceEnergyKwh": 191.938385,
+        "changeVsReferencePct": 0.083636,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      }
+    ],
+    "modelVersion": "hgb_smooth:3a025fc48832"
+  },
+  {
+    "schemaVersion": "1",
+    "predictionKind": "DAILY_ENERGY_FORECAST",
+    "units": "kWh/day",
+    "dataSource": "SYNTHETIC_DEMO",
+    "origin": "2026-11-14T00:00:00+00:00",
+    "asOf": "2026-11-14T00:10:00+00:00",
+    "lastCompletedDay": "2026-11-13",
+    "horizonDays": 3,
+    "method": "hgb_smooth",
+    "modelTrainingCutoff": "2026-05-14T00:00:00+00:00",
+    "uncertaintyIntervalsAvailable": false,
+    "predictsOutageProbability": false,
+    "segmentId": "fb44db18-7b13-5091-bb8f-1375ea849600",
+    "segment": "SEG-008",
+    "region": "BANAT",
+    "forecasts": [
+      {
+        "date": "2026-11-14",
+        "horizon": 1,
+        "predictedEnergyKwh": 1337.152314,
+        "referenceEnergyKwh": 1210.926953,
+        "changeVsReferencePct": 10.423862,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-15",
+        "horizon": 2,
+        "predictedEnergyKwh": 1319.738937,
+        "referenceEnergyKwh": 1304.53202,
+        "changeVsReferencePct": 1.165699,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-16",
+        "horizon": 3,
+        "predictedEnergyKwh": 1531.572412,
+        "referenceEnergyKwh": 1595.940833,
+        "changeVsReferencePct": -4.033259,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      }
+    ],
+    "modelVersion": "hgb_smooth:3a025fc48832"
+  },
+  {
+    "schemaVersion": "1",
+    "predictionKind": "DAILY_ENERGY_FORECAST",
+    "units": "kWh/day",
+    "dataSource": "SYNTHETIC_DEMO",
+    "origin": "2026-11-14T00:00:00+00:00",
+    "asOf": "2026-11-14T00:10:00+00:00",
+    "lastCompletedDay": "2026-11-13",
+    "horizonDays": 3,
+    "method": "hgb_smooth",
+    "modelTrainingCutoff": "2026-05-14T00:00:00+00:00",
+    "uncertaintyIntervalsAvailable": false,
+    "predictsOutageProbability": false,
+    "segmentId": "941e55c0-3558-50c8-a965-11b6f0d4e257",
+    "segment": "SEG-017",
+    "region": "DOBROGEA",
+    "forecasts": [
+      {
+        "date": "2026-11-14",
+        "horizon": 1,
+        "predictedEnergyKwh": 125.213483,
+        "referenceEnergyKwh": 125.301834,
+        "changeVsReferencePct": -0.07051,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-15",
+        "horizon": 2,
+        "predictedEnergyKwh": 123.302226,
+        "referenceEnergyKwh": 124.29225,
+        "changeVsReferencePct": -0.79653,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      },
+      {
+        "date": "2026-11-16",
+        "horizon": 3,
+        "predictedEnergyKwh": 185.348799,
+        "referenceEnergyKwh": 188.593421,
+        "changeVsReferencePct": -1.720432,
+        "expectedMeters": 7,
+        "eligibleMeters": 7,
+        "status": "READY"
+      }
+    ],
+    "modelVersion": "hgb_smooth:3a025fc48832"
+  }
+]
