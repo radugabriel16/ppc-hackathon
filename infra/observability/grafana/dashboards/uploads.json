@@ -33,7 +33,7 @@
     {
       "title": "Overview",
       "type": "link",
-      "url": "/d/filegrid-overview",
+      "url": "/grafana/d/filegrid-overview",
       "targetBlank": false,
       "includeVars": true,
       "keepTime": true
@@ -41,7 +41,7 @@
     {
       "title": "Category x Storage",
       "type": "link",
-      "url": "/d/filegrid-category-storage",
+      "url": "/grafana/d/filegrid-category-storage",
       "targetBlank": false,
       "includeVars": true,
       "keepTime": true
@@ -49,7 +49,7 @@
     {
       "title": "Meter ingestion",
       "type": "link",
-      "url": "/d/filegrid-meter-ingestion",
+      "url": "/grafana/d/filegrid-meter-ingestion",
       "targetBlank": false,
       "includeVars": true,
       "keepTime": true
@@ -57,7 +57,7 @@
     {
       "title": "Resilience",
       "type": "link",
-      "url": "/d/filegrid-resilience",
+      "url": "/grafana/d/filegrid-resilience",
       "targetBlank": false,
       "includeVars": true,
       "keepTime": true
@@ -65,7 +65,7 @@
     {
       "title": "Uploads",
       "type": "link",
-      "url": "/d/filegrid-uploads",
+      "url": "/grafana/d/filegrid-uploads",
       "targetBlank": false,
       "includeVars": true,
       "keepTime": true

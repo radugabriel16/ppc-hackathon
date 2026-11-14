@@ -33,7 +33,7 @@
     {
       "title": "Overview",
       "type": "link",
-      "url": "/d/filegrid-overview",
+      "url": "/grafana/d/filegrid-overview",
       "targetBlank": false,
       "includeVars": true,
       "keepTime": true
@@ -41,7 +41,7 @@
     {
       "title": "Category x Storage",
       "type": "link",
-      "url": "/d/filegrid-category-storage",
+      "url": "/grafana/d/filegrid-category-storage",
       "targetBlank": false,
       "includeVars": true,
       "keepTime": true
@@ -49,7 +49,7 @@
     {
       "title": "Meter ingestion",
       "type": "link",
-      "url": "/d/filegrid-meter-ingestion",
+      "url": "/grafana/d/filegrid-meter-ingestion",
       "targetBlank": false,
       "includeVars": true,
       "keepTime": true
@@ -57,7 +57,7 @@
     {
       "title": "Resilience",
       "type": "link",
-      "url": "/d/filegrid-resilience",
+      "url": "/grafana/d/filegrid-resilience",
       "targetBlank": false,
       "includeVars": true,
       "keepTime": true
@@ -65,7 +65,7 @@
     {
       "title": "Uploads",
       "type": "link",
-      "url": "/d/filegrid-uploads",
+      "url": "/grafana/d/filegrid-uploads",
       "targetBlank": false,
       "includeVars": true,
       "keepTime": true
@@ -142,7 +142,7 @@
       {
         "name": "created_result",
         "label": "Created result",
-        "description": "Exact filegrid_meter_ingest_total result label for this outcome. The requested name is the default; §4 leaves the result enum unspecified. Inspect the all-results chart and adjust to the exporter.",
+        "description": "Exact meter ingest outcome, verified in backend/app/metering/router.py.",
         "type": "textbox",
         "query": "created",
         "current": {
@@ -163,7 +163,7 @@
       {
         "name": "duplicate_result",
         "label": "Duplicate result",
-        "description": "Exact filegrid_meter_ingest_total result label for this outcome. The requested name is the default; §4 leaves the result enum unspecified. Inspect the all-results chart and adjust to the exporter.",
+        "description": "Exact meter ingest outcome, verified in backend/app/metering/router.py.",
         "type": "textbox",
         "query": "duplicate",
         "current": {
@@ -184,7 +184,7 @@
       {
         "name": "conflict_result",
         "label": "Conflict result",
-        "description": "Exact filegrid_meter_ingest_total result label for this outcome. The requested name is the default; §4 leaves the result enum unspecified. Inspect the all-results chart and adjust to the exporter.",
+        "description": "Exact meter ingest outcome, verified in backend/app/metering/router.py.",
         "type": "textbox",
         "query": "conflict",
         "current": {
@@ -204,24 +204,44 @@
       },
       {
         "name": "error_result",
-        "label": "Error result",
-        "description": "Exact filegrid_meter_ingest_total result label for this outcome. The requested name is the default; §4 leaves the result enum unspecified. Inspect the all-results chart and adjust to the exporter.",
-        "type": "textbox",
-        "query": "error",
+        "label": "Error results",
+        "description": "Backend unsuccessful outcomes: error, unavailable, invalid. Select which outcomes to include.",
+        "type": "custom",
+        "query": "error,unavailable,invalid",
+        "multi": true,
+        "includeAll": false,
+        "hide": 0,
+        "skipUrlSync": false,
         "current": {
           "selected": true,
-          "text": "error",
-          "value": "error"
+          "text": [
+            "error",
+            "unavailable",
+            "invalid"
+          ],
+          "value": [
+            "error",
+            "unavailable",
+            "invalid"
+          ]
         },
         "options": [
           {
             "selected": true,
             "text": "error",
             "value": "error"
+          },
+          {
+            "selected": true,
+            "text": "unavailable",
+            "value": "unavailable"
+          },
+          {
+            "selected": true,
+            "text": "invalid",
+            "value": "invalid"
           }
-        ],
-        "hide": 0,
-        "skipUrlSync": false
+        ]
       }
     ]
   },
@@ -239,7 +259,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "Only **filegrid_meter_ingest_total{result}** is available for metering. The four result textboxes default to the requested names: created / duplicate / conflict / error. §4 does not define these label values; inspect **All emitted result values** and adjust them to the backend. Counters are aggregated across selected exporters; no meter ID or region labels are invented. These are event rates (per second), not percentages."
+        "content": "Meter outcomes are verified in **backend/app/metering/router.py**: created / duplicate / conflict / error / unavailable / invalid. The error-rate selector includes the last three by default. Counters aggregate selected exporters; no meter ID or region labels are invented. These are event rates per second, not percentages."
       }
     },
     {
