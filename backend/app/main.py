@@ -20,6 +20,7 @@ from app.core.metrics import REQUEST_DURATION_SECONDS
 from app.core.policy_schema import load_policies
 from app.core.settings import get_settings
 from app.documents.router import router as documents_router
+from app.documents.encryption import DocumentKey
 from app.files.router import router as files_router
 from app.geography.router import router as geography_router
 from app.issues.router import router as issues_router
@@ -54,6 +55,7 @@ async def lifespan(app: FastAPI):
     )
     if settings.role == "files":
         get_session_key()
+        app.state.document_key = DocumentKey.load(settings)
 
     worker_task = None
     if settings.role == "worker":
@@ -93,7 +95,8 @@ def create_app() -> FastAPI:
         duration = time.perf_counter() - start
         status_class = f"{response.status_code // 100}xx"
         REQUEST_DURATION_SECONDS.labels(
-            route=request.url.path, method=request.method, status_class=status_class
+            route=getattr(request.scope.get("route"), "path", "unmatched"),
+            method=request.method, status_class=status_class,
         ).observe(duration)
         response.headers["X-Request-Id"] = request_id
         return response

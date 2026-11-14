@@ -309,7 +309,7 @@ paths:
                   $ref: "#/components/schemas/FileUploadMetadata"
       responses:
         "201":
-          description: Created; file is STAGING or VERIFYING.
+          description: Created; content stored, linked domain row committed, file is READY.
           content:
             application/json:
               schema:
@@ -1358,6 +1358,10 @@ components:
       type: object
       required: [category, caseId, documentTypeId]
       properties:
+        regionId:
+          type: string
+          format: uuid
+          description: Optional assertion; must match the connection case client's region.
         category:
           type: string
           enum: [CONNECTION_DOCUMENT]
@@ -1371,6 +1375,10 @@ components:
       type: object
       required: [category, assetId, startedAt, severity]
       properties:
+        regionId:
+          type: string
+          format: uuid
+          description: Optional assertion; must match the asset's region.
         category:
           type: string
           enum: [OUTAGE_RECORD]
@@ -1389,6 +1397,10 @@ components:
       type: object
       required: [category, assetId, recordedAt]
       properties:
+        regionId:
+          type: string
+          format: uuid
+          description: Optional assertion; must match the asset's region.
         category:
           type: string
           enum: [DRONE_VIDEO]

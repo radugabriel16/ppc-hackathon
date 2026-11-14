@@ -62,10 +62,11 @@ class PolicyManager:
             limiter.release()
 
     async def put(
-        self, category: FileCategory, key: str, stream: BinaryIO, size: int
+        self, category: FileCategory, key: str, stream: BinaryIO, size: int,
+        *, plaintext_size: int | None = None,
     ) -> StorageWrite:
         async with self.acquire(category) as policy:
-            if size > policy.max_size_bytes:
+            if (size if plaintext_size is None else plaintext_size) > policy.max_size_bytes:
                 raise HTTPException(
                     status_code=413,
                     detail={"code": "FILE_TOO_LARGE", "message": "File exceeds category size limit"},
