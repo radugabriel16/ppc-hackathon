@@ -6,6 +6,7 @@ from alembic.config import Config
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
+from app.auth.seed import seed_users
 from app.core.db import get_catalog_engine
 from app.models import Region
 from fixtures.seed import seed
@@ -29,6 +30,8 @@ def main() -> None:
                     print("Catalog seed complete.")
                 else:
                     print("Catalog already populated; seed skipped.")
+                seed_users(session)
+                print("Demo accounts ready (existing credentials preserved).")
         finally:
             lock.execute(text("SELECT pg_advisory_unlock(:id)"), {"id": BOOTSTRAP_LOCK_ID})
 

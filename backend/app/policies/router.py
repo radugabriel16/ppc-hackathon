@@ -1,8 +1,17 @@
-"""HTTP routes for the policies domain.
+"""Read-only manager policy view; reload and storage resolution follow in Step 5."""
+from fastapi import APIRouter, Depends, Request
 
-Endpoints are added incrementally in later PHASE1.md steps; this module only
-defines the router object so app.main can mount it under the correct ROLE now.
-"""
-from fastapi import APIRouter
+from app.auth.dependencies import require_role
+from app.core.policy_schema import PoliciesConfig
+from app.models.enums import UserRole
 
 router = APIRouter(prefix="/api/v1", tags=["policies"])
+
+
+@router.get(
+    "/admin/policies",
+    response_model=PoliciesConfig,
+    dependencies=[Depends(require_role(UserRole.MANAGER))],
+)
+def get_policies(request: Request) -> PoliciesConfig:
+    return request.app.state.policies

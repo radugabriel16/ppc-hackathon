@@ -11,6 +11,8 @@ from fastapi.responses import JSONResponse, Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from sqlalchemy import text
 
+from app.auth.middleware import csrf_origin_middleware
+from app.auth.security import LoginRateLimiter, get_session_key
 from app.core.db import get_catalog_engine
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging, set_request_id
@@ -45,7 +47,9 @@ FILES_ROLE_ROUTERS = (
 async def lifespan(app: FastAPI):
     settings = get_settings()
     # Fail fast on a malformed policy file rather than at first request.
-    load_policies(settings.policies_path)
+    app.state.policies = load_policies(settings.policies_path)
+    if settings.role == "files":
+        get_session_key()
 
     worker_task = None
     if settings.role == "worker":
@@ -71,6 +75,8 @@ def create_app() -> FastAPI:
     elif settings.role == "files":
         for r in FILES_ROLE_ROUTERS:
             app.include_router(r)
+        app.state.login_rate_limiter = LoginRateLimiter()
+        app.middleware("http")(csrf_origin_middleware)
     # ROLE=worker mounts no HTTP business routers; it only exposes health/metrics
     # below and runs the background loop started in `lifespan`.
 

@@ -6,7 +6,7 @@ Secrets (DB passwords, S3 keys, etc.) are read from files under `secrets_dir`
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, HttpUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -43,7 +43,8 @@ class Settings(BaseSettings):
     ftp_user: str = Field(default="filegrid", alias="FTP_USER")
 
     session_cookie_name: str = Field(default="filegrid_session", alias="SESSION_COOKIE_NAME")
-    session_ttl_seconds: int = Field(default=28800, alias="SESSION_TTL_SECONDS")
+    session_ttl_seconds: int = Field(default=28800, alias="SESSION_TTL_SECONDS", gt=0)
+    app_origin: HttpUrl = Field(default="https://localhost", alias="APP_ORIGIN")
 
     policies_path: str = Field(default="/app/config/policies.yaml", alias="POLICIES_PATH")
 
