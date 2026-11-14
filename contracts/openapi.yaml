@@ -430,7 +430,7 @@ paths:
     post:
       operationId: createUploads
       tags: [uploads]
-      summary: Start a resumable multipart upload session.
+      summary: Start an owner-scoped resumable DRONE_VIDEO upload on S3.
       security:
         - cookieAuth: []
           csrfHeader: []
@@ -452,14 +452,22 @@ paths:
                   externalValue: "./examples/upload-session.json"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
         "422":
           $ref: "#/components/responses/ValidationError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /uploads/{id}/parts/{partNumber}:
     put:
       operationId: putUploadsIdPartsPartNumber
       tags: [uploads]
-      summary: Upload one part (idempotent; re-sending the same part is a no-op).
+      summary: Upload a part; identical retries are no-ops, closed or expired sessions are rejected.
       security:
         - cookieAuth: []
           csrfHeader: []
@@ -493,14 +501,26 @@ paths:
                 $ref: "#/components/schemas/UploadPartResult"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
-        "422":
-          description: X-Part-SHA256 does not match the received bytes.
+        "409":
+          description: Upload session is no longer active.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "422":
+          description: Invalid part number, size, hash, or conflicting re-send.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /uploads/{id}:
     get:
@@ -518,6 +538,8 @@ paths:
                 $ref: "#/components/schemas/UploadSessionStatus"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
     delete:
@@ -534,8 +556,18 @@ paths:
           description: Aborted.
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          description: Completed upload cannot be aborted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /uploads/{id}/complete:
     post:
@@ -567,14 +599,20 @@ paths:
                 $ref: "#/components/schemas/UploadCompleteResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          description: Missing parts or part/session mismatch.
+          description: Missing parts or closed/expired upload session.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # ------------------------------------------------------------- metering ---
   /meter-readings/ingest:
@@ -1474,20 +1512,26 @@ components:
     # ------------------------------------------------------------ uploads ---
     UploadSessionCreateRequest:
       type: object
-      required: [category, fileName, sizeBytes]
+      additionalProperties: false
+      required: [category, fileName, sizeBytes, metadata]
       properties:
         category:
-          $ref: "#/components/schemas/FileCategory"
+          type: string
+          enum: [DRONE_VIDEO]
         fileName:
           type: string
+          minLength: 1
+          maxLength: 512
         sizeBytes:
           type: integer
           format: int64
+          minimum: 1
         sha256:
           type: string
           nullable: true
+          pattern: "^[0-9a-f]{64}$"
         metadata:
-          $ref: "#/components/schemas/FileUploadMetadata"
+          $ref: "#/components/schemas/DroneVideoMetadata"
     UploadSessionCreated:
       type: object
       properties:
@@ -1514,6 +1558,7 @@ components:
       properties:
         status:
           type: string
+          enum: [PENDING, UPLOADING, COMPLETING, COMPLETED, ABORTED, EXPIRED]
         receivedParts:
           type: array
           items:

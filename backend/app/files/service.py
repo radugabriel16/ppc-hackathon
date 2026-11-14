@@ -168,7 +168,7 @@ async def store_file(
 
 
 def record_check(
-    file: File, valid: bool, checked_at: datetime, actor_id: uuid.UUID, request_id: str | None,
+    file: File, valid: bool, checked_at: datetime, actor_id: uuid.UUID | None, request_id: str | None,
 ) -> None:
     with Session(get_catalog_engine()) as db:
         current = get_file(db, file.id)
@@ -192,7 +192,7 @@ def record_check(
 class FileReader:
     def __init__(
         self, file: File, manager: PolicyManager, key: DocumentKey,
-        actor_id: uuid.UUID, request_id: str | None,
+        actor_id: uuid.UUID | None, request_id: str | None,
     ):
         if file.encrypted and file.encryption_key_id != key.id:
             raise HTTPException(

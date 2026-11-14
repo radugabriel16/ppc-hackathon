@@ -7,7 +7,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.auth.seed import seed_users
-from app.core.db import get_catalog_engine
+from app.core.db import get_catalog_engine, get_storage_engine
 from app.models import Region
 from fixtures.seed import seed
 
@@ -24,6 +24,10 @@ def main() -> None:
         lock.execute(text("SELECT pg_advisory_lock(:id)"), {"id": BOOTSTRAP_LOCK_ID})
         try:
             command.upgrade(config, "head")
+            with get_storage_engine().begin() as storage:
+                storage.exec_driver_sql(
+                    (backend_dir.parent / "infra/storage-db/init.sql").read_text()
+                )
             with Session(engine) as session:
                 if session.scalar(select(Region.id).limit(1)) is None:
                     seed(session)

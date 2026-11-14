@@ -101,6 +101,10 @@ class S3Storage:
         return StoredObject(key, sum(part.size for part in parts))
 
     def abort_multipart(self, key: str, upload_id: str) -> None:
-        self.client.abort_multipart_upload(
-            Bucket=self.bucket, Key=object_key(key), UploadId=upload_id
-        )
+        try:
+            self.client.abort_multipart_upload(
+                Bucket=self.bucket, Key=object_key(key), UploadId=upload_id
+            )
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] != "NoSuchUpload":
+                raise

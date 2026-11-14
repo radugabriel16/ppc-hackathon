@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 import time
 import uuid
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response
@@ -57,19 +57,24 @@ async def lifespan(app: FastAPI):
         get_session_key()
     if settings.role == "ingest":
         get_simulator_token()
-    if settings.role == "files":
+    if settings.role in {"files", "worker"}:
         app.state.document_key = DocumentKey.load(settings)
 
     worker_task = None
     if settings.role == "worker":
         import asyncio
 
-        worker_task = asyncio.create_task(run_worker_loop())
+        worker_task = asyncio.create_task(run_worker_loop(
+            app.state.policy_manager, app.state.document_key
+        ))
 
-    yield
-
-    if worker_task is not None:
-        worker_task.cancel()
+    try:
+        yield
+    finally:
+        if worker_task is not None:
+            worker_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await worker_task
 
 
 def create_app() -> FastAPI:

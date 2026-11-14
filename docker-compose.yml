@@ -170,6 +170,8 @@ services:
         condition: service_completed_successfully
       catalog-db:
         condition: service_healthy
+      storage-db:
+        condition: service_healthy
     restart: "no"
 
   api-ingest:
