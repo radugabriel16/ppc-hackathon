@@ -9,6 +9,7 @@ from collections.abc import AsyncIterator, Callable, Iterator, Sequence
 from contextlib import asynccontextmanager
 from ftplib import Error as FtpError
 from typing import BinaryIO, TypeVar
+from uuid import UUID
 
 import anyio
 from botocore.exceptions import BotoCoreError, ClientError
@@ -23,6 +24,8 @@ from app.models.enums import FileCategory, StorageBackend
 from app.storage.base import (
     CircuitOpen,
     Health,
+    InventoryPage,
+    InventoryStorage,
     MultipartPart,
     MultipartStorage,
     Storage,
@@ -253,6 +256,14 @@ class ManagedStorage:
     async def delete(self, category: FileCategory, key: str) -> None:
         async with self._operation(category, "delete") as deadline:
             await self._run(self.adapter.delete, key, deadline=deadline)
+
+    async def inventory(
+        self, category: FileCategory, cursor: UUID | None, limit: int,
+    ) -> InventoryPage:
+        if not isinstance(self.adapter, InventoryStorage):
+            raise TypeError("Storage adapter does not support inventory")
+        async with self._operation(category, "inventory") as deadline:
+            return await self._run(self.adapter.inventory, cursor, limit, deadline=deadline)
 
     async def health(self, category: FileCategory) -> Health:
         try:

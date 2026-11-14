@@ -21,6 +21,7 @@ from app.core.logging import configure_logging, set_request_id
 from app.core.metrics import REQUEST_DURATION_SECONDS
 from app.core.policy_schema import load_policies
 from app.core.settings import get_settings
+from app.core.tracing import configure_tracing
 from app.documents.router import router as documents_router
 from app.documents.encryption import DocumentKey
 from app.files.router import router as files_router
@@ -88,6 +89,7 @@ def create_app() -> FastAPI:
     configure_logging(settings.log_level)
 
     app = FastAPI(title="FileGrid API", version="0.1.0", lifespan=lifespan)
+    configure_tracing(app, settings.role)
     register_exception_handlers(app)
 
     if settings.role == "ingest":

@@ -68,3 +68,19 @@ UPLOAD_SESSIONS_STALLED = Gauge(
     "filegrid_upload_sessions_stalled",
     "Resumable upload sessions with no progress past their expected cadence",
 )
+
+METER_READINGS_MISSING = Gauge(
+    "filegrid_meter_readings_missing",
+    "Observed internal reading gaps on recently active meters",
+    ["region"],
+)
+
+DOCUMENT_ACCESS_TOTAL = Counter(
+    "filegrid_document_access_total",
+    "Audited document access attempts and completed outcomes",
+    ["action", "outcome"],
+)
+
+for _action in ("download", "view"):
+    for _outcome in ("requested", "success", "failure"):
+        DOCUMENT_ACCESS_TOTAL.labels(action=_action, outcome=_outcome)

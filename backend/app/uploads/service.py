@@ -295,6 +295,7 @@ async def terminate_upload(
             file = db.get(File, upload.file_id) if upload.file_id else None
             if file is not None:
                 file.status = FileStatus.FAILED
+                file.failure_reason = f"UPLOAD_{status}"
             db.commit()
             return upload
 
@@ -311,6 +312,10 @@ async def terminate_upload(
         with Session(get_catalog_engine()) as db:
             current = get_upload(db, upload_id, actor_id)
             current.s3_upload_id = None
+            if current.file_id is not None:
+                file = db.get(File, current.file_id)
+                if file is not None:
+                    file.cleaned_at = now()
             db.commit()
 
     await anyio.to_thread.run_sync(finish)

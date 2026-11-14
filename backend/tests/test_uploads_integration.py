@@ -28,6 +28,7 @@ from app.models.auth import UserSession
 from app.models.enums import FileCategory, FileStatus, StorageBackend
 from app.models.files import File
 from app.models.inspections import VideoInspection
+from app.models.maintenance import WorkerState
 from app.models.uploads import UploadPart, UploadSession
 from app.storage.base import StorageUnavailable
 from app.uploads.service import now
@@ -397,7 +398,10 @@ def test_orphan_collection_keeps_recent_and_catalog_references(api, monkeypatch)
     upload_id = uuid.UUID(create(4).json()["uploadId"])
     with Session(get_catalog_engine()) as db:
         retained_id = db.get(UploadSession, upload_id).file_id
-    old_id, recent_id = uuid.uuid4(), uuid.uuid4()
+    old_id, recent_id = uuid.UUID(int=1), uuid.uuid4()
+    with Session(get_catalog_engine()) as db:
+        db.execute(delete(WorkerState).where(WorkerState.name == "orphan_cursor"))
+        db.commit()
     ids = [old_id, recent_id, retained_id]
     with get_storage_engine().begin() as connection:
         for file_id in ids:

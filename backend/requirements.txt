@@ -13,3 +13,11 @@ prometheus-client==0.21.1
 anyio==4.7.0
 python-multipart==0.0.20
 PyYAML==6.0.2
+httpx==0.28.1
+asyncpg==0.30.0
+opentelemetry-sdk==1.29.0
+opentelemetry-exporter-otlp==1.29.0
+opentelemetry-instrumentation-fastapi==0.50b0
+opentelemetry-instrumentation-httpx==0.50b0
+opentelemetry-instrumentation-sqlalchemy==0.50b0
+opentelemetry-instrumentation-asyncpg==0.50b0

@@ -5,6 +5,7 @@ import io
 import uuid
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from typing import BinaryIO, Literal, Protocol, runtime_checkable
 
 CHUNK_SIZE = 64 * 1024
@@ -35,6 +36,18 @@ class StoredObject:
 
 
 @dataclass(frozen=True)
+class InventoryObject:
+    key: str
+    modified_at: datetime
+
+
+@dataclass(frozen=True)
+class InventoryPage:
+    objects: list[InventoryObject]
+    next_cursor: uuid.UUID | None
+
+
+@dataclass(frozen=True)
 class MultipartPart:
     part_number: int
     etag: str
@@ -46,6 +59,11 @@ class Storage(Protocol):
     def get(self, key: str) -> Iterator[bytes]: ...
     def delete(self, key: str) -> None: ...
     def health(self) -> Health: ...
+
+
+@runtime_checkable
+class InventoryStorage(Storage, Protocol):
+    def inventory(self, cursor: uuid.UUID | None, limit: int) -> InventoryPage: ...
 
 
 @runtime_checkable

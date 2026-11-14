@@ -1,6 +1,7 @@
 """S3 streaming and multipart operations (ETags are opaque, not SHA-256)."""
 from collections.abc import Iterator, Sequence
 from typing import BinaryIO
+from uuid import UUID
 
 import boto3
 from botocore.config import Config
@@ -10,6 +11,8 @@ from app.core.settings import Settings
 from app.storage.base import (
     CHUNK_SIZE,
     Health,
+    InventoryObject,
+    InventoryPage,
     MultipartPart,
     StorageNotFound,
     StoredObject,
@@ -61,6 +64,19 @@ class S3Storage:
     def health(self) -> Health:
         self.client.head_bucket(Bucket=self.bucket)
         return "ok"
+
+    def inventory(self, cursor: UUID | None, limit: int) -> InventoryPage:
+        arguments = {"Bucket": self.bucket, "MaxKeys": limit}
+        if cursor is not None:
+            arguments["StartAfter"] = str(cursor)
+        response = self.client.list_objects_v2(**arguments)
+        objects = [
+            InventoryObject(object_key(item["Key"]), item["LastModified"])
+            for item in response.get("Contents", [])
+        ]
+        return InventoryPage(
+            objects, UUID(objects[-1].key) if objects and response.get("IsTruncated") else None,
+        )
 
     def create_multipart(self, key: str) -> str:
         response = self.client.create_multipart_upload(Bucket=self.bucket, Key=object_key(key))

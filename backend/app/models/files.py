@@ -2,7 +2,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, Enum, ForeignKey, String, TIMESTAMP
+from sqlalchemy import BigInteger, Boolean, Enum, ForeignKey, Integer, String, TIMESTAMP
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, UUIDPkMixin
@@ -38,3 +38,7 @@ class File(UUIDPkMixin, Base):
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
     ready_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     last_verified_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    maintenance_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
+    maintenance_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    failure_reason: Mapped[str | None] = mapped_column(String(128))
+    cleaned_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
