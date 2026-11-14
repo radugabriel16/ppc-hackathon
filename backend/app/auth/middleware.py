@@ -3,13 +3,18 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 
 from app.auth.dependencies import SAFE_METHODS
+from app.alerts.router import WEBHOOK_PATH
 from app.auth.security import CSRF_COOKIE_NAME, tokens_match
 from app.core.errors import _error_body
 from app.core.settings import get_settings
 
 
 async def csrf_origin_middleware(request: Request, call_next):
-    if request.url.path.startswith("/api/v1/") and request.method not in SAFE_METHODS:
+    if (
+        request.url.path.startswith("/api/v1/")
+        and request.url.path != WEBHOOK_PATH
+        and request.method not in SAFE_METHODS
+    ):
         origin = request.headers.get("Origin")
         if origin != str(get_settings().app_origin).rstrip("/"):
             return JSONResponse(

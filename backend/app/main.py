@@ -12,6 +12,8 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from sqlalchemy import text
 
 from app.auth.middleware import csrf_origin_middleware
+from app.admin.router import router as admin_router
+from app.alerts.router import router as alerts_router
 from app.auth.security import LoginRateLimiter, get_session_key, get_simulator_token
 from app.core.db import get_catalog_engine
 from app.core.errors import register_exception_handlers
@@ -43,6 +45,8 @@ FILES_ROLE_ROUTERS = (
     uploads_router,
     issues_router,
     policies_router,
+    admin_router,
+    alerts_router,
 )
 
 

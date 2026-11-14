@@ -12,6 +12,7 @@ from app.models.audit import AuditEvent  # noqa: F401
 from app.models.uploads import UploadPart, UploadSession  # noqa: F401
 from app.models.jobs import ScenarioRun, StorageOperation  # noqa: F401
 from app.models.reminders import Reminder  # noqa: F401
+from app.models.alerts import Alert  # noqa: F401
 
 __all__ = [
     "Base",
@@ -35,4 +36,5 @@ __all__ = [
     "StorageOperation",
     "ScenarioRun",
     "Reminder",
+    "Alert",
 ]

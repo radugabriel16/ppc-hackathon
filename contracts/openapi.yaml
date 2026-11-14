@@ -969,6 +969,24 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /alerts/webhook:
+    post:
+      operationId: createAlertsWebhook
+      tags: [admin]
+      summary: Internal Alertmanager v4 webhook; not exposed through nginx.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AlertmanagerWebhook"
+      responses:
+        "204":
+          description: Alerts persisted.
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
   /alerts/recent:
     get:
       operationId: getAlertsRecent
@@ -1799,6 +1817,70 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/ScenarioRun"
+    AlertmanagerWebhook:
+      type: object
+      required: [version, status, receiver, groupKey, alerts]
+      properties:
+        version:
+          type: string
+          enum: ["4"]
+        status:
+          type: string
+          enum: [firing, resolved]
+        receiver:
+          type: string
+        groupKey:
+          type: string
+        groupLabels:
+          type: object
+          additionalProperties:
+            type: string
+        commonLabels:
+          type: object
+          additionalProperties:
+            type: string
+        commonAnnotations:
+          type: object
+          additionalProperties:
+            type: string
+        externalURL:
+          type: string
+        truncatedAlerts:
+          type: integer
+          minimum: 0
+        alerts:
+          type: array
+          maxItems: 1000
+          items:
+            $ref: "#/components/schemas/AlertmanagerAlert"
+    AlertmanagerAlert:
+      type: object
+      required: [status, labels, startsAt]
+      properties:
+        status:
+          type: string
+          enum: [firing, resolved]
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+        annotations:
+          type: object
+          additionalProperties:
+            type: string
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+          nullable: true
+        generatorURL:
+          type: string
+          nullable: true
+        fingerprint:
+          type: string
+          nullable: true
     Alert:
       type: object
       properties:
