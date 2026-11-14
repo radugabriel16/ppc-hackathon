@@ -94,6 +94,15 @@ import type {
   GetStatsOutagesHotspotsData,
   GetStatsOutagesHotspotsResponses,
   GetStatsOutagesHotspotsErrors,
+  GetSegmentForecastData,
+  GetSegmentForecastResponses,
+  GetSegmentForecastErrors,
+  GetMeterForecastData,
+  GetMeterForecastResponses,
+  GetMeterForecastErrors,
+  GetStatsForecastData,
+  GetStatsForecastResponses,
+  GetStatsForecastErrors,
   GetAdminPoliciesData,
   GetAdminPoliciesResponses,
   GetAdminPoliciesErrors,
@@ -877,6 +886,79 @@ export const getStatsOutagesHotspots = <ThrowOnError extends boolean = false>(
       },
     ],
     url: "/stats/outages/hotspots",
+    ...options,
+  });
+};
+
+/**
+ * Forecast three UTC days for every meter registered on a network asset.
+ * Both OPERATOR and MANAGER may read all catalog regions, as with geography. Segment IDs are network_assets IDs; all registered meters are included. Complete, non-overlapping catalog intervals are aggregated into six-hour slots. Predictions run off the event loop and are cached per process for five minutes (at most 128 segment/origin results). No readings or predictions are written. Missing history uses the mean of up to seven complete days in the last 28, explicitly flagged per meter and day. With no complete days, energy remains null and the segment is INSUFFICIENT_DATA, never a partial or zero total. No calibrated uncertainty intervals, outage probabilities, or physical capacity claims are available. Missing or checksum-invalid models always return 503, including when a baseline would otherwise be possible.
+ *
+ */
+export const getSegmentForecast = <ThrowOnError extends boolean = false>(
+  options: Options<GetSegmentForecastData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).get<
+    GetSegmentForecastResponses,
+    GetSegmentForecastErrors,
+    ThrowOnError
+  >({
+    security: [
+      {
+        in: "cookie",
+        name: "filegrid_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/segments/{segmentId}/forecast",
+    ...options,
+  });
+};
+
+/**
+ * Forecast three UTC days for a registered meter.
+ */
+export const getMeterForecast = <ThrowOnError extends boolean = false>(
+  options: Options<GetMeterForecastData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).get<
+    GetMeterForecastResponses,
+    GetMeterForecastErrors,
+    ThrowOnError
+  >({
+    security: [
+      {
+        in: "cookie",
+        name: "filegrid_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/meters/{meterId}/forecast",
+    ...options,
+  });
+};
+
+/**
+ * Paginated segment forecasts, optionally filtered by region.
+ * Same access and three-day inference rules as the segment endpoint. Pagination counts network assets with registered meters, ordered by code then ID. All results use the requested origin; null segment totals must not be summed into a falsely complete regional prediction.
+ *
+ */
+export const getStatsForecast = <ThrowOnError extends boolean = false>(
+  options?: Options<GetStatsForecastData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).get<
+    GetStatsForecastResponses,
+    GetStatsForecastErrors,
+    ThrowOnError
+  >({
+    security: [
+      {
+        in: "cookie",
+        name: "filegrid_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/stats/forecast",
     ...options,
   });
 };

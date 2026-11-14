@@ -4,6 +4,10 @@ WORKDIR /build
 COPY backend/requirements.txt .
 RUN python -m venv /opt/venv \
     && /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
+COPY backend/pyproject.toml .
+COPY backend/app ./app
+COPY backend/filegrid_forecast ./filegrid_forecast
+RUN /opt/venv/bin/pip install --no-cache-dir --no-deps .
 
 FROM python:3.12.8-slim-bookworm
 

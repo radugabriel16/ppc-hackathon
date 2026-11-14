@@ -1,0 +1,311 @@
+{
+  "schemaVersion": "1",
+  "predictionKind": "DAILY_ENERGY_FORECAST",
+  "units": "kWh/day",
+  "dataSource": "SYNTHETIC_DEMO",
+  "origin": "2026-11-14T00:00:00+00:00",
+  "asOf": "2026-11-14T00:10:00+00:00",
+  "lastCompletedDay": "2026-11-13",
+  "horizonDays": 3,
+  "method": "hgb_smooth",
+  "modelTrainingCutoff": "2026-05-14T00:00:00+00:00",
+  "uncertaintyIntervalsAvailable": false,
+  "predictsOutageProbability": false,
+  "segmentId": "2955b0aa-ebdf-5453-ab7d-90cc043f04f1",
+  "segment": "SEG-013",
+  "region": "DOBROGEA",
+  "forecasts": [
+    {
+      "date": "2026-11-14",
+      "horizon": 1,
+      "predictedEnergyKwh": 283.575728,
+      "referenceEnergyKwh": 274.016514,
+      "changeVsReferencePct": 3.488554,
+      "expectedMeters": 7,
+      "eligibleMeters": 7,
+      "status": "READY"
+    },
+    {
+      "date": "2026-11-15",
+      "horizon": 2,
+      "predictedEnergyKwh": 283.492586,
+      "referenceEnergyKwh": 271.513654,
+      "changeVsReferencePct": 4.411908,
+      "expectedMeters": 7,
+      "eligibleMeters": 7,
+      "status": "READY"
+    },
+    {
+      "date": "2026-11-16",
+      "horizon": 3,
+      "predictedEnergyKwh": 323.11034,
+      "referenceEnergyKwh": 330.695457,
+      "changeVsReferencePct": -2.293686,
+      "expectedMeters": 7,
+      "eligibleMeters": 7,
+      "status": "READY"
+    }
+  ],
+  "modelVersion": "hgb_smooth:3a025fc48832",
+  "meters": [
+    {
+      "meterId": "142954bb-fb26-5439-ae5e-fa76874a6d1b",
+      "meter": "M-091",
+      "segmentId": "2955b0aa-ebdf-5453-ab7d-90cc043f04f1",
+      "forecasts": [
+        {
+          "date": "2026-11-14",
+          "horizon": 1,
+          "predictedEnergyKwh": 12.868045,
+          "referenceEnergyKwh": 14.322063,
+          "changeVsPreviousDayPct": 8.171048,
+          "changeVsReferencePct": -10.152293,
+          "annualReferenceUsed": true,
+          "status": "READY"
+        },
+        {
+          "date": "2026-11-15",
+          "horizon": 2,
+          "predictedEnergyKwh": 13.375614,
+          "referenceEnergyKwh": 14.921645,
+          "changeVsPreviousDayPct": 3.944414,
+          "changeVsReferencePct": -10.360996,
+          "annualReferenceUsed": true,
+          "status": "READY"
+        },
+        {
+          "date": "2026-11-16",
+          "horizon": 3,
+          "predictedEnergyKwh": 12.888546,
+          "referenceEnergyKwh": 13.62742,
+          "changeVsPreviousDayPct": -3.64146,
+          "changeVsReferencePct": -5.421963,
+          "annualReferenceUsed": true,
+          "status": "READY"
+        }
+      ]
+    },
+    {
+      "meterId": "32f4e9b7-eeed-596c-8f2e-2544290d5844",
+      "meter": "M-085",
+      "segmentId": "2955b0aa-ebdf-5453-ab7d-90cc043f04f1",
+      "forecasts": [
+        {
+          "date": "2026-11-14",
+          "horizon": 1,
+          "predictedEnergyKwh": 10.705286,
+          "referenceEnergyKwh": 11.347767,
+          "changeVsPreviousDayPct": 7.676533,
+          "changeVsReferencePct": -5.661743,
+          "annualReferenceUsed": true,
+          "status": "READY"
+        },
+        {
+          "date": "2026-11-15",
+          "horizon": 2,
+          "predictedEnergyKwh": 10.676954,
+          "referenceEnergyKwh": 11.338231,
+          "changeVsPreviousDayPct": -0.264654,
+          "changeVsReferencePct": -5.832278,
+          "annualReferenceUsed": true,
+          "status": "READY"
+        },
+        {
+          "date": "2026-11-16",
+          "horizon": 3,
+          "predictedEnergyKwh": 10.232464,
+          "referenceEnergyKwh": 10.673491,
+          "changeVsPreviousDayPct": -4.16308,
+          "changeVsReferencePct": -4.131983,
+          "annualReferenceUsed": true,
+          "status": "READY"
+        }
+      ]
+    },
+    {
+      "meterId": "3c177c0d-ccac-5398-9a1e-5baa0d043c6e",
+      "meter": "M-088",
+      "segmentId": "2955b0aa-ebdf-5453-ab7d-90cc043f04f1",
+      "forecasts": [
+        {
+          "date": "2026-11-14",
+          "horizon": 1,
+          "predictedEnergyKwh": 15.623099,
+          "referenceEnergyKwh": 16.488841,
+          "changeVsPreviousDayPct": 9.870595,
+          "changeVsReferencePct": -5.250474,
+          "annualReferenceUsed": true,
+          "status": "READY"
+        },
+        {
+          "date": "2026-11-15",
+          "horizon": 2,
+          "predictedEnergyKwh": 15.688321,
+          "referenceEnergyKwh": 16.607678,
+          "changeVsPreviousDayPct": 0.417475,
+          "changeVsReferencePct": -5.535736,
+          "annualReferenceUsed": true,
+          "status": "READY"
+        },
+        {
+          "date": "2026-11-16",
+          "horizon": 3,
+          "predictedEnergyKwh": 15.122507,
+          "referenceEnergyKwh": 15.778196,
+          "changeVsPreviousDayPct": -3.606593,
+          "changeVsReferencePct": -4.155662,
+          "annualReferenceUsed": true,
+          "status": "READY"
+        }
+      ]
+    },
+    {
+      "meterId": "6b5cff0e-d636-530a-9030-932f209906d9",
+      "meter": "M-090",
+      "segmentId": "2955b0aa-ebdf-5453-ab7d-90cc043f04f1",
+      "forecasts": [
+        {
+          "date": "2026-11-14",
+          "horizon": 1,
+          "predictedEnergyKwh": 182.441804,
+          "referenceEnergyKwh": 165.830464,
+          "changeVsPreviousDayPct": -16.579787,
+          "changeVsReferencePct": 10.017062,
+          "annualReferenceUsed": true,
+          "status": "READY"
+        },
+        {
+          "date": "2026-11-15",
+          "horizon": 2,
+          "predictedEnergyKwh": 180.670354,
+          "referenceEnergyKwh": 162.443786,
+          "changeVsPreviousDayPct": -0.970967,
+          "changeVsReferencePct": 11.220231,
+          "annualReferenceUsed": true,
+          "status": "READY"
+        },
+        {
+          "date": "2026-11-16",
+          "horizon": 3,
+          "predictedEnergyKwh": 203.741101,
+          "referenceEnergyKwh": 207.067766,
+          "changeVsPreviousDayPct": 12.769525,
+          "changeVsReferencePct": -1.606559,
+          "annualReferenceUsed": true,
+          "status": "READY"
+        }
+      ]
+    },
+    {
+      "meterId": "a1c323d3-8961-55bc-946b-1e72e33363b0",
+      "meter": "M-089",
+      "segmentId": "2955b0aa-ebdf-5453-ab7d-90cc043f04f1",
+      "forecasts": [
+        {
+          "date": "2026-11-14",
+          "horizon": 1,
+          "predictedEnergyKwh": 18.609212,
+          "referenceEnergyKwh": 18.19558,
+          "changeVsPreviousDayPct": -49.950559,
+          "changeVsReferencePct": 2.273257,
+          "annualReferenceUsed": true,
+          "status": "READY"
+        },
+        {
+          "date": "2026-11-15",
+          "horizon": 2,
+          "predictedEnergyKwh": 18.63776,
+          "referenceEnergyKwh": 18.560488,
+          "changeVsPreviousDayPct": 0.153408,
+          "changeVsReferencePct": 0.416328,
+          "annualReferenceUsed": true,
+          "status": "READY"
+        },
+        {
+          "date": "2026-11-16",
+          "horizon": 3,
+          "predictedEnergyKwh": 38.371242,
+          "referenceEnergyKwh": 38.915453,
+          "changeVsPreviousDayPct": 105.879042,
+          "changeVsReferencePct": -1.398445,
+          "annualReferenceUsed": true,
+          "status": "READY"
+        }
+      ]
+    },
+    {
+      "meterId": "a92ed20e-25e0-5ba3-9a4d-f9e124dc5b49",
+      "meter": "M-087",
+      "segmentId": "2955b0aa-ebdf-5453-ab7d-90cc043f04f1",
+      "forecasts": [
+        {
+          "date": "2026-11-14",
+          "horizon": 1,
+          "predictedEnergyKwh": 37.101785,
+          "referenceEnergyKwh": 40.918234,
+          "changeVsPreviousDayPct": 10.899086,
+          "changeVsReferencePct": -9.327012,
+          "annualReferenceUsed": true,
+          "status": "READY"
+        },
+        {
+          "date": "2026-11-15",
+          "horizon": 2,
+          "predictedEnergyKwh": 38.102621,
+          "referenceEnergyKwh": 40.875221,
+          "changeVsPreviousDayPct": 2.697541,
+          "changeVsReferencePct": -6.783082,
+          "annualReferenceUsed": true,
+          "status": "READY"
+        },
+        {
+          "date": "2026-11-16",
+          "horizon": 3,
+          "predictedEnergyKwh": 36.619903,
+          "referenceEnergyKwh": 38.143055,
+          "changeVsPreviousDayPct": -3.891379,
+          "changeVsReferencePct": -3.99326,
+          "annualReferenceUsed": true,
+          "status": "READY"
+        }
+      ]
+    },
+    {
+      "meterId": "ad1e5cbf-46a9-5eba-a2aa-bf61f942ffcb",
+      "meter": "M-086",
+      "segmentId": "2955b0aa-ebdf-5453-ab7d-90cc043f04f1",
+      "forecasts": [
+        {
+          "date": "2026-11-14",
+          "horizon": 1,
+          "predictedEnergyKwh": 6.226496,
+          "referenceEnergyKwh": 6.913565,
+          "changeVsPreviousDayPct": 7.854329,
+          "changeVsReferencePct": -9.937987,
+          "annualReferenceUsed": true,
+          "status": "READY"
+        },
+        {
+          "date": "2026-11-15",
+          "horizon": 2,
+          "predictedEnergyKwh": 6.340962,
+          "referenceEnergyKwh": 6.766605,
+          "changeVsPreviousDayPct": 1.838366,
+          "changeVsReferencePct": -6.290346,
+          "annualReferenceUsed": true,
+          "status": "READY"
+        },
+        {
+          "date": "2026-11-16",
+          "horizon": 3,
+          "predictedEnergyKwh": 6.134577,
+          "referenceEnergyKwh": 6.490076,
+          "changeVsPreviousDayPct": -3.254791,
+          "changeVsReferencePct": -5.477581,
+          "annualReferenceUsed": true,
+          "status": "READY"
+        }
+      ]
+    }
+  ]
+}

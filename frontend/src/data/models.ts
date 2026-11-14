@@ -152,11 +152,11 @@ export interface OutageHotspot {
 }
 export interface ForecastPoint {
   timestamp: string;
-  estimate: number;
-  lower80: number;
-  upper80: number;
-  lower95: number;
-  upper95: number;
+  estimate: number | null;
+  asOf: string;
+  modelVersion: string;
+  fallbackUsed: boolean;
+  status: "READY" | "INSUFFICIENT_DATA";
 }
 export interface EffectivePolicy {
   category: string;

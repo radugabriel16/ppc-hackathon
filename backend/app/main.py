@@ -25,6 +25,8 @@ from app.core.tracing import configure_tracing
 from app.documents.router import router as documents_router
 from app.documents.encryption import DocumentKey
 from app.files.router import router as files_router
+from app.forecast.router import router as forecast_router
+from app.forecast.service import ForecastRuntime
 from app.geography.router import router as geography_router
 from app.issues.router import router as issues_router
 from app.jobs.worker import run_worker_loop
@@ -50,6 +52,7 @@ FILES_ROLE_ROUTERS = (
     admin_router,
     alerts_router,
     stats_router,
+    forecast_router,
 )
 
 
@@ -66,6 +69,10 @@ async def lifespan(app: FastAPI):
         get_simulator_token()
     if settings.role in {"files", "worker"}:
         app.state.document_key = DocumentKey.load(settings)
+    if settings.role == "files":
+        from starlette.concurrency import run_in_threadpool
+
+        app.state.forecast = await run_in_threadpool(ForecastRuntime)
 
     worker_task = None
     if settings.role == "worker":

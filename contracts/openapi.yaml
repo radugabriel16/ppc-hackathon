@@ -874,6 +874,110 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /segments/{segmentId}/forecast:
+    get:
+      operationId: getSegmentForecast
+      tags: [stats]
+      summary: Forecast three UTC days for every meter registered on a network asset.
+      description: >
+        Both OPERATOR and MANAGER may read all catalog regions, as with geography.
+        Segment IDs are network_assets IDs; all registered meters are included.
+        Complete, non-overlapping catalog intervals are aggregated into six-hour slots.
+        Predictions run off the event loop and are cached per process for five minutes
+        (at most 128 segment/origin results). No readings or predictions are written.
+        Missing history uses the mean of up to seven complete days in the last 28,
+        explicitly flagged per meter and day. With no complete days, energy remains
+        null and the segment is INSUFFICIENT_DATA, never a partial or zero total.
+        No calibrated uncertainty intervals, outage probabilities, or physical capacity
+        claims are available. Missing or checksum-invalid models always return 503,
+        including when a baseline would otherwise be possible.
+      parameters:
+        - name: segmentId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+        - $ref: "#/components/parameters/ForecastOrigin"
+        - name: includeMeters
+          in: query
+          schema: {type: boolean, default: false}
+      responses:
+        "200":
+          description: Three-day segment forecast, possibly flagged baseline or insufficient data.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SegmentForecast"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /meters/{meterId}/forecast:
+    get:
+      operationId: getMeterForecast
+      tags: [stats]
+      summary: Forecast three UTC days for a registered meter.
+      parameters:
+        - name: meterId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+        - $ref: "#/components/parameters/ForecastOrigin"
+      responses:
+        "200":
+          description: Meter forecast with the same model, cutoff and fallback rules as its segment.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeterForecastResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /stats/forecast:
+    get:
+      operationId: getStatsForecast
+      tags: [stats]
+      summary: Paginated segment forecasts, optionally filtered by region.
+      description: >
+        Same access and three-day inference rules as the segment endpoint.
+        Pagination counts network assets with registered meters, ordered by code then ID.
+        All results use the requested origin; null segment totals must not be summed
+        into a falsely complete regional prediction.
+      parameters:
+        - $ref: "#/components/parameters/RegionIdQuery"
+        - $ref: "#/components/parameters/ForecastOrigin"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: Segment forecasts.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForecastPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
   # ----------------------------------------------------------------- admin ---
   /admin/policies:
     get:
@@ -1086,6 +1190,16 @@ components:
       schema:
         type: string
         format: date-time
+    ForecastOrigin:
+      name: origin
+      in: query
+      description: >
+        First forecast day at midnight UTC, on/after 2026-05-14 and no later than
+        the latest passed 00:10 UTC daily cutoff. Defaults to that cutoff day.
+        Returned dates are whole UTC days, not rolling 24-hour windows.
+      schema:
+        type: string
+        format: date
     StatsTo:
       name: to
       in: query
@@ -1164,6 +1278,105 @@ components:
             $ref: "#/components/schemas/Error"
 
   schemas:
+    ForecastMetadata:
+      type: object
+      required: [schemaVersion, predictionKind, units, dataSource, origin, asOf,
+        lastCompletedDay, horizonDays, method, modelTrainingCutoff, modelVersion,
+        uncertaintyIntervalsAvailable, predictsOutageProbability, fallbackUsed, generatedAt]
+      properties:
+        schemaVersion: {type: string, enum: ["1"]}
+        predictionKind: {type: string, enum: [DAILY_ENERGY_FORECAST]}
+        units: {type: string, enum: ["kWh/day"]}
+        dataSource: {type: string, enum: [CATALOG_METER_READINGS]}
+        origin: {type: string, format: date-time}
+        asOf: {type: string, format: date-time}
+        lastCompletedDay: {type: string, format: date}
+        horizonDays: {type: integer, enum: [3]}
+        method: {type: string}
+        modelTrainingCutoff: {type: string, format: date-time}
+        modelVersion: {type: string}
+        uncertaintyIntervalsAvailable: {type: boolean, enum: [false]}
+        predictsOutageProbability: {type: boolean, enum: [false]}
+        fallbackUsed: {type: boolean}
+        generatedAt: {type: string, format: date-time}
+    ForecastDay:
+      type: object
+      required: [date, horizon, predictedEnergyKwh, referenceEnergyKwh,
+        changeVsReferencePct, status, fallbackUsed]
+      properties:
+        date: {type: string, format: date}
+        horizon: {type: integer, minimum: 1, maximum: 3}
+        predictedEnergyKwh: {type: number, minimum: 0, nullable: true}
+        referenceEnergyKwh: {type: number, minimum: 0, nullable: true}
+        changeVsReferencePct: {type: number, nullable: true}
+        status: {type: string, enum: [READY, INSUFFICIENT_DATA]}
+        fallbackUsed: {type: boolean}
+    SegmentForecastDay:
+      allOf:
+        - $ref: "#/components/schemas/ForecastDay"
+        - type: object
+          required: [expectedMeters, eligibleMeters]
+          properties:
+            expectedMeters: {type: integer, minimum: 1}
+            eligibleMeters: {type: integer, minimum: 0}
+    MeterForecastDay:
+      allOf:
+        - $ref: "#/components/schemas/ForecastDay"
+        - type: object
+          required: [annualReferenceUsed, changeVsPreviousDayPct, fallbackReason]
+          properties:
+            annualReferenceUsed: {type: boolean}
+            changeVsPreviousDayPct: {type: number, nullable: true}
+            fallbackReason:
+              type: string
+              nullable: true
+              enum: [INSUFFICIENT_HISTORY, MISSING_CLIENT_TYPE, null]
+    MeterForecast:
+      type: object
+      required: [meterId, meter, segmentId, forecasts]
+      properties:
+        meterId: {type: string, format: uuid}
+        meter: {type: string}
+        segmentId: {type: string, format: uuid}
+        forecasts:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items:
+            $ref: "#/components/schemas/MeterForecastDay"
+    SegmentForecast:
+      allOf:
+        - $ref: "#/components/schemas/ForecastMetadata"
+        - type: object
+          required: [segmentId, segment, region, forecasts]
+          properties:
+            segmentId: {type: string, format: uuid}
+            segment: {type: string}
+            region: {type: string}
+            forecasts:
+              type: array
+              minItems: 3
+              maxItems: 3
+              items:
+                $ref: "#/components/schemas/SegmentForecastDay"
+            meters:
+              type: array
+              items:
+                $ref: "#/components/schemas/MeterForecast"
+    MeterForecastResponse:
+      allOf:
+        - $ref: "#/components/schemas/ForecastMetadata"
+        - $ref: "#/components/schemas/MeterForecast"
+    ForecastPage:
+      allOf:
+        - $ref: "#/components/schemas/PageMeta"
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/SegmentForecast"
     # ------------------------------------------------------------ errors ---
     FieldError:
       type: object

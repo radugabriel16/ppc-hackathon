@@ -164,7 +164,7 @@ describe("statistics workspace", () => {
     });
     await screen.findByRole("img", { name: /Consumption for Banat meter 1/ });
     await screen.findByRole("img", {
-      name: /forecast for Banat with 80% and 95%/,
+      name: /forecast for Banat, three UTC days/,
     });
     await waitFor(() =>
       expect(
@@ -216,7 +216,7 @@ describe("statistics workspace", () => {
       screen.queryByRole("img", { name: /Regional consumption forecast/ }),
     ).toBeNull();
   });
-  it("labels the synthetic forecast in mock mode and displays returned interval values", async () => {
+  it("labels the synthetic forecast and displays three UTC days without uncertainty claims", async () => {
     const { show } = workspace(true, "mock");
     show();
     expect(screen.getByText("MOCK FORECAST")).toBeTruthy();
@@ -225,9 +225,34 @@ describe("statistics workspace", () => {
       hidden: true,
     });
     expect(within(values).getAllByRole("row", { hidden: true })).toHaveLength(
-      49,
+      4,
     );
-    expect(within(values).getByText("80% lower")).toBeTruthy();
-    expect(within(values).getByText("95% upper")).toBeTruthy();
+    expect(within(values).getByText("2026-11-14 UTC")).toBeTruthy();
+    expect(within(values).getByText("Status")).toBeTruthy();
+    expect(screen.queryByText("80% lower")).toBeNull();
+  });
+
+  it("shows baseline provenance and missing totals instead of plotting zero", async () => {
+    const { source, show } = workspace();
+    const points = mapping.forecast(fixtures.forecast, "MUNTENIA");
+    points[0] = {
+      ...points[0],
+      estimate: null,
+      status: "INSUFFICIENT_DATA",
+      fallbackUsed: true,
+    };
+    vi.mocked(source.getForecast).mockResolvedValue(points);
+    show();
+    await screen.findByText(/BASELINE FALLBACK/);
+    expect(screen.getByText(/As of.*mock-hgb_smooth/)).toBeTruthy();
+    expect(
+      within(
+        screen.getByRole("table", { name: "Forecast values", hidden: true }),
+      ).getByText("Insufficient data"),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("img", { name: /Regional consumption forecast/ })
+        .textContent,
+    ).toContain("null");
   });
 });
