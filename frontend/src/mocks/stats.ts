@@ -163,28 +163,27 @@ export function createStatsFixtures(now = Date.now()) {
     ),
   };
   const forecast = {
-    series: REGIONS.map((regionCode, regionIndex) => ({
-      regionCode,
-      unit: "kWh",
-      points: Array.from({ length: 48 }, (_, i) => {
-        const timestamp = new Date(end + (i + 1) * interval).toISOString();
-        const hour =
-          new Date(timestamp).getUTCHours() +
-          new Date(timestamp).getUTCMinutes() / 60;
-        const estimate = Math.round(
-          [230000, 115000, 90000][regionIndex] *
-            (0.8 + 0.28 * Math.cos(((hour - 18) * Math.PI) / 12)),
-        );
-        const width = 0.07 + i * 0.0013;
-        return {
-          timestamp,
-          estimate,
-          lower80: Math.round(estimate * (1 - width)),
-          upper80: Math.round(estimate * (1 + width)),
-          lower95: Math.round(estimate * (1 - width * 1.7)),
-          upper95: Math.round(estimate * (1 + width * 1.7)),
-        };
-      }),
+    items: REGIONS.map((region, regionIndex) => ({
+      segmentId: `${region}-SEG-1`,
+      region,
+      units: "kWh/day",
+      horizonDays: 3,
+      origin: new Date(Math.floor(now / 86400000) * 86400000).toISOString(),
+      asOf: new Date(
+        Math.floor(now / 86400000) * 86400000 + 600000,
+      ).toISOString(),
+      modelVersion: "mock-hgb_smooth",
+      uncertaintyIntervalsAvailable: false,
+      forecasts: Array.from({ length: 3 }, (_, i) => ({
+        date: new Date((Math.floor(now / 86400000) + i) * 86400000)
+          .toISOString()
+          .slice(0, 10),
+        horizon: i + 1,
+        predictedEnergyKwh:
+          [230000, 115000, 90000][regionIndex] * (1 + i * 0.05),
+        status: "READY",
+        fallbackUsed: false,
+      })),
     })),
   };
   return { benchmark: { rows }, recommendations, meters, hotspots, forecast };

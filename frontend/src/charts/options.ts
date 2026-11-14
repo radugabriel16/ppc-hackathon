@@ -1,4 +1,4 @@
-import type { EChartsOption, LineSeriesOption } from "echarts";
+import type { EChartsOption } from "echarts";
 import { theme } from "../theme";
 import {
   CATEGORIES,
@@ -142,74 +142,24 @@ export function meterOption(meter: MeterConsumption): EChartsOption {
 }
 
 export function forecastOption(points: ForecastPoint[]): EChartsOption {
-  const band = (level: "80" | "95"): LineSeriesOption[] => {
-    const lower = level === "80" ? "lower80" : "lower95";
-    const upper = level === "80" ? "upper80" : "upper95";
-    return [
-      {
-        name: `${level}% lower offset`,
-        type: "line",
-        stack: level,
-        stackStrategy: "all",
-        symbol: "none",
-        silent: true,
-        lineStyle: { opacity: 0 },
-        areaStyle: { opacity: 0 },
-        tooltip: { show: false },
-        data: points.map((point) => [point.timestamp, point[lower]]),
-      },
-      {
-        name: `${level}% interval`,
-        type: "line",
-        stack: level,
-        stackStrategy: "all",
-        symbol: "none",
-        silent: true,
-        lineStyle: { opacity: 0 },
-        areaStyle: {
-          color: palette.primary.main,
-          opacity: level === "80" ? 0.24 : 0.12,
-        },
-        tooltip: { show: false },
-        data: points.map((point) => [
-          point.timestamp,
-          point[upper] - point[lower],
-        ]),
-      },
-    ];
-  };
   return {
     ...chartDefaults,
-    legend: { data: ["Estimate", "80% interval", "95% interval"], top: 0 },
+    legend: { data: ["Estimate"], top: 0 },
+    useUTC: true,
     xAxis: { type: "time" },
-    yAxis: { type: "value", name: "kWh", scale: true },
+    yAxis: { type: "value", name: "kWh/day", scale: true },
     dataZoom: [{ type: "inside" }, { type: "slider", height: 18, bottom: 10 }],
     series: [
-      ...band("95"),
-      ...band("80"),
       {
         name: "Estimate",
         type: "line",
-        showSymbol: false,
+        showSymbol: true,
+        connectNulls: false,
         lineStyle: { color: palette.primary.main, width: 2.5 },
         itemStyle: { color: palette.primary.main },
-        dimensions: [
-          "Time",
-          "Estimate (kWh)",
-          "80% lower",
-          "80% upper",
-          "95% lower",
-          "95% upper",
-        ],
-        encode: { x: 0, y: 1, tooltip: [1, 2, 3, 4, 5] },
-        data: points.map((point) => [
-          point.timestamp,
-          point.estimate,
-          point.lower80,
-          point.upper80,
-          point.lower95,
-          point.upper95,
-        ]),
+        dimensions: ["Time", "Estimate (kWh)"],
+        encode: { x: 0, y: 1, tooltip: [1] },
+        data: points.map((point) => [point.timestamp, point.estimate]),
       },
     ],
   };

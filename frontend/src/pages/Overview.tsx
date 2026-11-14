@@ -437,16 +437,21 @@ function Forecast({ region }: { region: Region }) {
         )}
       </Stack>
       <Typography variant="body2" color="text.secondary" mb={2}>
-        {REGION_INFO[region].name} ·{" "}
-        {mode === "mock" ? "Synthetic example with" : "Estimate with"} 80% and
-        95% prediction intervals. Lighter shading shows the wider 95% band.
+        {REGION_INFO[region].name} · Three whole UTC days · kWh/day. No
+        calibrated prediction intervals or outage probabilities. Missing segment
+        data leaves the regional total unknown.
       </Typography>
       <StatContent query={query} empty={!query.data?.length}>
         {!!query.data?.length && (
           <>
+            <Typography variant="body2" color="text.secondary">
+              As of {time(query.data[0].asOf)} · {query.data[0].modelVersion}
+              {query.data.some((point) => point.fallbackUsed) &&
+                " · BASELINE FALLBACK: insufficient history or missing client type"}
+            </Typography>
             <StatisticsChart
               option={forecastOption(query.data)}
-              label={`Regional consumption forecast for ${REGION_INFO[region].name} with 80% and 95% prediction intervals`}
+              label={`Regional consumption forecast for ${REGION_INFO[region].name}, three UTC days`}
               height={360}
             />
             <Box component="details" sx={{ mt: 2 }}>
@@ -455,31 +460,28 @@ function Forecast({ region }: { region: Region }) {
                 <Table size="small" aria-label="Forecast values">
                   <TableHead>
                     <TableRow>
-                      {[
-                        "Time",
-                        "Estimate (kWh)",
-                        "80% lower",
-                        "80% upper",
-                        "95% lower",
-                        "95% upper",
-                      ].map((name) => (
-                        <TableCell key={name}>{name}</TableCell>
-                      ))}
+                      {["Time", "Estimate (kWh)", "Status", "Method"].map(
+                        (name) => (
+                          <TableCell key={name}>{name}</TableCell>
+                        ),
+                      )}
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {query.data.map((point) => (
                       <TableRow key={point.timestamp}>
-                        <TableCell>{time(point.timestamp)}</TableCell>
-                        {[
-                          point.estimate,
-                          point.lower80,
-                          point.upper80,
-                          point.lower95,
-                          point.upper95,
-                        ].map((value, index) => (
-                          <TableCell key={index}>{numeric(value)}</TableCell>
-                        ))}
+                        <TableCell>
+                          {point.timestamp.slice(0, 10)} UTC
+                        </TableCell>
+                        <TableCell>
+                          {point.estimate === null
+                            ? "Insufficient data"
+                            : numeric(point.estimate)}
+                        </TableCell>
+                        <TableCell>{point.status}</TableCell>
+                        <TableCell>
+                          {point.fallbackUsed ? "Baseline fallback" : "Model"}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

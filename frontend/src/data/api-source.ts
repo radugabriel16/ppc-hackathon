@@ -104,14 +104,21 @@ export class ApiSource implements DataSource {
     );
   }
   async getForecast(region: Region) {
-    // Explicit extension absent from the read-only contract: use the generated
-    // client's transport until a generated operation exists. No API-mode fallback.
-    return forecast(
-      await this.connection.read(
-        this.client.get<{ 200: unknown }>({ url: "/stats/forecast" }),
-      ),
-      region,
-    );
+    const items = [];
+    let page = 0;
+    let totalPages = 1;
+    do {
+      const result = await this.connection.read(
+        sdk.getStatsForecast({
+          client: this.client,
+          query: { page, size: 100 },
+        }),
+      );
+      items.push(...result.items);
+      totalPages = result.totalPages ?? 1;
+      page += 1;
+    } while (page < totalPages);
+    return forecast({ items }, region);
   }
   async getPolicies() {
     return policyRows(

@@ -203,7 +203,7 @@ def test_auth_roles_empty_and_invalid_ranges(stats, path, key):
     if path in ("meters", "outages/hotspots"):
         assert client.get("/api/v1/stats/" + path, params={"regionId": "invalid"}).status_code == 422
     # Neither authenticated role is forbidden from these contracted read endpoints.
-    assert client.get("/api/v1/stats/forecast").status_code == 404
+    assert client.get("/api/v1/stats/forecast", params={"regionId": str(uuid.uuid4())}).status_code == 200
 
 
 @pytest.mark.parametrize("role", ("ingest", "worker"))

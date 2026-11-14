@@ -228,43 +228,77 @@ export function outageHotspots(
     .sort((a, b) => b.outageCount - a.outageCount);
 }
 export function forecast(value: unknown, region: Region): ForecastPoint[] {
-  const series = rows(value, "series").map((row) => {
-    const dto = object(row, "forecast series");
-    const code = member(dto.regionCode, REGIONS, "forecast.regionCode");
-    if (dto.unit !== "kWh" || !Array.isArray(dto.points))
-      invalid("forecast.unit/points");
-    const points = dto.points
-      .map((row): ForecastPoint => {
-        const point = object(row, "forecast point");
-        const result = {
-          timestamp: timestamp(point.timestamp),
-          estimate: number(point.estimate, "estimate"),
-          lower80: number(point.lower80, "lower80"),
-          upper80: number(point.upper80, "upper80"),
-          lower95: number(point.lower95, "lower95"),
-          upper95: number(point.upper95, "upper95"),
-        };
-        if (
-          !(
-            result.lower95 <= result.lower80 &&
-            result.lower80 <= result.estimate &&
-            result.estimate <= result.upper80 &&
-            result.upper80 <= result.upper95
-          )
-        )
-          invalid("forecast bands must enclose estimate and be nested");
-        return result;
-      })
-      .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-    unique(
-      points.map((x) => x.timestamp),
-      "forecast timestamp",
-    );
-    return { region: code, points };
+  const segments = rows(value, "items").map((row) => {
+    const dto = object(row, "segment forecast");
+    const code = member(dto.region, REGIONS, "forecast.region");
+    if (
+      dto.units !== "kWh/day" ||
+      dto.horizonDays !== 3 ||
+      dto.uncertaintyIntervalsAvailable !== false ||
+      !Array.isArray(dto.forecasts) ||
+      dto.forecasts.length !== 3
+    )
+      invalid("forecast horizon/units/intervals");
+    const asOf = timestamp(dto.asOf);
+    const origin = timestamp(dto.origin);
+    const modelVersion = text(dto.modelVersion, "modelVersion");
+    const points = dto.forecasts.map((row, i): ForecastPoint => {
+      const point = object(row, "forecast day");
+      const day = text(point.date, "date");
+      if (
+        !/^\d{4}-\d{2}-\d{2}$/.test(day) ||
+        point.horizon !== i + 1 ||
+        Date.parse(`${day}T00:00:00Z`) !== Date.parse(origin) + i * 86400000
+      )
+        invalid("forecast date/horizon");
+      if (typeof point.fallbackUsed !== "boolean") invalid("fallbackUsed");
+      const status = member(
+        point.status,
+        ["READY", "INSUFFICIENT_DATA"] as const,
+        "status",
+      );
+      const estimate =
+        point.predictedEnergyKwh === null
+          ? null
+          : number(point.predictedEnergyKwh, "predictedEnergyKwh");
+      if ((status === "READY") !== (estimate !== null))
+        invalid("forecast status/energy");
+      return {
+        timestamp: `${day}T00:00:00.000Z`,
+        estimate,
+        asOf,
+        modelVersion,
+        fallbackUsed: point.fallbackUsed,
+        status,
+      };
+    });
+    return { id: text(dto.segmentId, "segmentId"), region: code, points };
   });
   unique(
-    series.map((x) => x.region),
-    "forecast region",
+    segments.map((x) => x.id),
+    "forecast segment",
   );
-  return series.find((x) => x.region === region)?.points ?? [];
+  const selected = segments.filter((x) => x.region === region);
+  if (!selected.length) return [];
+  return selected[0].points.map((point, i) => {
+    const days = selected.map((segment) => segment.points[i]);
+    if (
+      days.some(
+        (day) =>
+          day.timestamp !== point.timestamp ||
+          day.asOf !== point.asOf ||
+          day.modelVersion !== point.modelVersion,
+      )
+    )
+      invalid("mixed forecast runs");
+    const complete = days.every((day) => day.estimate !== null);
+    return {
+      ...point,
+      estimate: complete
+        ? days.reduce((sum, day) => sum + day.estimate!, 0)
+        : null,
+      fallbackUsed: days.some((day) => day.fallbackUsed),
+      status: complete ? "READY" : "INSUFFICIENT_DATA",
+    };
+  });
 }

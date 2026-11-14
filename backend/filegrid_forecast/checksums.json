@@ -1,0 +1,15 @@
+{
+  "INTEGRATION.md": "0158b0e79b92a2d4e8511fb6fb6f674463cc146c75df72aa59f3f7f67440d49f",
+  "examples/all-segments.json": "e6e4cc4a66f7dc15b872372a32ec9e1349241cc746749c39c7c582a965645f79",
+  "examples/evaluation-report.json": "ff87a469d33156b9aa3ce182dfd10c2961b9c339be9cb26b4fff2627308840fc",
+  "examples/segment-013-with-meters.json": "67a5b93c10404e6fc715e0175db1b4e1a82597e48f0bd9eb977fcba1512474e4",
+  "examples/segment-013.json": "b6af95d77c7c2451eda41cc8df2f40d2a8a4c293d0126a456ec006cca975c739",
+  "filegrid_forecast/__init__.py": "5c3d4bcea815ab51eddc5281defffaab777fef8d1218ad98487750e4feb60bc7",
+  "filegrid_forecast/core.py": "7bd5e42729e316fc84514b4cb4efdeeeea16a9a2886da85898ce51a4212bcecf",
+  "filegrid_forecast/payload.py": "89e504b3f4f5d8df32b00a32949272ed869fc6d22fb9ee7a9eeadb7ad1df7df8",
+  "filegrid_forecast/service.py": "8be566d00c8c7c463b712a5c7af7be631eb515eac9e3ff932c5c063bd5edb68d",
+  "handoff-verification.json": "32a1dc9d09bd43a34763d2f7c976c1b79d4fae2e60e9b180e11f3730070e7d67",
+  "model/forecast_3d.joblib": "3a025fc4883299b805e6cf6241215a8462375295e00cf0cd66bd4cb7729b08ca",
+  "predict_segment.py": "5814abb23dce7042772a710c0b94325dbe75923b068feb2f9fed7eea99716df1",
+  "requirements.txt": "e0e65afa78e6d1b736eb9fd3ebd223c9ff57208aaa15d85b0a6bbd9346af6ab0"
+}

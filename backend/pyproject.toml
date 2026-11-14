@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools==75.6.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "filegrid-backend"
+version = "0.1.0"
+requires-python = ">=3.12"
+
+[tool.setuptools.packages.find]
+include = ["app*", "filegrid_forecast*"]
+
+[tool.setuptools.package-data]
+filegrid_forecast = ["checksums.json", "model/*.joblib"]

@@ -57,36 +57,16 @@ describe("statistics visualization semantics", () => {
     expect(anomalies.find((point) => point.name === "zero")?.value[1]).toBe(0);
     expect(anomalies.find((point) => point.name === "spike")).toBeTruthy();
   });
-  it("draws both forecast bands at their returned lower/upper bounds, not from zero", () => {
+  it("draws three daily estimates without invented uncertainty bands and preserves missing totals", () => {
     const points = forecast(fixtures.forecast, "MUNTENIA");
+    points[1].estimate = null;
     const series = forecastOption(points).series as LineSeriesOption[];
-    for (const level of ["80", "95"] as const) {
-      const base = series.find((row) => row.name === `${level}% lower offset`)!;
-      const band = series.find((row) => row.name === `${level}% interval`)!;
-      const baseData = base.data as [string, number][];
-      const bandData = band.data as [string, number][];
-      expect(base.stack).toBe(level);
-      expect(band.stack).toBe(level);
-      for (const [i, point] of points.entries()) {
-        expect(baseData[i][1]).toBe(
-          level === "80" ? point.lower80 : point.lower95,
-        );
-        expect(baseData[i][1] + bandData[i][1]).toBe(
-          level === "80" ? point.upper80 : point.upper95,
-        );
-      }
-    }
-    expect(
-      (
-        series.find((row) => row.name === "Estimate")!.data as unknown[][]
-      )[0].slice(1),
-    ).toEqual([
-      points[0].estimate,
-      points[0].lower80,
-      points[0].upper80,
-      points[0].lower95,
-      points[0].upper95,
-    ]);
+    expect(series).toHaveLength(1);
+    expect(series[0].connectNulls).toBe(false);
+    expect(series[0].data).toEqual(
+      points.map((point) => [point.timestamp, point.estimate]),
+    );
+    expect(series[0].areaStyle).toBeUndefined();
   });
   it("creates only operational hotspot properties and enables distinct weighted heat and cluster layers", () => {
     const rows = outageHotspots(fixtures.hotspots, "MUNTENIA");

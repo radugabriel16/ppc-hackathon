@@ -108,20 +108,23 @@ describe("statistics HTTP operations and strict mappings", () => {
     expect(hotspots[0].outageCount).toBeGreaterThanOrEqual(
       hotspots[17].outageCount,
     );
-    expect(predictions).toHaveLength(48);
+    expect(predictions).toHaveLength(3);
     expect(
       predictions.every(
         (point) =>
-          point.lower95 <= point.lower80 &&
-          point.lower80 <= point.estimate &&
-          point.estimate <= point.upper80 &&
-          point.upper80 <= point.upper95,
+          point.status === "READY" &&
+          point.estimate !== null &&
+          !point.fallbackUsed &&
+          point.asOf.length > 0,
       ),
     ).toBe(true);
   });
   it("filters meter/forecast/hotspot responses by region without sending undocumented query parameters", async () => {
     server.events.on("request:start", ({ request }) => {
-      expect(new URL(request.url).search).toBe("");
+      const url = new URL(request.url);
+      expect(url.search).toBe(
+        url.pathname.endsWith("/forecast") ? "?page=0&size=100" : "",
+      );
     });
     expect((await source.getMeterConsumption("BANAT"))[0].id).toBe("BAN-M1");
     expect((await source.getOutageHotspots("DOBROGEA"))[0].region).toBe(
@@ -129,7 +132,7 @@ describe("statistics HTTP operations and strict mappings", () => {
     );
     const muntenia = await source.getForecast("MUNTENIA");
     const banat = await source.getForecast("BANAT");
-    expect(muntenia[0].estimate).toBeGreaterThan(banat[0].estimate);
+    expect(muntenia[0].estimate).toBeGreaterThan(banat[0].estimate!);
   });
   it("requires authentication for every stats endpoint, including the mock forecast extension", async () => {
     await source.logout();
@@ -138,7 +141,15 @@ describe("statistics HTTP operations and strict mappings", () => {
   });
   it("returns no measurements for empty API responses and never falls back to fixtures", async () => {
     source = new ApiSource(base, "api");
-    server.use(http.get(`${base}/stats/*`, () => HttpResponse.json({})));
+    server.use(
+      http.get(`${base}/stats/*`, ({ request }) =>
+        HttpResponse.json(
+          new URL(request.url).pathname.endsWith("/forecast")
+            ? { items: [] }
+            : {},
+        ),
+      ),
+    );
     expect(await allStats()).toEqual([[], [], [], [], []]);
     server.use(
       http.get(`${base}/stats/storage-benchmark`, () =>
@@ -152,7 +163,7 @@ describe("statistics HTTP operations and strict mappings", () => {
         HttpResponse.json({ type: "FeatureCollection", features: [] }),
       ),
       http.get(`${base}/stats/forecast`, () =>
-        HttpResponse.json({ series: [] }),
+        HttpResponse.json({ items: [] }),
       ),
     );
     expect(await allStats()).toEqual([[], [], [], [], []]);
@@ -254,7 +265,7 @@ describe("statistics HTTP operations and strict mappings", () => {
     payload.meters[0].readings = [];
     expect(meterConsumption(payload, "MUNTENIA")[0].readings).toEqual([]);
   });
-  it("rejects impossible windows, duplicate timestamps, invalid coordinates and crossed forecast bands", () => {
+  it("rejects impossible windows, duplicate timestamps, invalid coordinates and invalid forecast horizons", () => {
     const fixtures = createStatsFixtures();
     const meter = fixtures.meters.meters[0];
     expect(() =>
@@ -285,21 +296,74 @@ describe("statistics HTTP operations and strict mappings", () => {
         "MUNTENIA",
       ),
     ).toThrow(/coordinates/);
-    const series = fixtures.forecast.series[0];
+    const series = fixtures.forecast.items[0];
     expect(() =>
       forecast(
         {
-          series: [
+          items: [
             {
               ...series,
-              points: [
-                { ...series.points[0], lower80: series.points[0].estimate + 1 },
+              forecasts: [
+                { ...series.forecasts[0], horizon: 2 },
+                ...series.forecasts.slice(1),
               ],
             },
           ],
         },
         "MUNTENIA",
       ),
-    ).toThrow(/bands/);
+    ).toThrow(/horizon/);
+  });
+
+  it("never reports partial regional totals and flags baseline estimates", () => {
+    const fixtures = createStatsFixtures();
+    const first = fixtures.forecast.items[0];
+    const missing = {
+      ...first,
+      segmentId: "second",
+      forecasts: first.forecasts.map((point) => ({
+        ...point,
+        predictedEnergyKwh: null,
+        status: "INSUFFICIENT_DATA",
+        fallbackUsed: true,
+      })),
+    };
+    const points = forecast({ items: [first, missing] }, "MUNTENIA");
+    expect(points).toHaveLength(3);
+    expect(
+      points.every((point) => point.estimate === null && point.fallbackUsed),
+    ).toBe(true);
+    const baseline = {
+      ...missing,
+      forecasts: missing.forecasts.map((point) => ({
+        ...point,
+        predictedEnergyKwh: 10,
+        status: "READY",
+      })),
+    };
+    expect(forecast({ items: [first, baseline] }, "MUNTENIA")[0]).toMatchObject(
+      {
+        estimate: first.forecasts[0].predictedEnergyKwh + 10,
+        fallbackUsed: true,
+      },
+    );
+  });
+
+  it("fetches every forecast page before aggregating a region", async () => {
+    const item = createStatsFixtures().forecast.items[0];
+    server.use(
+      http.get(`${base}/stats/forecast`, ({ request }) => {
+        const page = Number(new URL(request.url).searchParams.get("page"));
+        return HttpResponse.json({
+          items: [{ ...item, segmentId: `segment-${page}` }],
+          page,
+          size: 100,
+          totalElements: 2,
+          totalPages: 2,
+        });
+      }),
+    );
+    const points = await source.getForecast("MUNTENIA");
+    expect(points[0].estimate).toBe(item.forecasts[0].predictedEnergyKwh * 2);
   });
 });
