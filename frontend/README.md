@@ -65,6 +65,14 @@ Managers can open Admin to inspect every effective category policy, reload the s
 
 The implementation uses DataSource hooks and generated SDK operations in both API and mock modes. LocalDemoSource retains independent in-memory controls. MSW records follow the contract schemas and persist simulator state/history in IndexedDB; they do not run an actual meter generator. Backfill anomaly names are sent as the schema's free-form `profile` field. These assumptions are detailed in CONTRACT_ISSUES.md.
 
+## Statistics
+
+Statistics uses pinned Apache ECharts 6.1.0 with the SVG renderer and selected chart modules, loaded with the route. The storage matrix switches between normal and peak observations and offers latency/throughput/error-rate heatmaps; its table exposes all five metrics. Recommendation cards show the returned reason text. Meter selection follows the workspace region; anomalies use diamond markers and missing intervals remain null with shaded gap windows. Expand the reading table for exact values. MapLibre offers weighted outage heat and clusters with summed outage counts, plus a table usable without WebGL. The regional forecast has nested 80%/95% bands and an expandable values table.
+
+Each panel has independent loading, empty and error states. The page uses DataSource hooks and the `/stats/*` SDK operations, rather than aggregating file/issue counts. Empty API responses show **No data yet**. Unknown response shapes fail visibly; no live-mode numbers or recommendations are generated. The opaque stats schemas and missing forecast endpoint require agreement on the explicit proposals in [CONTRACT_ISSUES.md](CONTRACT_ISSUES.md). Forecast currently uses the generated client's low-level transport for the proposed GET; live failures remain visible. MSW alone supplies realistic synthetic telemetry and labels its forecast as mock data.
+
+Chart implementation follows the official [ECharts modular import guide](https://echarts.apache.org/handbook/en/basics/import/); map weighting follows [MapLibre heatmap layers](https://maplibre.org/maplibre-gl-js/docs/examples/create-a-heatmap-layer/).
+
 ## Known live integration blockers
 
 - The auth contract requires CSRF for mutations but defines no token delivery. The adapter and MSW provisionally use an **X-CSRF-Token response header** on login/me. A real response without it allows reads but mutations fail explicitly. Confirm this extension or update the upstream contract.

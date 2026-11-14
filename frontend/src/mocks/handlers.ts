@@ -19,6 +19,7 @@ import {
 import type { DemoStore } from "../upload/fake-transport";
 import { examples, mockRegions } from "./fixtures";
 import { createAdminHandlers } from "./admin";
+import { createStatsHandlers } from "./stats";
 import type { Region } from "../data/models";
 
 type MockSession = { me: Me; csrf: string };
@@ -129,6 +130,7 @@ export function createMockApi(options: Options = {}) {
     },
   ];
   const handlers: RequestHandler[] = [
+    ...createStatsHandlers(base, guard),
     ...createAdminHandlers({ base, store, guard, error, page }),
     http.post(`${base}/auth/login`, async ({ request }) => {
       const body = (await request.json()) as {

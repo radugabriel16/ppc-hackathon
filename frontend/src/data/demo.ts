@@ -22,6 +22,11 @@ import type {
   Session,
   SimulatorStart,
   SimulatorBackfill,
+  StorageBenchmark,
+  StorageRecommendation,
+  MeterConsumption,
+  OutageHotspot,
+  ForecastPoint,
 } from "./models";
 import type { DataSource } from "./source";
 
@@ -72,6 +77,23 @@ export class LocalDemoSource implements DataSource {
   }
   getRecentAlerts() {
     return this.administration.getRecentAlerts();
+  }
+  // No benchmark measurements exist in the isolated local source. Realistic
+  // synthetic statistics are served only by the explicitly selected MSW mode.
+  async getStorageBenchmark(): Promise<StorageBenchmark[]> {
+    return [];
+  }
+  async getStorageRecommendations(): Promise<StorageRecommendation[]> {
+    return [];
+  }
+  async getMeterConsumption(): Promise<MeterConsumption[]> {
+    return [];
+  }
+  async getOutageHotspots(): Promise<OutageHotspot[]> {
+    return [];
+  }
+  async getForecast(): Promise<ForecastPoint[]> {
+    return [];
   }
   private assets: Asset[] = REGIONS.flatMap((region) => {
     const [lon, lat] = REGION_INFO[region].center;

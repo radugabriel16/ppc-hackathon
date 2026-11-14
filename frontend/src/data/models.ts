@@ -111,6 +111,53 @@ export interface Statistics {
   overdueCases: number;
   bytes: number;
 }
+export const STORAGES = ["db", "ftp", "s3"] as const;
+export type StorageKind = (typeof STORAGES)[number];
+export type BenchmarkProfile = "normal" | "peak";
+export interface StorageBenchmark {
+  category: Category;
+  storage: StorageKind;
+  profile: BenchmarkProfile;
+  p50Ms: number;
+  p95Ms: number;
+  p99Ms: number;
+  throughputMiBps: number;
+  errorRate: number;
+}
+export interface StorageRecommendation {
+  category: Category;
+  storage: StorageKind;
+  reason: string;
+}
+export type MeterAnomaly = "spike" | "zero" | "gap";
+export interface MeterReading {
+  timestamp: string;
+  kWh: number | null;
+  anomaly: MeterAnomaly | null;
+}
+export interface MeterConsumption {
+  id: string;
+  label: string;
+  region: Region;
+  intervalMinutes: number;
+  readings: MeterReading[];
+}
+export interface OutageHotspot {
+  id: string;
+  assetName: string;
+  region: Region;
+  coordinates: [number, number];
+  outageCount: number;
+  durationMinutes: number;
+}
+export interface ForecastPoint {
+  timestamp: string;
+  estimate: number;
+  lower80: number;
+  upper80: number;
+  lower95: number;
+  upper95: number;
+}
 export interface EffectivePolicy {
   category: string;
   backend: string | null;

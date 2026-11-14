@@ -18,6 +18,11 @@ import type {
   SimulatorState,
   ScenarioRun,
   RecentAlert,
+  StorageBenchmark,
+  StorageRecommendation,
+  MeterConsumption,
+  OutageHotspot,
+  ForecastPoint,
 } from "./models";
 import type { UploadTransport } from "../upload/types";
 
@@ -41,6 +46,11 @@ export interface DataSource {
   getFile(id: string): Promise<FileRecord>;
   getCases(filter: CaseFilter): Promise<Page<CaseRecord>>;
   getStatistics(region: Region): Promise<Statistics>;
+  getStorageBenchmark(): Promise<StorageBenchmark[]>;
+  getStorageRecommendations(): Promise<StorageRecommendation[]>;
+  getMeterConsumption(region: Region): Promise<MeterConsumption[]>;
+  getOutageHotspots(region: Region): Promise<OutageHotspot[]>;
+  getForecast(region: Region): Promise<ForecastPoint[]>;
   getPolicies(): Promise<EffectivePolicy[]>;
   reloadPolicies(): Promise<EffectivePolicy[]>;
   getSimulatorStatus(): Promise<SimulatorState>;

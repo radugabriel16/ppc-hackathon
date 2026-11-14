@@ -16,12 +16,16 @@ import { Login } from "./pages/Login";
 import { FilesPage } from "./pages/Files";
 import { CasesPage } from "./pages/Cases";
 import { UploadsPage } from "./pages/Uploads";
-import { StatisticsPage } from "./pages/Overview";
 import { AdminPage } from "./pages/Admin";
 import "./styles.css";
 
 const MapPage = lazy(() =>
   import("./pages/Map").then((module) => ({ default: module.MapPage })),
+);
+const StatisticsPage = lazy(() =>
+  import("./pages/Overview").then((module) => ({
+    default: module.StatisticsPage,
+  })),
 );
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -62,7 +66,11 @@ prepareSource(import.meta.env)
                           <Route path="/uploads" element={<UploadsPage />} />
                           <Route
                             path="/statistics"
-                            element={<StatisticsPage />}
+                            element={
+                              <Suspense fallback={<Loading />}>
+                                <StatisticsPage />
+                              </Suspense>
+                            }
                           />
                           <Route path="/admin" element={<AdminPage />} />
                           <Route

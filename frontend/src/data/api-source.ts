@@ -8,6 +8,13 @@ import type {
 import { ApiConnection, contractError, requireValue } from "./api-client";
 import { ApiUploadTransport } from "./api-upload";
 import {
+  storageBenchmark,
+  storageRecommendations,
+  meterConsumption,
+  outageHotspots,
+  forecast,
+} from "./stats-mapping";
+import {
   policyRows,
   recentAlert,
   scenarioRun,
@@ -55,6 +62,44 @@ export class ApiSource implements DataSource {
   }
   private get client() {
     return this.connection.client;
+  }
+  async getStorageBenchmark() {
+    return storageBenchmark(
+      await this.connection.read(
+        sdk.getStatsStorageBenchmark({ client: this.client }),
+      ),
+    );
+  }
+  async getStorageRecommendations() {
+    return storageRecommendations(
+      await this.connection.read(
+        sdk.getStatsRecommendations({ client: this.client }),
+      ),
+    );
+  }
+  async getMeterConsumption(region: Region) {
+    return meterConsumption(
+      await this.connection.read(sdk.getStatsMeters({ client: this.client })),
+      region,
+    );
+  }
+  async getOutageHotspots(region: Region) {
+    return outageHotspots(
+      await this.connection.read(
+        sdk.getStatsOutagesHotspots({ client: this.client }),
+      ),
+      region,
+    );
+  }
+  async getForecast(region: Region) {
+    // Explicit extension absent from the read-only contract: use the generated
+    // client's transport until a generated operation exists. No API-mode fallback.
+    return forecast(
+      await this.connection.read(
+        this.client.get<{ 200: unknown }>({ url: "/stats/forecast" }),
+      ),
+      region,
+    );
   }
   async getPolicies() {
     return policyRows(
