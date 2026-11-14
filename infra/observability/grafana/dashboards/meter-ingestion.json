@@ -1,0 +1,827 @@
+{
+  "id": null,
+  "uid": "filegrid-meter-ingestion",
+  "title": "FileGrid / Meter ingestion",
+  "description": "Meter ingest rates and result counters. Missing readings are explicitly marked unavailable because section 4 has no corresponding metric.",
+  "tags": [
+    "filegrid",
+    "observability"
+  ],
+  "timezone": "browser",
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "10s",
+      "30s",
+      "1m",
+      "5m",
+      "15m"
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "links": [
+    {
+      "title": "Overview",
+      "type": "link",
+      "url": "/d/filegrid-overview",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true
+    },
+    {
+      "title": "Category x Storage",
+      "type": "link",
+      "url": "/d/filegrid-category-storage",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true
+    },
+    {
+      "title": "Meter ingestion",
+      "type": "link",
+      "url": "/d/filegrid-meter-ingestion",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true
+    },
+    {
+      "title": "Resilience",
+      "type": "link",
+      "url": "/d/filegrid-resilience",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true
+    },
+    {
+      "title": "Uploads",
+      "type": "link",
+      "url": "/d/filegrid-uploads",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "job",
+        "label": "Job",
+        "description": "",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values({__name__=~\"filegrid_request_duration_seconds_count|filegrid_storage_operation_duration_seconds_count|filegrid_storage_bytes_total|filegrid_requests_rejected_total|filegrid_meter_ingest_total|filegrid_integrity_failures_total|filegrid_circuit_state|filegrid_storage_fallback_total|filegrid_file_time_to_available_seconds_count|filegrid_upload_sessions_active|filegrid_upload_sessions_stalled\"}, job)",
+        "query": {
+          "query": "label_values({__name__=~\"filegrid_request_duration_seconds_count|filegrid_storage_operation_duration_seconds_count|filegrid_storage_bytes_total|filegrid_requests_rejected_total|filegrid_meter_ingest_total|filegrid_integrity_failures_total|filegrid_circuit_state|filegrid_storage_fallback_total|filegrid_file_time_to_available_seconds_count|filegrid_upload_sessions_active|filegrid_upload_sessions_stalled\"}, job)",
+          "refId": "StandardVariableQuery"
+        },
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "options": [],
+        "refresh": 1,
+        "sort": 1,
+        "regex": "",
+        "hide": 0,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "skipUrlSync": false
+      },
+      {
+        "name": "instance",
+        "label": "Instance",
+        "description": "",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values({__name__=~\"filegrid_request_duration_seconds_count|filegrid_storage_operation_duration_seconds_count|filegrid_storage_bytes_total|filegrid_requests_rejected_total|filegrid_meter_ingest_total|filegrid_integrity_failures_total|filegrid_circuit_state|filegrid_storage_fallback_total|filegrid_file_time_to_available_seconds_count|filegrid_upload_sessions_active|filegrid_upload_sessions_stalled\",job=~\"${job:regex}\"}, instance)",
+        "query": {
+          "query": "label_values({__name__=~\"filegrid_request_duration_seconds_count|filegrid_storage_operation_duration_seconds_count|filegrid_storage_bytes_total|filegrid_requests_rejected_total|filegrid_meter_ingest_total|filegrid_integrity_failures_total|filegrid_circuit_state|filegrid_storage_fallback_total|filegrid_file_time_to_available_seconds_count|filegrid_upload_sessions_active|filegrid_upload_sessions_stalled\",job=~\"${job:regex}\"}, instance)",
+          "refId": "StandardVariableQuery"
+        },
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "options": [],
+        "refresh": 1,
+        "sort": 1,
+        "regex": "",
+        "hide": 0,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "skipUrlSync": false
+      },
+      {
+        "name": "created_result",
+        "label": "Created result",
+        "description": "Exact filegrid_meter_ingest_total result label for this outcome. The requested name is the default; §4 leaves the result enum unspecified. Inspect the all-results chart and adjust to the exporter.",
+        "type": "textbox",
+        "query": "created",
+        "current": {
+          "selected": true,
+          "text": "created",
+          "value": "created"
+        },
+        "options": [
+          {
+            "selected": true,
+            "text": "created",
+            "value": "created"
+          }
+        ],
+        "hide": 0,
+        "skipUrlSync": false
+      },
+      {
+        "name": "duplicate_result",
+        "label": "Duplicate result",
+        "description": "Exact filegrid_meter_ingest_total result label for this outcome. The requested name is the default; §4 leaves the result enum unspecified. Inspect the all-results chart and adjust to the exporter.",
+        "type": "textbox",
+        "query": "duplicate",
+        "current": {
+          "selected": true,
+          "text": "duplicate",
+          "value": "duplicate"
+        },
+        "options": [
+          {
+            "selected": true,
+            "text": "duplicate",
+            "value": "duplicate"
+          }
+        ],
+        "hide": 0,
+        "skipUrlSync": false
+      },
+      {
+        "name": "conflict_result",
+        "label": "Conflict result",
+        "description": "Exact filegrid_meter_ingest_total result label for this outcome. The requested name is the default; §4 leaves the result enum unspecified. Inspect the all-results chart and adjust to the exporter.",
+        "type": "textbox",
+        "query": "conflict",
+        "current": {
+          "selected": true,
+          "text": "conflict",
+          "value": "conflict"
+        },
+        "options": [
+          {
+            "selected": true,
+            "text": "conflict",
+            "value": "conflict"
+          }
+        ],
+        "hide": 0,
+        "skipUrlSync": false
+      },
+      {
+        "name": "error_result",
+        "label": "Error result",
+        "description": "Exact filegrid_meter_ingest_total result label for this outcome. The requested name is the default; §4 leaves the result enum unspecified. Inspect the all-results chart and adjust to the exporter.",
+        "type": "textbox",
+        "query": "error",
+        "current": {
+          "selected": true,
+          "text": "error",
+          "value": "error"
+        },
+        "options": [
+          {
+            "selected": true,
+            "text": "error",
+            "value": "error"
+          }
+        ],
+        "hide": 0,
+        "skipUrlSync": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Result-label mapping",
+      "type": "text",
+      "pluginVersion": "11.0.0",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 5
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "Only **filegrid_meter_ingest_total{result}** is available for metering. The four result textboxes default to the requested names: created / duplicate / conflict / error. §4 does not define these label values; inspect **All emitted result values** and adjust them to the backend. Counters are aggregated across selected exporters; no meter ID or region labels are invented. These are event rates (per second), not percentages."
+      }
+    },
+    {
+      "id": 2,
+      "title": "Created readings / second",
+      "description": "",
+      "type": "stat",
+      "pluginVersion": "11.0.0",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "noValue": "No data",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(filegrid_meter_ingest_total{job=~\"${job:regex}\",instance=~\"${instance:regex}\",result=~\"${created_result:regex}\"}[$__rate_interval]))",
+          "editorMode": "code",
+          "legendFormat": "Created/s",
+          "format": "time_series",
+          "instant": true,
+          "range": false,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Duplicate readings / second",
+      "description": "",
+      "type": "stat",
+      "pluginVersion": "11.0.0",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 5,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "noValue": "No data",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(filegrid_meter_ingest_total{job=~\"${job:regex}\",instance=~\"${instance:regex}\",result=~\"${duplicate_result:regex}\"}[$__rate_interval]))",
+          "editorMode": "code",
+          "legendFormat": "Duplicate/s",
+          "format": "time_series",
+          "instant": true,
+          "range": false,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Conflict readings / second",
+      "description": "",
+      "type": "stat",
+      "pluginVersion": "11.0.0",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 5,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "noValue": "No data",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(filegrid_meter_ingest_total{job=~\"${job:regex}\",instance=~\"${instance:regex}\",result=~\"${conflict_result:regex}\"}[$__rate_interval]))",
+          "editorMode": "code",
+          "legendFormat": "Conflict/s",
+          "format": "time_series",
+          "instant": true,
+          "range": false,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Error readings / second",
+      "description": "",
+      "type": "stat",
+      "pluginVersion": "11.0.0",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 5,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "noValue": "No data",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(filegrid_meter_ingest_total{job=~\"${job:regex}\",instance=~\"${instance:regex}\",result=~\"${error_result:regex}\"}[$__rate_interval]))",
+          "editorMode": "code",
+          "legendFormat": "Error/s",
+          "format": "time_series",
+          "instant": true,
+          "range": false,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Created / duplicate / conflict / error rate",
+      "description": "",
+      "type": "timeseries",
+      "pluginVersion": "11.0.0",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisColorMode": "text",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(filegrid_meter_ingest_total{job=~\"${job:regex}\",instance=~\"${instance:regex}\",result=~\"${created_result:regex}\"}[$__rate_interval]))",
+          "editorMode": "code",
+          "legendFormat": "Created",
+          "format": "time_series",
+          "instant": false,
+          "range": true,
+          "exemplar": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(filegrid_meter_ingest_total{job=~\"${job:regex}\",instance=~\"${instance:regex}\",result=~\"${duplicate_result:regex}\"}[$__rate_interval]))",
+          "editorMode": "code",
+          "legendFormat": "Duplicate",
+          "format": "time_series",
+          "instant": false,
+          "range": true,
+          "exemplar": false
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(filegrid_meter_ingest_total{job=~\"${job:regex}\",instance=~\"${instance:regex}\",result=~\"${conflict_result:regex}\"}[$__rate_interval]))",
+          "editorMode": "code",
+          "legendFormat": "Conflict",
+          "format": "time_series",
+          "instant": false,
+          "range": true,
+          "exemplar": false
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(filegrid_meter_ingest_total{job=~\"${job:regex}\",instance=~\"${instance:regex}\",result=~\"${error_result:regex}\"}[$__rate_interval]))",
+          "editorMode": "code",
+          "legendFormat": "Error",
+          "format": "time_series",
+          "instant": false,
+          "range": true,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "All emitted result values",
+      "description": "Unfiltered result breakdown: reveals backend label values rather than silently treating unknown outcomes as successes.",
+      "type": "timeseries",
+      "pluginVersion": "11.0.0",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 9,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisColorMode": "text",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (result) (rate(filegrid_meter_ingest_total{job=~\"${job:regex}\",instance=~\"${instance:regex}\"}[$__rate_interval]))",
+          "editorMode": "code",
+          "legendFormat": "{{result}}",
+          "format": "time_series",
+          "instant": false,
+          "range": true,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Ingest events by result — selected range",
+      "description": "Extrapolated, reset-aware counter increases over the selected time range. These are ingest outcomes, not counts of expected readings.",
+      "type": "stat",
+      "pluginVersion": "11.0.0",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 17,
+        "w": 24,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (result) (increase(filegrid_meter_ingest_total{job=~\"${job:regex}\",instance=~\"${instance:regex}\"}[$__range]))",
+          "editorMode": "code",
+          "legendFormat": "{{result}}",
+          "format": "time_series",
+          "instant": true,
+          "range": false,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Missing readings — not instrumented in §4",
+      "type": "text",
+      "pluginVersion": "11.0.0",
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 24,
+        "h": 6
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Unavailable with the specified metric catalog.** No missing-readings metric, expected reporting cadence, active-meter population or interval-level labels are defined. Aggregate ingest counters cannot identify missing readings, and duplicate/conflict/error events are not a missing-readings count. This panel deliberately has no PromQL query rather than inventing a metric or treating zero ingest traffic as evidence of missing intervals. A dedicated low-cardinality aggregate missing-readings metric (or an agreed recording rule with expected-arrival inputs) is required from the backend."
+      }
+    }
+  ]
+}

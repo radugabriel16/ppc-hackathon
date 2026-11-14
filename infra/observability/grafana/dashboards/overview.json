@@ -1,0 +1,1470 @@
+{
+  "id": null,
+  "uid": "filegrid-overview",
+  "title": "FileGrid / Overview",
+  "description": "FileGrid service, ingestion, storage, integrity and upload overview. Uses only PHASE1.md section 4 metric families and standard histogram suffixes.",
+  "tags": [
+    "filegrid",
+    "observability"
+  ],
+  "timezone": "browser",
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "10s",
+      "30s",
+      "1m",
+      "5m",
+      "15m"
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "links": [
+    {
+      "title": "Overview",
+      "type": "link",
+      "url": "/d/filegrid-overview",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true
+    },
+    {
+      "title": "Category x Storage",
+      "type": "link",
+      "url": "/d/filegrid-category-storage",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true
+    },
+    {
+      "title": "Meter ingestion",
+      "type": "link",
+      "url": "/d/filegrid-meter-ingestion",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true
+    },
+    {
+      "title": "Resilience",
+      "type": "link",
+      "url": "/d/filegrid-resilience",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true
+    },
+    {
+      "title": "Uploads",
+      "type": "link",
+      "url": "/d/filegrid-uploads",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "job",
+        "label": "Job",
+        "description": "",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values({__name__=~\"filegrid_request_duration_seconds_count|filegrid_storage_operation_duration_seconds_count|filegrid_storage_bytes_total|filegrid_requests_rejected_total|filegrid_meter_ingest_total|filegrid_integrity_failures_total|filegrid_circuit_state|filegrid_storage_fallback_total|filegrid_file_time_to_available_seconds_count|filegrid_upload_sessions_active|filegrid_upload_sessions_stalled\"}, job)",
+        "query": {
+          "query": "label_values({__name__=~\"filegrid_request_duration_seconds_count|filegrid_storage_operation_duration_seconds_count|filegrid_storage_bytes_total|filegrid_requests_rejected_total|filegrid_meter_ingest_total|filegrid_integrity_failures_total|filegrid_circuit_state|filegrid_storage_fallback_total|filegrid_file_time_to_available_seconds_count|filegrid_upload_sessions_active|filegrid_upload_sessions_stalled\"}, job)",
+          "refId": "StandardVariableQuery"
+        },
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "options": [],
+        "refresh": 1,
+        "sort": 1,
+        "regex": "",
+        "hide": 0,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "skipUrlSync": false
+      },
+      {
+        "name": "instance",
+        "label": "Instance",
+        "description": "",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values({__name__=~\"filegrid_request_duration_seconds_count|filegrid_storage_operation_duration_seconds_count|filegrid_storage_bytes_total|filegrid_requests_rejected_total|filegrid_meter_ingest_total|filegrid_integrity_failures_total|filegrid_circuit_state|filegrid_storage_fallback_total|filegrid_file_time_to_available_seconds_count|filegrid_upload_sessions_active|filegrid_upload_sessions_stalled\",job=~\"${job:regex}\"}, instance)",
+        "query": {
+          "query": "label_values({__name__=~\"filegrid_request_duration_seconds_count|filegrid_storage_operation_duration_seconds_count|filegrid_storage_bytes_total|filegrid_requests_rejected_total|filegrid_meter_ingest_total|filegrid_integrity_failures_total|filegrid_circuit_state|filegrid_storage_fallback_total|filegrid_file_time_to_available_seconds_count|filegrid_upload_sessions_active|filegrid_upload_sessions_stalled\",job=~\"${job:regex}\"}, instance)",
+          "refId": "StandardVariableQuery"
+        },
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "options": [],
+        "refresh": 1,
+        "sort": 1,
+        "regex": "",
+        "hide": 0,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "skipUrlSync": false
+      },
+      {
+        "name": "category",
+        "label": "Category",
+        "description": "",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values({__name__=~\"filegrid_storage_operation_duration_seconds_count|filegrid_storage_bytes_total|filegrid_requests_rejected_total|filegrid_integrity_failures_total|filegrid_storage_fallback_total|filegrid_file_time_to_available_seconds_count\",job=~\"${job:regex}\",instance=~\"${instance:regex}\"}, category)",
+        "query": {
+          "query": "label_values({__name__=~\"filegrid_storage_operation_duration_seconds_count|filegrid_storage_bytes_total|filegrid_requests_rejected_total|filegrid_integrity_failures_total|filegrid_storage_fallback_total|filegrid_file_time_to_available_seconds_count\",job=~\"${job:regex}\",instance=~\"${instance:regex}\"}, category)",
+          "refId": "StandardVariableQuery"
+        },
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "options": [],
+        "refresh": 1,
+        "sort": 1,
+        "regex": "",
+        "hide": 0,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "skipUrlSync": false
+      },
+      {
+        "name": "storage",
+        "label": "Storage",
+        "description": "",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(filegrid_circuit_state{job=~\"${job:regex}\",instance=~\"${instance:regex}\"}, storage)",
+        "query": {
+          "query": "label_values(filegrid_circuit_state{job=~\"${job:regex}\",instance=~\"${instance:regex}\"}, storage)",
+          "refId": "StandardVariableQuery"
+        },
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "options": [],
+        "refresh": 1,
+        "sort": 1,
+        "regex": "",
+        "hide": 0,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "skipUrlSync": false
+      },
+      {
+        "name": "operation",
+        "label": "Operation",
+        "description": "",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(filegrid_storage_operation_duration_seconds_count{job=~\"${job:regex}\",instance=~\"${instance:regex}\",category=~\"${category:regex}\",storage=~\"${storage:regex}\"}, operation)",
+        "query": {
+          "query": "label_values(filegrid_storage_operation_duration_seconds_count{job=~\"${job:regex}\",instance=~\"${instance:regex}\",category=~\"${category:regex}\",storage=~\"${storage:regex}\"}, operation)",
+          "refId": "StandardVariableQuery"
+        },
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "options": [],
+        "refresh": 1,
+        "sort": 1,
+        "regex": "",
+        "hide": 0,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "skipUrlSync": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Reading this dashboard",
+      "type": "text",
+      "pluginVersion": "11.0.0",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 5
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "Metrics: **PHASE1.md §4** · datasource **prometheus**. Histograms use standard `_bucket` / `_count` series. Job/instance scope every query; category/storage/operation scope storage panels, and category scopes availability/rejection panels. Ingestion and upload-session gauges have no category label. **No data is not a healthy zero.** Circuit values are raw because the numeric encoding is unspecified. Upload gauges are shown per exporter to avoid double-counting shared session inventories."
+      }
+    },
+    {
+      "id": 2,
+      "title": "API requests / second",
+      "description": "",
+      "type": "stat",
+      "pluginVersion": "11.0.0",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "noValue": "No data",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(filegrid_request_duration_seconds_count{job=~\"${job:regex}\",instance=~\"${instance:regex}\"}[$__rate_interval]))",
+          "editorMode": "code",
+          "legendFormat": "Requests/s",
+          "format": "time_series",
+          "instant": true,
+          "range": false,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Storage operations / second",
+      "description": "",
+      "type": "stat",
+      "pluginVersion": "11.0.0",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 5,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "noValue": "No data",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(filegrid_storage_operation_duration_seconds_count{job=~\"${job:regex}\",instance=~\"${instance:regex}\",category=~\"${category:regex}\",storage=~\"${storage:regex}\",operation=~\"${operation:regex}\"}[$__rate_interval]))",
+          "editorMode": "code",
+          "legendFormat": "Operations/s",
+          "format": "time_series",
+          "instant": true,
+          "range": false,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Storage throughput",
+      "description": "Transferred bytes per second across selected operations. This is I/O traffic, not stored capacity.",
+      "type": "stat",
+      "pluginVersion": "11.0.0",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 5,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "noValue": "No data",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(filegrid_storage_bytes_total{job=~\"${job:regex}\",instance=~\"${instance:regex}\",category=~\"${category:regex}\",storage=~\"${storage:regex}\",operation=~\"${operation:regex}\"}[$__rate_interval]))",
+          "editorMode": "code",
+          "legendFormat": "Bytes/s",
+          "format": "time_series",
+          "instant": true,
+          "range": false,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Meter ingests / second (all results)",
+      "description": "",
+      "type": "stat",
+      "pluginVersion": "11.0.0",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 5,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "noValue": "No data",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(filegrid_meter_ingest_total{job=~\"${job:regex}\",instance=~\"${instance:regex}\"}[$__rate_interval]))",
+          "editorMode": "code",
+          "legendFormat": "Ingests/s",
+          "format": "time_series",
+          "instant": true,
+          "range": false,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "API latency — p50 / p95 / p99",
+      "description": "Classic histogram quantiles, aggregating buckets across selected exporters before calculating quantiles.",
+      "type": "timeseries",
+      "pluginVersion": "11.0.0",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisColorMode": "text",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(filegrid_request_duration_seconds_bucket{job=~\"${job:regex}\",instance=~\"${instance:regex}\"}[$__rate_interval])))",
+          "editorMode": "code",
+          "legendFormat": "p50",
+          "format": "time_series",
+          "instant": false,
+          "range": true,
+          "exemplar": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(filegrid_request_duration_seconds_bucket{job=~\"${job:regex}\",instance=~\"${instance:regex}\"}[$__rate_interval])))",
+          "editorMode": "code",
+          "legendFormat": "p95",
+          "format": "time_series",
+          "instant": false,
+          "range": true,
+          "exemplar": false
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(filegrid_request_duration_seconds_bucket{job=~\"${job:regex}\",instance=~\"${instance:regex}\"}[$__rate_interval])))",
+          "editorMode": "code",
+          "legendFormat": "p99",
+          "format": "time_series",
+          "instant": false,
+          "range": true,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "API request rate by status class",
+      "description": "",
+      "type": "timeseries",
+      "pluginVersion": "11.0.0",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 9,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisColorMode": "text",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (status_class) (rate(filegrid_request_duration_seconds_count{job=~\"${job:regex}\",instance=~\"${instance:regex}\"}[$__rate_interval]))",
+          "editorMode": "code",
+          "legendFormat": "{{status_class}}",
+          "format": "time_series",
+          "instant": false,
+          "range": true,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Storage p95 by category × storage",
+      "description": "",
+      "type": "timeseries",
+      "pluginVersion": "11.0.0",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 17,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisColorMode": "text",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le, category, storage) (rate(filegrid_storage_operation_duration_seconds_bucket{job=~\"${job:regex}\",instance=~\"${instance:regex}\",category=~\"${category:regex}\",storage=~\"${storage:regex}\",operation=~\"${operation:regex}\"}[$__rate_interval])))",
+          "editorMode": "code",
+          "legendFormat": "{{category}} / {{storage}}",
+          "format": "time_series",
+          "instant": false,
+          "range": true,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Meter ingestion rate by result",
+      "description": "",
+      "type": "timeseries",
+      "pluginVersion": "11.0.0",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 17,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisColorMode": "text",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (result) (rate(filegrid_meter_ingest_total{job=~\"${job:regex}\",instance=~\"${instance:regex}\"}[$__rate_interval]))",
+          "editorMode": "code",
+          "legendFormat": "{{result}}",
+          "format": "time_series",
+          "instant": false,
+          "range": true,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Rejected requests by category and reason",
+      "description": "",
+      "type": "timeseries",
+      "pluginVersion": "11.0.0",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 25,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisColorMode": "text",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (category, reason) (rate(filegrid_requests_rejected_total{job=~\"${job:regex}\",instance=~\"${instance:regex}\",category=~\"${category:regex}\"}[$__rate_interval]))",
+          "editorMode": "code",
+          "legendFormat": "{{category}} / {{reason}}",
+          "format": "time_series",
+          "instant": false,
+          "range": true,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Storage fallbacks by route",
+      "description": "All fallback routes for selected categories. The storage/operation selectors do not apply: fallback series have from/to labels rather than storage/operation labels.",
+      "type": "timeseries",
+      "pluginVersion": "11.0.0",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 25,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisColorMode": "text",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (category, from, to) (rate(filegrid_storage_fallback_total{job=~\"${job:regex}\",instance=~\"${instance:regex}\",category=~\"${category:regex}\"}[$__rate_interval]))",
+          "editorMode": "code",
+          "legendFormat": "{{category}}: {{from}} → {{to}}",
+          "format": "time_series",
+          "instant": false,
+          "range": true,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "Integrity failures / second",
+      "description": "",
+      "type": "timeseries",
+      "pluginVersion": "11.0.0",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 33,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisColorMode": "text",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (category, storage) (rate(filegrid_integrity_failures_total{job=~\"${job:regex}\",instance=~\"${instance:regex}\",category=~\"${category:regex}\",storage=~\"${storage:regex}\"}[$__rate_interval]))",
+          "editorMode": "code",
+          "legendFormat": "{{category}} / {{storage}}",
+          "format": "time_series",
+          "instant": false,
+          "range": true,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "title": "Circuit state by storage — raw encoding",
+      "description": "Raw per-exporter circuit gauge. Section 4 defines storage as the label but does not specify the numeric closed/open/half-open encoding. Values are not summed or mapped to guessed states.",
+      "type": "timeseries",
+      "pluginVersion": "11.0.0",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 33,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisColorMode": "text",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "filegrid_circuit_state{job=~\"${job:regex}\",instance=~\"${instance:regex}\",storage=~\"${storage:regex}\"}",
+          "editorMode": "code",
+          "legendFormat": "{{storage}} / {{job}} / {{instance}}",
+          "format": "time_series",
+          "instant": false,
+          "range": true,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "title": "Upload sessions — per exporter",
+      "description": "Unlabelled application gauges are shown separately by Prometheus job/instance. No sum across exporters is assumed.",
+      "type": "timeseries",
+      "pluginVersion": "11.0.0",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 41,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisColorMode": "text",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "filegrid_upload_sessions_active{job=~\"${job:regex}\",instance=~\"${instance:regex}\"}",
+          "editorMode": "code",
+          "legendFormat": "{{job}} / {{instance}} active",
+          "format": "time_series",
+          "instant": false,
+          "range": true,
+          "exemplar": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "filegrid_upload_sessions_stalled{job=~\"${job:regex}\",instance=~\"${instance:regex}\"}",
+          "editorMode": "code",
+          "legendFormat": "{{job}} / {{instance}} stalled",
+          "format": "time_series",
+          "instant": false,
+          "range": true,
+          "exemplar": false
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "title": "File time-to-available — p95 by category",
+      "description": "Only completed histogram observations; unready files are not represented in these quantiles.",
+      "type": "timeseries",
+      "pluginVersion": "11.0.0",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 41,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisColorMode": "text",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le, category) (rate(filegrid_file_time_to_available_seconds_bucket{job=~\"${job:regex}\",instance=~\"${instance:regex}\",category=~\"${category:regex}\"}[$__rate_interval])))",
+          "editorMode": "code",
+          "legendFormat": "{{category}}",
+          "format": "time_series",
+          "instant": false,
+          "range": true,
+          "exemplar": false
+        }
+      ]
+    }
+  ]
+}
