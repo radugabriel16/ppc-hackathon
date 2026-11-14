@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.npm-cache/
+coverage/
+*.tsbuildinfo
+.env
+.env.local
+.env.*.local
+openapi-ts-error-*.log

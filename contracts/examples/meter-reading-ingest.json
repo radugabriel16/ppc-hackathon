@@ -1,0 +1,8 @@
+{
+  "meterExternalCode": "MUN-MTR-0001",
+  "readingKey": "MUN-MTR-0001:2026-01-10T08:00:00Z",
+  "seq": 1,
+  "intervalStart": "2026-01-10T08:00:00Z",
+  "intervalEnd": "2026-01-10T08:15:00Z",
+  "energyKwh": 3.42
+}

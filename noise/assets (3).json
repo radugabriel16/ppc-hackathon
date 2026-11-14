@@ -1,0 +1,40 @@
+{
+  "items": [
+    {
+      "id": "a2883034-0b23-51fa-850f-90fd86e825dd",
+      "regionId": "470e5894-87b3-5c00-89ef-56e643f0617d",
+      "code": "MUN-SUB-001",
+      "name": "Muntenia Substation 1",
+      "type": "SUBSTATION",
+      "ratedCapacityKw": 25000
+    },
+    {
+      "id": "32a81ba8-bd46-5df4-b6b2-05f5c0b2e33c",
+      "regionId": "470e5894-87b3-5c00-89ef-56e643f0617d",
+      "code": "MUN-TRA-001",
+      "name": "Muntenia Transformer 1",
+      "type": "TRANSFORMER",
+      "ratedCapacityKw": 1600
+    },
+    {
+      "id": "1aad3343-7c2b-59c7-8530-2c3b49b37a9e",
+      "regionId": "5f84f2f2-55f3-5e84-88c2-46c38cec96d9",
+      "code": "BAN-SUB-001",
+      "name": "Banat Substation 1",
+      "type": "SUBSTATION",
+      "ratedCapacityKw": 18000
+    },
+    {
+      "id": "76d37672-f538-5ba5-b052-4012717ef06f",
+      "regionId": "5795ee56-17ff-56c6-a6cb-e340918f0753",
+      "code": "DOB-SUB-001",
+      "name": "Dobrogea Substation 1",
+      "type": "SUBSTATION",
+      "ratedCapacityKw": 22000
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 4,
+  "totalPages": 1
+}
