@@ -180,12 +180,20 @@ export type FileUploadMetadata =
     } & DroneVideoMetadata);
 
 export type ConnectionDocumentMetadata = {
+  /**
+   * Optional assertion; must match the connection case client's region.
+   */
+  regionId?: string;
   category: "CONNECTION_DOCUMENT";
   caseId: string;
   documentTypeId: string;
 };
 
 export type OutageRecordMetadata = {
+  /**
+   * Optional assertion; must match the asset's region.
+   */
+  regionId?: string;
   category: "OUTAGE_RECORD";
   assetId: string;
   startedAt: string;
@@ -194,6 +202,10 @@ export type OutageRecordMetadata = {
 };
 
 export type DroneVideoMetadata = {
+  /**
+   * Optional assertion; must match the asset's region.
+   */
+  regionId?: string;
   category: "DRONE_VIDEO";
   assetId: string;
   recordedAt: string;
@@ -228,11 +240,11 @@ export type FileVerifyResult = {
 };
 
 export type UploadSessionCreateRequest = {
-  category: FileCategory;
+  category: "DRONE_VIDEO";
   fileName: string;
   sizeBytes: number;
   sha256?: string | null;
-  metadata?: FileUploadMetadata;
+  metadata: DroneVideoMetadata;
 };
 
 export type UploadSessionCreated = {
@@ -248,7 +260,13 @@ export type UploadPartResult = {
 };
 
 export type UploadSessionStatus = {
-  status?: string;
+  status?:
+    | "PENDING"
+    | "UPLOADING"
+    | "COMPLETING"
+    | "COMPLETED"
+    | "ABORTED"
+    | "EXPIRED";
   receivedParts?: Array<number>;
   totalParts?: number;
 };
@@ -389,6 +407,39 @@ export type ScenarioRunPage = PageMeta & {
   items?: Array<ScenarioRun>;
 };
 
+export type AlertmanagerWebhook = {
+  version: "4";
+  status: "firing" | "resolved";
+  receiver: string;
+  groupKey: string;
+  groupLabels?: {
+    [key: string]: string;
+  };
+  commonLabels?: {
+    [key: string]: string;
+  };
+  commonAnnotations?: {
+    [key: string]: string;
+  };
+  externalURL?: string;
+  truncatedAlerts?: number;
+  alerts: Array<AlertmanagerAlert>;
+};
+
+export type AlertmanagerAlert = {
+  status: "firing" | "resolved";
+  labels: {
+    [key: string]: string;
+  };
+  annotations?: {
+    [key: string]: string;
+  };
+  startsAt: string;
+  endsAt?: string | null;
+  generatorURL?: string | null;
+  fingerprint?: string | null;
+};
+
 export type Alert = {
   id?: string;
   severity?: string;
@@ -417,9 +468,17 @@ export type CreateAuthLoginErrors = {
    */
   401: _Error;
   /**
+   * Authenticated but not authorized for this action.
+   */
+  403: _Error;
+  /**
    * Request failed schema/business validation.
    */
   422: _Error;
+  /**
+   * Too many login attempts (10 per transport peer per minute).
+   */
+  429: _Error;
 };
 
 export type CreateAuthLoginError =
@@ -427,7 +486,8 @@ export type CreateAuthLoginError =
 
 export type CreateAuthLoginResponses = {
   /**
-   * Logged in; session cookie set.
+   * Logged in; Secure, HttpOnly, SameSite=Lax session cookie set. A Secure, SameSite=Lax filegrid_csrf cookie supplies X-CSRF-Token.
+   *
    */
   200: Me;
 };
@@ -795,7 +855,7 @@ export type CreateFilesError = CreateFilesErrors[keyof CreateFilesErrors];
 
 export type CreateFilesResponses = {
   /**
-   * Created; file is STAGING or VERIFYING.
+   * Created; content stored, linked domain row committed, file is READY.
    */
   201: FileResource;
 };
@@ -917,9 +977,25 @@ export type CreateUploadsErrors = {
    */
   401: _Error;
   /**
+   * Authenticated but not authorized for this action.
+   */
+  403: _Error;
+  /**
+   * Resource does not exist.
+   */
+  404: _Error;
+  /**
+   * Body exceeds the category's maxSizeBytes policy.
+   */
+  413: _Error;
+  /**
    * Request failed schema/business validation.
    */
   422: _Error;
+  /**
+   * Bulkhead full or dependent storage down.
+   */
+  503: _Error;
 };
 
 export type CreateUploadsError = CreateUploadsErrors[keyof CreateUploadsErrors];
@@ -953,13 +1029,29 @@ export type PutUploadsIdPartsPartNumberErrors = {
    */
   401: _Error;
   /**
+   * Authenticated but not authorized for this action.
+   */
+  403: _Error;
+  /**
    * Resource does not exist.
    */
   404: _Error;
   /**
-   * X-Part-SHA256 does not match the received bytes.
+   * Upload session is no longer active.
+   */
+  409: _Error;
+  /**
+   * Body exceeds the category's maxSizeBytes policy.
+   */
+  413: _Error;
+  /**
+   * Invalid part number, size, hash, or conflicting re-send.
    */
   422: _Error;
+  /**
+   * Bulkhead full or dependent storage down.
+   */
+  503: _Error;
 };
 
 export type PutUploadsIdPartsPartNumberError =
@@ -990,9 +1082,21 @@ export type DeleteUploadsIdErrors = {
    */
   401: _Error;
   /**
+   * Authenticated but not authorized for this action.
+   */
+  403: _Error;
+  /**
    * Resource does not exist.
    */
   404: _Error;
+  /**
+   * Completed upload cannot be aborted.
+   */
+  409: _Error;
+  /**
+   * Bulkhead full or dependent storage down.
+   */
+  503: _Error;
 };
 
 export type DeleteUploadsIdError =
@@ -1022,6 +1126,10 @@ export type GetUploadsIdErrors = {
    * Not authenticated.
    */
   401: _Error;
+  /**
+   * Authenticated but not authorized for this action.
+   */
+  403: _Error;
   /**
    * Resource does not exist.
    */
@@ -1057,13 +1165,25 @@ export type CreateUploadsIdCompleteErrors = {
    */
   401: _Error;
   /**
+   * Authenticated but not authorized for this action.
+   */
+  403: _Error;
+  /**
    * Resource does not exist.
    */
   404: _Error;
   /**
-   * Missing parts or part/session mismatch.
+   * Missing parts or closed/expired upload session.
    */
   409: _Error;
+  /**
+   * Request failed schema/business validation.
+   */
+  422: _Error;
+  /**
+   * Bulkhead full or dependent storage down.
+   */
+  503: _Error;
 };
 
 export type CreateUploadsIdCompleteError =
@@ -1562,6 +1682,33 @@ export type GetAdminScenarioRunsResponses = {
 
 export type GetAdminScenarioRunsResponse =
   GetAdminScenarioRunsResponses[keyof GetAdminScenarioRunsResponses];
+
+export type CreateAlertsWebhookData = {
+  body: AlertmanagerWebhook;
+  path?: never;
+  query?: never;
+  url: "/alerts/webhook";
+};
+
+export type CreateAlertsWebhookErrors = {
+  /**
+   * Request failed schema/business validation.
+   */
+  422: _Error;
+};
+
+export type CreateAlertsWebhookError =
+  CreateAlertsWebhookErrors[keyof CreateAlertsWebhookErrors];
+
+export type CreateAlertsWebhookResponses = {
+  /**
+   * Alerts persisted.
+   */
+  204: void;
+};
+
+export type CreateAlertsWebhookResponse =
+  CreateAlertsWebhookResponses[keyof CreateAlertsWebhookResponses];
 
 export type GetAlertsRecentData = {
   body?: never;

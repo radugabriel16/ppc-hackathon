@@ -115,6 +115,9 @@ import type {
   GetAdminScenarioRunsData,
   GetAdminScenarioRunsResponses,
   GetAdminScenarioRunsErrors,
+  CreateAlertsWebhookData,
+  CreateAlertsWebhookResponses,
+  CreateAlertsWebhookErrors,
   GetAlertsRecentData,
   GetAlertsRecentResponses,
   GetAlertsRecentErrors,
@@ -521,7 +524,7 @@ export const getFilesIdVerify = <ThrowOnError extends boolean = false>(
 };
 
 /**
- * Start a resumable multipart upload session.
+ * Start an owner-scoped resumable DRONE_VIDEO upload on S3.
  */
 export const createUploads = <ThrowOnError extends boolean = false>(
   options: Options<CreateUploadsData, ThrowOnError>,
@@ -552,7 +555,7 @@ export const createUploads = <ThrowOnError extends boolean = false>(
 };
 
 /**
- * Upload one part (idempotent; re-sending the same part is a no-op).
+ * Upload a part; identical retries are no-ops, closed or expired sessions are rejected.
  */
 export const putUploadsIdPartsPartNumber = <
   ThrowOnError extends boolean = false,
@@ -1054,6 +1057,26 @@ export const getAdminScenarioRuns = <ThrowOnError extends boolean = false>(
     ],
     url: "/admin/scenario-runs",
     ...options,
+  });
+};
+
+/**
+ * Internal Alertmanager v4 webhook; not exposed through nginx.
+ */
+export const createAlertsWebhook = <ThrowOnError extends boolean = false>(
+  options: Options<CreateAlertsWebhookData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    CreateAlertsWebhookResponses,
+    CreateAlertsWebhookErrors,
+    ThrowOnError
+  >({
+    url: "/alerts/webhook",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
   });
 };
 
