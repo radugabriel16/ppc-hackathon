@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     ftp_port: int = Field(default=21, alias="FTP_PORT")
     ftp_user: str = Field(default="filegrid", alias="FTP_USER")
 
+    storage_io_timeout_seconds: float = Field(default=5, gt=0, le=60)
+    storage_operation_timeout_seconds: float = Field(default=30, gt=0, le=3600)
+    storage_max_concurrency: int = Field(default=32, gt=0)
+    storage_circuit_failure_threshold: int = Field(default=3, gt=0)
+    storage_circuit_reset_seconds: float = Field(default=15, gt=0)
+
     session_cookie_name: str = Field(default="filegrid_session", alias="SESSION_COOKIE_NAME")
     session_ttl_seconds: int = Field(default=28800, alias="SESSION_TTL_SECONDS", gt=0)
     app_origin: HttpUrl = Field(default="https://localhost", alias="APP_ORIGIN")
@@ -50,6 +56,12 @@ class Settings(BaseSettings):
 
     def _secret(self, name: str, default: str = "") -> str:
         return _read_secret(self.secrets_dir, name, default)
+
+    def storage_secret(self, name: str) -> str:
+        value = (Path(self.secrets_dir) / name).read_text().strip()
+        if not value:
+            raise ValueError(f"Storage secret {name} is empty")
+        return value
 
     @property
     def catalog_db_password(self) -> str:

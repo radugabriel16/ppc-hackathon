@@ -26,6 +26,8 @@ from app.issues.router import router as issues_router
 from app.jobs.worker import run_worker_loop
 from app.metering.router import router as metering_router
 from app.policies.router import router as policies_router
+from app.policies.service import PolicyManager
+from app.storage.registry import create_storages
 from app.uploads.router import router as uploads_router
 from app.auth.router import router as auth_router
 
@@ -47,7 +49,9 @@ FILES_ROLE_ROUTERS = (
 async def lifespan(app: FastAPI):
     settings = get_settings()
     # Fail fast on a malformed policy file rather than at first request.
-    app.state.policies = load_policies(settings.policies_path)
+    app.state.policy_manager = PolicyManager(
+        load_policies(settings.policies_path), create_storages(settings)
+    )
     if settings.role == "files":
         get_session_key()
 

@@ -1,0 +1,20 @@
+services:
+  storage-tests:
+    image: filegrid-storage-tests:0.1.0
+    build:
+      context: .
+      dockerfile: backend/tests/Dockerfile
+    environment:
+      CATALOG_DB_NAME: ${CATALOG_DB_NAME:-filegrid_catalog}
+      CATALOG_DB_USER: ${CATALOG_DB_USER:-filegrid}
+      STORAGE_DB_NAME: ${STORAGE_DB_NAME:-filegrid_storage}
+      STORAGE_DB_USER: ${STORAGE_DB_USER:-filegrid}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_BUCKET: ${S3_BUCKET:-filegrid}
+      FTP_USER: ${FTP_USER:-filegrid}
+      FTP_PORT: "2121"
+      APP_ORIGIN: ${APP_ORIGIN:-https://localhost}
+    volumes:
+      - secrets:/run/secrets:ro
+    networks:
+      - internal
