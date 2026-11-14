@@ -13,6 +13,7 @@ import { ApiSource } from "./api-source";
 import { createMockApi } from "../mocks/handlers";
 import { MemoryDemoStore } from "../upload/fake-transport";
 import { createStatsFixtures } from "../mocks/stats";
+import { mockRegions } from "../mocks/fixtures";
 import {
   forecast,
   meterConsumption,
@@ -65,7 +66,12 @@ describe("statistics HTTP operations and strict mappings", () => {
       await allStats();
     expect(
       requests.map((request) => new URL(request.url).pathname).sort(),
-    ).toEqual(paths.map((path) => `/api/v1/stats/${path}`).sort());
+    ).toEqual(
+      [
+        "/api/v1/regions",
+        ...paths.map((path) => `/api/v1/stats/${path}`),
+      ].sort(),
+    );
     expect(
       requests.every(
         (request) =>
@@ -119,12 +125,17 @@ describe("statistics HTTP operations and strict mappings", () => {
       ),
     ).toBe(true);
   });
-  it("filters meter/forecast/hotspot responses by region without sending undocumented query parameters", async () => {
+  it("sends documented region filters for meter/forecast/hotspot responses", async () => {
     server.events.on("request:start", ({ request }) => {
       const url = new URL(request.url);
-      expect(url.search).toBe(
-        url.pathname.endsWith("/forecast") ? "?page=0&size=100" : "",
-      );
+      if (url.pathname.endsWith("/regions")) {
+        expect(url.search).toBe("?page=0&size=100");
+      } else {
+        expect(mockRegions.map((region) => region.id)).toContain(
+          url.searchParams.get("regionId"),
+        );
+        expect(url.searchParams.has("subregionId")).toBe(false);
+      }
     });
     expect((await source.getMeterConsumption("BANAT"))[0].id).toBe("BAN-M1");
     expect((await source.getOutageHotspots("DOBROGEA"))[0].region).toBe(

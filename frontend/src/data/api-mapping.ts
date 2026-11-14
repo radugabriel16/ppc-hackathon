@@ -4,9 +4,47 @@ import type {
   GeoJsonFeatureCollection,
   MapIssue,
   NetworkAsset,
+  Region as ApiRegion,
 } from "../api/gen/types.gen";
 import { contractError, requireValue } from "./api-client";
-import type { Asset, FileRecord, Issue, Region } from "./models";
+import type {
+  Asset,
+  FileRecord,
+  GeographicArea,
+  Issue,
+  Region,
+} from "./models";
+
+export function geographicAreas(rows: ApiRegion[]): GeographicArea[] {
+  return rows.flatMap((row) => {
+    const code = row.code;
+    if (code !== "MUNTENIA" && code !== "BANAT" && code !== "DOBROGEA")
+      throw contractError("Unknown geography region.");
+    const parent: GeographicArea = {
+      id: requireValue(row.id, "region.id"),
+      code,
+      name: requireValue(row.name, "region.name"),
+      region: code,
+      parentId: null,
+      geometry: requireValue(row.geometry, "region.geometry"),
+      meterCount: requireValue(row.meterCount, "region.meterCount"),
+    };
+    return [
+      parent,
+      ...requireValue(row.subregions, "region.subregions").map(
+        (s): GeographicArea => ({
+          id: s.id,
+          code: s.code,
+          name: s.name,
+          region: code,
+          parentId: s.parentId,
+          geometry: s.geometry,
+          meterCount: s.meterCount,
+        }),
+      ),
+    ];
+  });
+}
 
 export function coordinate(value: unknown): [number, number] {
   if (

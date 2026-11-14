@@ -57,13 +57,15 @@ def meter_forecast(
 def forecasts(
     request: Request,
     region_id: Annotated[UUID | None, Query(alias="regionId")] = None,
+    subregion_id: Annotated[UUID | None, Query(alias="subregionId")] = None,
     origin: date | None = None, pagination: Pagination = Depends(),
     db: Session = Depends(get_catalog_db),
 ):
     origin = validate_origin(origin)
-    params = {"region": region_id}
+    params = {"region": region_id, "subregion": subregion_id}
     sql = """FROM network_assets a WHERE
-        (CAST(:region AS uuid) IS NULL OR a.region_id = :region)
+        (CAST(:region AS uuid) IS NULL OR a.region_id = :region OR a.subregion_id = :region)
+        AND (CAST(:subregion AS uuid) IS NULL OR a.subregion_id = :subregion)
         AND EXISTS (SELECT 1 FROM meters m WHERE m.asset_id = a.id)"""
     total = db.scalar(text("SELECT count(*) " + sql), params)
     segments = db.scalars(text("SELECT a.id " + sql + " ORDER BY a.code, a.id LIMIT :limit OFFSET :offset"),

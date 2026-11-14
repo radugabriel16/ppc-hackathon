@@ -12,6 +12,9 @@ from app.models.base import Base, UUIDPkMixin
 class Meter(UUIDPkMixin, Base):
     __tablename__ = "meters"
 
+    subregion_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("subregions.id", ondelete="SET NULL"), index=True,
+    )
     external_code: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     asset_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("network_assets.id", ondelete="RESTRICT"), nullable=False, index=True

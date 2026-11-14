@@ -143,6 +143,7 @@ paths:
       tags: [geography]
       summary: List network assets, optionally filtered by region.
       parameters:
+        - $ref: "#/components/parameters/SubregionIdQuery"
         - $ref: "#/components/parameters/RegionIdQuery"
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/Size"
@@ -165,6 +166,7 @@ paths:
       tags: [geography]
       summary: List meters, optionally filtered by region.
       parameters:
+        - $ref: "#/components/parameters/SubregionIdQuery"
         - $ref: "#/components/parameters/RegionIdQuery"
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/Size"
@@ -184,6 +186,7 @@ paths:
       tags: [geography]
       summary: GeoJSON features for the map UI. Never exposes client name/email.
       parameters:
+        - $ref: "#/components/parameters/SubregionIdQuery"
         - $ref: "#/components/parameters/RegionIdQuery"
         - name: layer
           in: query
@@ -336,6 +339,7 @@ paths:
       tags: [files]
       summary: List files with filters.
       parameters:
+        - $ref: "#/components/parameters/SubregionIdQuery"
         - $ref: "#/components/parameters/RegionIdQuery"
         - name: category
           in: query
@@ -696,6 +700,31 @@ paths:
 
   # ------------------------------------------------------------ map-issues ---
   /map-issues:
+    get:
+      operationId: getMapIssues
+      tags: [map-issues]
+      summary: List issues, optionally filtered by region and subregion.
+      parameters:
+        - $ref: "#/components/parameters/RegionIdQuery"
+        - $ref: "#/components/parameters/SubregionIdQuery"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PageMeta"
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/MapIssue"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
     post:
       operationId: createMapIssues
       tags: [map-issues]
@@ -828,6 +857,7 @@ paths:
         Meters without readings are omitted. Pagination counts meters, ordered by region,
         label and id, not individual samples.
       parameters:
+        - $ref: "#/components/parameters/SubregionIdQuery"
         - $ref: "#/components/parameters/RegionIdQuery"
         - $ref: "#/components/parameters/StatsFrom"
         - $ref: "#/components/parameters/StatsTo"
@@ -857,6 +887,7 @@ paths:
         Assets without outages are omitted. Geometry is a representative point on the asset.
         Pagination counts assets.
       parameters:
+        - $ref: "#/components/parameters/SubregionIdQuery"
         - $ref: "#/components/parameters/RegionIdQuery"
         - $ref: "#/components/parameters/StatsFrom"
         - $ref: "#/components/parameters/StatsTo"
@@ -958,6 +989,7 @@ paths:
         All results use the requested origin; null segment totals must not be summed
         into a falsely complete regional prediction.
       parameters:
+        - $ref: "#/components/parameters/SubregionIdQuery"
         - $ref: "#/components/parameters/RegionIdQuery"
         - $ref: "#/components/parameters/ForecastOrigin"
         - $ref: "#/components/parameters/Page"
@@ -1224,6 +1256,14 @@ components:
     RegionIdQuery:
       name: regionId
       in: query
+      description: Region ID, or a subregion ID on geography, files, issues and regional statistics endpoints.
+      schema:
+        type: string
+        format: uuid
+    SubregionIdQuery:
+      name: subregionId
+      in: query
+      description: Restrict results to this subregion; combined with regionId when both are supplied.
       schema:
         type: string
         format: uuid
@@ -1431,7 +1471,7 @@ components:
       enum: [OPERATOR, MANAGER]
     MapLayer:
       type: string
-      enum: [ASSETS, ISSUES, OUTAGES]
+      enum: [ASSETS, ISSUES, OUTAGES, REGIONS, SUBREGIONS]
 
     # ------------------------------------------------------------- auth ---
     LoginRequest:
@@ -1487,6 +1527,51 @@ components:
         bounds:
           type: object
           additionalProperties: true
+        geometry:
+          $ref: "#/components/schemas/AreaGeometry"
+        meterCount:
+          type: integer
+        subregions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Subregion"
+    AreaGeometry:
+      type: object
+      required: [type, coordinates]
+      properties:
+        type:
+          type: string
+          enum: [MultiPolygon]
+        coordinates:
+          type: array
+          items:
+            type: array
+            items:
+              type: array
+              items:
+                type: array
+                items:
+                  type: number
+                minItems: 2
+                maxItems: 2
+    Subregion:
+      type: object
+      required: [id, parentId, code, name, geometry, meterCount]
+      properties:
+        id:
+          type: string
+          format: uuid
+        parentId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        geometry:
+          $ref: "#/components/schemas/AreaGeometry"
+        meterCount:
+          type: integer
     RegionPage:
       allOf:
         - $ref: "#/components/schemas/PageMeta"
@@ -1499,6 +1584,10 @@ components:
     NetworkAsset:
       type: object
       properties:
+        subregionId:
+          type: string
+          format: uuid
+          nullable: true
         id:
           type: string
           format: uuid
@@ -1526,6 +1615,10 @@ components:
     Meter:
       type: object
       properties:
+        subregionId:
+          type: string
+          format: uuid
+          nullable: true
         id:
           type: string
           format: uuid
@@ -1754,6 +1847,10 @@ components:
     FileResource:
       type: object
       properties:
+        subregionId:
+          type: string
+          format: uuid
+          nullable: true
         id:
           type: string
           format: uuid
@@ -1967,6 +2064,10 @@ components:
     MapIssue:
       type: object
       properties:
+        subregionId:
+          type: string
+          format: uuid
+          nullable: true
         id:
           type: string
           format: uuid

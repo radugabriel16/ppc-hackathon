@@ -23,12 +23,13 @@ import {
   useCreateIssue,
   useDemoMode,
   useMap,
+  useGeography,
   useSession,
   useUpdateIssue,
 } from "../data/hooks";
 import { AppError } from "../data/errors";
 import { label, REGION_INFO } from "../data/models";
-import type { MapData, Severity } from "../data/models";
+import type { GeographicArea, MapData, Severity } from "../data/models";
 import { useRegion } from "../data/region-context";
 import {
   Empty,
@@ -39,6 +40,7 @@ import {
   StatusChip,
 } from "../components/common";
 import { NetworkMap } from "../components/NetworkMap";
+import { GeographyExplorer } from "../components/GeographyExplorer";
 
 function CreateIssueDialog({
   data,
@@ -169,8 +171,28 @@ function CreateIssueDialog({
   );
 }
 export function MapPage() {
-  const { region } = useRegion();
-  const query = useMap(region);
+  const {
+    region,
+    selectedRegion,
+    subregionId,
+    setRegion,
+    setSubregion,
+    clearRegion,
+  } = useRegion();
+  const query = useMap(region, selectedRegion === null);
+  const geography = useGeography();
+  const areas = geography.data ?? [];
+  const parent = areas.find((a) => !a.parentId && a.region === selectedRegion);
+  const selectedId = subregionId ?? parent?.id;
+  const selectArea = (area?: GeographicArea) => {
+    if (!area) {
+      clearRegion();
+      return;
+    }
+    setRegion(area.region);
+    setSubregion(area.parentId ? area.id : undefined);
+  };
+  const goBack = () => (subregionId ? setSubregion(undefined) : clearRegion());
   const update = useUpdateIssue();
   const session = useSession();
   const demo = useDemoMode();
@@ -185,15 +207,20 @@ export function MapPage() {
   const [conflict, setConflict] = useState(false);
   const [notice, setNotice] = useState(false);
   const data = query.data;
-  const issue = data?.issueList.find(
-    (x) => x.id === selected && x.region === region,
-  );
+  const issue = data?.issueList.find((x) => x.id === selected);
   const open = data?.issueList.filter((x) => x.status === "OPEN").length ?? 0;
   const inProgress =
     data?.issueList.filter((x) => x.status === "IN_PROGRESS").length ?? 0;
   const onCreate = (assetId?: string) => setCreate({ assetId });
   return (
-    <>
+    <Box
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && !create && !selected) {
+          event.preventDefault();
+          goBack();
+        }
+      }}
+    >
       <PageHeading
         eyebrow="NETWORK INTELLIGENCE"
         title="Your network, in view."
@@ -213,7 +240,11 @@ export function MapPage() {
         <Metric
           label="Network assets"
           value={data?.assetList.length ?? "—"}
-          note={`${REGION_INFO[region].name} operational area`}
+          note={
+            selectedRegion
+              ? `${REGION_INFO[region].name} operational area`
+              : "Romania operational areas"
+          }
           accent
         />
         <Metric label="Open issues" value={open} note="Awaiting an operator" />
@@ -231,6 +262,12 @@ export function MapPage() {
       {query.isPending && <Loading />}
       {query.error && (
         <ErrorNotice error={query.error} retry={() => void query.refetch()} />
+      )}
+      {geography.error && (
+        <ErrorNotice
+          error={geography.error}
+          retry={() => void geography.refetch()}
+        />
       )}
       {notice && (
         <Alert sx={{ mb: 2 }} onClose={() => setNotice(false)}>
@@ -257,7 +294,7 @@ export function MapPage() {
                 <Typography variant="h6">Network explorer</Typography>
                 <Chip
                   size="small"
-                  label={REGION_INFO[region].name}
+                  label={selectedRegion ? REGION_INFO[region].name : "Romania"}
                   sx={{ bgcolor: "#eff3ec" }}
                 />
               </Stack>
@@ -266,13 +303,21 @@ export function MapPage() {
                 color="text.secondary"
                 sx={{ display: { xs: "none", sm: "block" } }}
               >
-                Click the map to report a finding
+                Click a region to explore
               </Typography>
             </Stack>
             <Divider />
+            <GeographyExplorer
+              areas={areas}
+              selectedId={selectedId}
+              onSelect={selectArea}
+            />
             <NetworkMap
               data={data}
               region={region}
+              areas={areas}
+              selectedId={selectedId}
+              onSelect={selectArea}
               resolved={resolved}
               layers={layers}
               onCreate={onCreate}
@@ -538,6 +583,6 @@ export function MapPage() {
           }}
         />
       )}
-    </>
+    </Box>
   );
 }

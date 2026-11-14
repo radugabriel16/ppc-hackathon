@@ -26,6 +26,7 @@ import {
   issueList,
   issueRecord,
   mapCollection,
+  geographicAreas,
 } from "./api-mapping";
 import { AppError } from "./errors";
 import type {
@@ -42,6 +43,7 @@ import type {
   SimulatorStart,
   SimulatorBackfill,
   ScenarioRun,
+  GeographicArea,
 } from "./models";
 import type { DataSource } from "./source";
 
@@ -89,21 +91,29 @@ export class ApiSource implements DataSource {
       ),
     );
   }
-  async getMeterConsumption(region: Region) {
+  async getMeterConsumption(region: Region, subregionId?: string) {
     return meterConsumption(
-      await this.connection.read(sdk.getStatsMeters({ client: this.client })),
-      region,
-    );
-  }
-  async getOutageHotspots(region: Region) {
-    return outageHotspots(
       await this.connection.read(
-        sdk.getStatsOutagesHotspots({ client: this.client }),
+        sdk.getStatsMeters({
+          client: this.client,
+          query: { regionId: await this.regionId(region), subregionId },
+        }),
       ),
       region,
     );
   }
-  async getForecast(region: Region) {
+  async getOutageHotspots(region: Region, subregionId?: string) {
+    return outageHotspots(
+      await this.connection.read(
+        sdk.getStatsOutagesHotspots({
+          client: this.client,
+          query: { regionId: await this.regionId(region), subregionId },
+        }),
+      ),
+      region,
+    );
+  }
+  async getForecast(region: Region, subregionId?: string) {
     const items = [];
     let page = 0;
     let totalPages = 1;
@@ -111,7 +121,12 @@ export class ApiSource implements DataSource {
       const result = await this.connection.read(
         sdk.getStatsForecast({
           client: this.client,
-          query: { page, size: 100 },
+          query: {
+            page,
+            size: 100,
+            regionId: await this.regionId(region),
+            subregionId,
+          },
         }),
       );
       items.push(...result.items);
@@ -239,6 +254,9 @@ export class ApiSource implements DataSource {
     if (!row?.id) throw contractError(`API regions do not include ${region}.`);
     return row.id;
   }
+  async getGeography(): Promise<GeographicArea[]> {
+    return geographicAreas(await this.getRegions());
+  }
   private async regionCode(id?: string): Promise<Region> {
     const code = (await this.getRegions())
       .find((x) => x.id === id)
@@ -282,33 +300,33 @@ export class ApiSource implements DataSource {
     this.maps.clear();
     this.regions = undefined;
   }
-  async getMap(region: Region): Promise<MapData> {
+  async getMap(region: Region, subregionId?: string): Promise<MapData> {
     const regionId = await this.regionId(region);
     const [assets, rawAssets, rawIssues, rawOutages] = await Promise.all([
       this.all((page) =>
         this.connection.read(
           sdk.getAssets({
             client: this.client,
-            query: { regionId, page, size: 100 },
+            query: { regionId, subregionId, page, size: 100 },
           }),
         ),
       ),
       this.connection.read(
         sdk.getMapFeatures({
           client: this.client,
-          query: { regionId, layer: "ASSETS" },
+          query: { regionId, subregionId, layer: "ASSETS" },
         }),
       ),
       this.connection.read(
         sdk.getMapFeatures({
           client: this.client,
-          query: { regionId, layer: "ISSUES" },
+          query: { regionId, subregionId, layer: "ISSUES" },
         }),
       ),
       this.connection.read(
         sdk.getMapFeatures({
           client: this.client,
-          query: { regionId, layer: "OUTAGES" },
+          query: { regionId, subregionId, layer: "OUTAGES" },
         }),
       ),
     ]);
@@ -385,7 +403,7 @@ export class ApiSource implements DataSource {
   }
   private async fileRows(
     region: Region,
-    filter?: Pick<FileFilter, "category" | "status">,
+    filter?: Pick<FileFilter, "category" | "status" | "subregionId">,
   ): Promise<FileResource[]> {
     const regionId = await this.regionId(region);
     return this.all((page) =>
@@ -394,6 +412,7 @@ export class ApiSource implements DataSource {
           client: this.client,
           query: {
             regionId,
+            subregionId: filter?.subregionId,
             category: filter?.category,
             status: filter?.status,
             page,

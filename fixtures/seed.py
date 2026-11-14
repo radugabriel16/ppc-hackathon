@@ -251,6 +251,9 @@ def seed(session: Session) -> None:
             )
         )
 
+    session.flush()
+    from fixtures.geography import seed_geography
+    seed_geography(session)
     session.commit()
 
 

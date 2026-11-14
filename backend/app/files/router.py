@@ -21,6 +21,7 @@ from app.documents.encryption import IntegrityError
 from app.files.multipart import SPOOL_SIZE, parse_upload
 from app.files.schemas import FileResource
 from app.files.service import SMALL_DOWNLOAD, FileReader, get_file, store_file
+from app.geography.service import region_filter
 from app.models.audit import AuditEvent
 from app.models.auth import AppUser
 from app.models.enums import FileCategory, FileStatus
@@ -50,13 +51,16 @@ async def upload_file(
 @router.get("/files", dependencies=[Depends(get_current_user)])
 def list_files(
     region_id: Annotated[UUID | None, Query(alias="regionId")] = None,
+    subregion_id: Annotated[UUID | None, Query(alias="subregionId")] = None,
     category: FileCategory | None = None,
     status: FileStatus | None = None,
     pagination: Pagination = Depends(),
     db: Session = Depends(get_catalog_db),
 ):
     statement = select(File)
-    for column, value in ((File.region_id, region_id), (File.category, category), (File.status, status)):
+    if region_id is not None:
+        statement = statement.where(region_filter(File, region_id))
+    for column, value in ((File.subregion_id, subregion_id), (File.category, category), (File.status, status)):
         if value is not None:
             statement = statement.where(column == value)
     return paginate(db, statement.order_by(File.created_at.desc(), File.id), pagination, FileResource)

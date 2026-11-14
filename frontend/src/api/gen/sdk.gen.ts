@@ -76,6 +76,9 @@ import type {
   GetMeterReadingsData,
   GetMeterReadingsResponses,
   GetMeterReadingsErrors,
+  GetMapIssuesData,
+  GetMapIssuesResponses,
+  GetMapIssuesErrors,
   CreateMapIssuesData,
   CreateMapIssuesResponses,
   CreateMapIssuesErrors,
@@ -724,6 +727,29 @@ export const getMeterReadings = <ThrowOnError extends boolean = false>(
       },
     ],
     url: "/meter-readings",
+    ...options,
+  });
+};
+
+/**
+ * List issues, optionally filtered by region and subregion.
+ */
+export const getMapIssues = <ThrowOnError extends boolean = false>(
+  options?: Options<GetMapIssuesData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).get<
+    GetMapIssuesResponses,
+    GetMapIssuesErrors,
+    ThrowOnError
+  >({
+    security: [
+      {
+        in: "cookie",
+        name: "filegrid_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/map-issues",
     ...options,
   });
 };

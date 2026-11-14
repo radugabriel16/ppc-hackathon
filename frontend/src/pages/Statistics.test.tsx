@@ -171,9 +171,15 @@ describe("statistics workspace", () => {
         screen.getByTestId("hotspot-map").getAttribute("data-region"),
       ).toBe("BANAT"),
     );
-    expect(source.getMeterConsumption).toHaveBeenLastCalledWith("BANAT");
-    expect(source.getOutageHotspots).toHaveBeenLastCalledWith("BANAT");
-    expect(source.getForecast).toHaveBeenLastCalledWith("BANAT");
+    expect(source.getMeterConsumption).toHaveBeenLastCalledWith(
+      "BANAT",
+      undefined,
+    );
+    expect(source.getOutageHotspots).toHaveBeenLastCalledWith(
+      "BANAT",
+      undefined,
+    );
+    expect(source.getForecast).toHaveBeenLastCalledWith("BANAT", undefined);
   });
   it("shows no data yet for all empty API endpoints without charts or synthesized metrics", async () => {
     const { source, show } = workspace(false);

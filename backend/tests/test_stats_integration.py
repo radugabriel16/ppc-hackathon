@@ -121,7 +121,7 @@ def get(client, path, **params):
 
 
 def test_daily_energy_region_filter_pagination_and_gaps(stats):
-    client, auth, regions, meters, _ = stats
+    client, auth, regions, meters, assets = stats
     auth()
     all_meters = get(client, "meters")
     assert all_meters["totalElements"] == 2
@@ -138,6 +138,9 @@ def test_daily_energy_region_filter_pagination_and_gaps(stats):
     assert get(client, "meters", size=1, page=1)["totalPages"] == 2
     assert get(client, "meters", size=1, page=2)["meters"] == []
     assert get(client, "meters", regionId=str(uuid.uuid4()))["meters"] == []
+    scoped = get(client, "meters", subregionId=str(assets[0].subregion_id))
+    assert [row["id"] for row in scoped["meters"]] == [str(meters[0].id)]
+    assert get(client, "meters", subregionId=str(uuid.uuid4()))["meters"] == []
     assert get(client, "meters", size=1000)["size"] == 100
     partial = get(client, "meters", regionId=str(regions[0].id), **{
         "from": "1980-01-01T01:00:00Z", "to": "1980-01-03T00:00:00Z",
@@ -158,6 +161,9 @@ def test_hotspots_count_clipped_duration_regions_and_point_geometry(stats):
     assert len(filtered["features"]) == 1
     assert filtered["features"][0]["properties"]["regionCode"] == regions[1].code
     assert get(client, "outages/hotspots", size=1, page=2)["features"] == []
+    scoped = get(client, "outages/hotspots", subregionId=str(assets[0].subregion_id))
+    assert [row["properties"]["id"] for row in scoped["features"]] == [str(assets[0].id)]
+    assert get(client, "outages/hotspots", subregionId=str(uuid.uuid4()))["features"] == []
 
 
 def test_benchmark_observations_and_data_backed_recommendation(stats):

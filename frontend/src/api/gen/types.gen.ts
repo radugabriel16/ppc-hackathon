@@ -99,7 +99,12 @@ export type IssueStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED";
 
 export type UserRole = "OPERATOR" | "MANAGER";
 
-export type MapLayer = "ASSETS" | "ISSUES" | "OUTAGES";
+export type MapLayer =
+  | "ASSETS"
+  | "ISSUES"
+  | "OUTAGES"
+  | "REGIONS"
+  | "SUBREGIONS";
 
 export type LoginRequest = {
   username: string;
@@ -128,6 +133,23 @@ export type Region = {
   bounds?: {
     [key: string]: unknown;
   };
+  geometry?: AreaGeometry;
+  meterCount?: number;
+  subregions?: Array<Subregion>;
+};
+
+export type AreaGeometry = {
+  type: "MultiPolygon";
+  coordinates: Array<Array<Array<[number, number]>>>;
+};
+
+export type Subregion = {
+  id: string;
+  parentId: string;
+  code: string;
+  name: string;
+  geometry: AreaGeometry;
+  meterCount: number;
 };
 
 export type RegionPage = PageMeta & {
@@ -135,6 +157,7 @@ export type RegionPage = PageMeta & {
 };
 
 export type NetworkAsset = {
+  subregionId?: string | null;
   id?: string;
   regionId?: string;
   code?: string;
@@ -148,6 +171,7 @@ export type NetworkAssetPage = PageMeta & {
 };
 
 export type Meter = {
+  subregionId?: string | null;
   id?: string;
   externalCode?: string;
   assetId?: string;
@@ -272,6 +296,7 @@ export type DroneVideoMetadata = {
 };
 
 export type FileResource = {
+  subregionId?: string | null;
   id?: string;
   regionId?: string;
   category?: FileCategory;
@@ -379,6 +404,7 @@ export type MapIssueStatusUpdateRequest = {
 };
 
 export type MapIssue = {
+  subregionId?: string | null;
   id?: string;
   assetId?: string;
   location?: GeoPoint;
@@ -586,7 +612,15 @@ export type Page = number;
 
 export type Size = number;
 
+/**
+ * Region ID, or a subregion ID on geography, files, issues and regional statistics endpoints.
+ */
 export type RegionIdQuery = string;
+
+/**
+ * Restrict results to this subregion; combined with regionId when both are supplied.
+ */
+export type SubregionIdQuery = string;
 
 export type IdPath = string;
 
@@ -718,6 +752,13 @@ export type GetAssetsData = {
   body?: never;
   path?: never;
   query?: {
+    /**
+     * Restrict results to this subregion; combined with regionId when both are supplied.
+     */
+    subregionId?: string;
+    /**
+     * Region ID, or a subregion ID on geography, files, issues and regional statistics endpoints.
+     */
     regionId?: string;
     page?: number;
     size?: number;
@@ -747,6 +788,13 @@ export type GetMetersData = {
   body?: never;
   path?: never;
   query?: {
+    /**
+     * Restrict results to this subregion; combined with regionId when both are supplied.
+     */
+    subregionId?: string;
+    /**
+     * Region ID, or a subregion ID on geography, files, issues and regional statistics endpoints.
+     */
     regionId?: string;
     page?: number;
     size?: number;
@@ -776,6 +824,13 @@ export type GetMapFeaturesData = {
   body?: never;
   path?: never;
   query: {
+    /**
+     * Restrict results to this subregion; combined with regionId when both are supplied.
+     */
+    subregionId?: string;
+    /**
+     * Region ID, or a subregion ID on geography, files, issues and regional statistics endpoints.
+     */
     regionId?: string;
     layer: MapLayer;
   };
@@ -806,6 +861,9 @@ export type GetClientsData = {
   body?: never;
   path?: never;
   query?: {
+    /**
+     * Region ID, or a subregion ID on geography, files, issues and regional statistics endpoints.
+     */
     regionId?: string;
     page?: number;
     size?: number;
@@ -835,6 +893,9 @@ export type GetConnectionCasesData = {
   body?: never;
   path?: never;
   query?: {
+    /**
+     * Region ID, or a subregion ID on geography, files, issues and regional statistics endpoints.
+     */
     regionId?: string;
     page?: number;
     size?: number;
@@ -926,6 +987,13 @@ export type GetFilesData = {
   body?: never;
   path?: never;
   query?: {
+    /**
+     * Restrict results to this subregion; combined with regionId when both are supplied.
+     */
+    subregionId?: string;
+    /**
+     * Region ID, or a subregion ID on geography, files, issues and regional statistics endpoints.
+     */
     regionId?: string;
     category?: FileCategory;
     status?: FileStatus;
@@ -1414,6 +1482,45 @@ export type GetMeterReadingsResponses = {
 export type GetMeterReadingsResponse =
   GetMeterReadingsResponses[keyof GetMeterReadingsResponses];
 
+export type GetMapIssuesData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * Region ID, or a subregion ID on geography, files, issues and regional statistics endpoints.
+     */
+    regionId?: string;
+    /**
+     * Restrict results to this subregion; combined with regionId when both are supplied.
+     */
+    subregionId?: string;
+    page?: number;
+    size?: number;
+  };
+  url: "/map-issues";
+};
+
+export type GetMapIssuesErrors = {
+  /**
+   * Not authenticated.
+   */
+  401: _Error;
+};
+
+export type GetMapIssuesError = GetMapIssuesErrors[keyof GetMapIssuesErrors];
+
+export type GetMapIssuesResponses = {
+  /**
+   * OK
+   */
+  200: PageMeta & {
+    items?: Array<MapIssue>;
+  };
+};
+
+export type GetMapIssuesResponse =
+  GetMapIssuesResponses[keyof GetMapIssuesResponses];
+
 export type CreateMapIssuesData = {
   body: MapIssueCreateRequest;
   path?: never;
@@ -1576,6 +1683,13 @@ export type GetStatsMetersData = {
   body?: never;
   path?: never;
   query?: {
+    /**
+     * Restrict results to this subregion; combined with regionId when both are supplied.
+     */
+    subregionId?: string;
+    /**
+     * Region ID, or a subregion ID on geography, files, issues and regional statistics endpoints.
+     */
     regionId?: string;
     /**
      * Inclusive UTC instant (explicit timezone required). Defaults to seven days before to. Require from < to and a window no longer than 366 days. Empty results use empty arrays.
@@ -1620,6 +1734,13 @@ export type GetStatsOutagesHotspotsData = {
   body?: never;
   path?: never;
   query?: {
+    /**
+     * Restrict results to this subregion; combined with regionId when both are supplied.
+     */
+    subregionId?: string;
+    /**
+     * Region ID, or a subregion ID on geography, files, issues and regional statistics endpoints.
+     */
     regionId?: string;
     /**
      * Inclusive UTC instant (explicit timezone required). Defaults to seven days before to. Require from < to and a window no longer than 366 days. Empty results use empty arrays.
@@ -1767,6 +1888,13 @@ export type GetStatsForecastData = {
   body?: never;
   path?: never;
   query?: {
+    /**
+     * Restrict results to this subregion; combined with regionId when both are supplied.
+     */
+    subregionId?: string;
+    /**
+     * Region ID, or a subregion ID on geography, files, issues and regional statistics endpoints.
+     */
     regionId?: string;
     /**
      * First forecast day at midnight UTC, on/after 2026-05-14 and no later than the latest passed 00:10 UTC daily cutoff. Defaults to that cutoff day. Returned dates are whole UTC days, not rolling 24-hour windows.

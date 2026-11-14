@@ -38,6 +38,46 @@ beforeEach(async () => {
   });
 });
 describe("generated client → ApiSource → MSW contract examples", () => {
+  it("sends subregion filters through the generated geography, file and stats clients", async () => {
+    const subregionId = "b353a50e-0028-4ed1-aa87-10746f7dce8f";
+    const visited = new Set<string>();
+    for (const [path, body] of [
+      [
+        "assets",
+        { items: [], page: 0, size: 100, totalPages: 0, totalElements: 0 },
+      ],
+      ["map/features", { type: "FeatureCollection", features: [] }],
+      [
+        "files",
+        { items: [], page: 0, size: 100, totalPages: 0, totalElements: 0 },
+      ],
+      ["stats/meters", { meters: [] }],
+      ["stats/outages/hotspots", { type: "FeatureCollection", features: [] }],
+      ["stats/forecast", { items: [], totalPages: 0 }],
+    ] as const) {
+      server.use(
+        http.get(`${base}/${path}`, ({ request }) => {
+          const query = new URL(request.url).searchParams;
+          expect(query.get("subregionId")).toBe(subregionId);
+          expect(query.get("regionId")).toBe(mockRegions[0].id);
+          visited.add(path);
+          return HttpResponse.json(body);
+        }),
+      );
+    }
+    await source.getMap("MUNTENIA", subregionId);
+    await source.getFiles({
+      region: "MUNTENIA",
+      subregionId,
+      search: "",
+      page: 0,
+      size: 20,
+    });
+    await source.getMeterConsumption("MUNTENIA", subregionId);
+    await source.getOutageHotspots("MUNTENIA", subregionId);
+    await source.getForecast("MUNTENIA", subregionId);
+    expect(visited.size).toBe(6);
+  });
   it("uses username/password and the server role; restores session and token after reload", async () => {
     expect(await source.getSession()).toMatchObject({
       user: { name: "operator", role: "OPERATOR" },

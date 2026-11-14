@@ -1,4 +1,19 @@
-import type { FeatureCollection, LineString, Point } from "geojson";
+import type {
+  FeatureCollection,
+  LineString,
+  MultiPolygon,
+  Point,
+} from "geojson";
+
+export interface GeographicArea {
+  id: string;
+  code: string;
+  name: string;
+  region: Region;
+  parentId: string | null;
+  geometry: MultiPolygon;
+  meterCount: number;
+}
 
 export const REGIONS = ["MUNTENIA", "BANAT", "DOBROGEA"] as const;
 export type Region = (typeof REGIONS)[number];
@@ -47,6 +62,7 @@ export interface FileRecord {
 }
 export interface FileFilter {
   region: Region;
+  subregionId?: string;
   category?: Category;
   status?: FileStatus;
   search: string;

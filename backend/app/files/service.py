@@ -11,7 +11,7 @@ from tempfile import SpooledTemporaryFile
 
 import anyio
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -31,7 +31,7 @@ from app.inspections.service import link_inspection
 from app.models.audit import AuditEvent
 from app.models.enums import FileCategory, FileStatus
 from app.models.files import File
-from app.models.geography import NetworkAsset
+from app.models.geography import NetworkAsset, Subregion
 from app.outages.service import link_outage
 from app.policies.service import PolicyManager, StorageWrite
 from app.storage.base import StorageNotFound, StorageUnavailable
@@ -51,7 +51,23 @@ def linked_region(db: Session, metadata: FileUploadMetadata) -> uuid.UUID:
         )
         if region_id is None:
             raise HTTPException(404, "Network asset not found")
-    if metadata.region_id is not None and metadata.region_id != region_id:
+    selected = db.get(Subregion, metadata.region_id) if metadata.region_id is not None else None
+    requested_region = selected.region_id if selected else metadata.region_id
+    actual_subregion = None
+    if selected:
+        if isinstance(metadata, ConnectionDocumentMetadata):
+            actual_subregion = db.scalar(text("""
+                SELECT covered_subregion(coalesce(c.location,ST_PointOnSurface(r.geometry)),r.id)
+                FROM clients c JOIN connection_cases cc ON cc.client_id=c.id
+                JOIN regions r ON r.id=c.region_id WHERE cc.id=:id
+            """), {"id": metadata.case_id})
+        else:
+            actual_subregion = db.scalar(
+                select(NetworkAsset.subregion_id).where(NetworkAsset.id == metadata.asset_id)
+            )
+    if (requested_region is not None and requested_region != region_id) or (
+        selected is not None and actual_subregion != selected.id
+    ):
         raise HTTPException(
             422, {"code": "REGION_MISMATCH", "message": "File and linked entity regions differ"}
         )
@@ -140,6 +156,8 @@ async def _store_file(
                 link_outage(db, file, metadata)
             elif isinstance(metadata, DroneVideoMetadata):
                 link_inspection(db, file, metadata)
+            db.flush()
+            db.refresh(file, ["subregion_id"])
             result = FileResource.model_validate(file)
             db.commit()
             return result

@@ -44,6 +44,7 @@ metadata_adapter = TypeAdapter(FileUploadMetadata)
 class FileResource(ApiModel):
     id: UUID
     region_id: UUID
+    subregion_id: UUID | None = None
     category: FileCategory
     original_name: str
     media_type: str

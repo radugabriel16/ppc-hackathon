@@ -17,13 +17,18 @@ import { Shell, ManagerOnly } from "./Shell";
 import { Authenticated } from "./Authenticated";
 import { MapPage } from "../pages/Map";
 import { theme } from "../theme";
-import type { MapData, Role, Session } from "../data/models";
+import type { GeographicArea, MapData, Role, Session } from "../data/models";
+import type { GeographySelectionProps } from "./GeographyExplorer";
 import type { ReactNode } from "react";
 
 // WebGL and remote tiles require a real browser; keep interaction tests focused
 // on the source/hooks/UI contract, using the actual demo source and query cache.
 vi.mock("./NetworkMap", () => ({
-  NetworkMap: () => <div data-testid="network-map">Map canvas</div>,
+  NetworkMap: ({ selectedId }: GeographySelectionProps) => (
+    <div data-testid="network-map" data-selected-id={selectedId}>
+      Map canvas
+    </div>
+  ),
 }));
 afterEach(() => {
   cleanup();
@@ -33,8 +38,10 @@ async function workspace(
   children: ReactNode,
   role: Role = "OPERATOR",
   mode: "demo" | "mock" | "api" = "demo",
+  geography?: GeographicArea[],
 ) {
   const source = new LocalDemoSource();
+  if (geography) Object.assign(source, { getGeography: async () => geography });
   if (mode !== "demo") Object.defineProperty(source, "kind", { value: mode });
   const session: Session = await source.login({ name: "Test User", role });
   const cache = new QueryClient({
@@ -58,6 +65,68 @@ async function workspace(
   return { source, cache };
 }
 describe("role-aware workspace and issue conflicts", () => {
+  it("syncs map selection, region/subregion filters and breadcrumb back navigation", async () => {
+    const parent: GeographicArea = {
+      id: "banat",
+      code: "BANAT",
+      name: "Banat",
+      region: "BANAT",
+      parentId: null,
+      meterCount: 6,
+      geometry: {
+        type: "MultiPolygon",
+        coordinates: [
+          [
+            [
+              [20, 44],
+              [22, 44],
+              [22, 46],
+              [20, 44],
+            ],
+          ],
+        ],
+      },
+    };
+    const child = {
+      ...parent,
+      id: "banat-1",
+      code: "BANAT-1",
+      name: "Banat 1",
+      parentId: parent.id,
+    };
+    const { source } = await workspace(<MapPage />, "OPERATOR", "demo", [
+      parent,
+      child,
+    ]);
+    const getMap = vi.spyOn(source, "getMap");
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Banat · 6 meters" }),
+    );
+    await waitFor(() =>
+      expect(getMap).toHaveBeenCalledWith("BANAT", undefined),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Banat 1 · 6 meters" }));
+    await waitFor(() =>
+      expect(getMap).toHaveBeenCalledWith("BANAT", "banat-1"),
+    );
+    expect(
+      screen.getByTestId("network-map").getAttribute("data-selected-id"),
+    ).toBe("banat-1");
+    fireEvent.keyDown(
+      screen.getByRole("button", { name: "Banat 1 · 6 meters" }),
+      { key: "Escape" },
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("network-map").getAttribute("data-selected-id"),
+      ).toBe("banat"),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Romania" }));
+    await screen.findByRole("list", { name: "Regions" });
+    expect(
+      screen.getByTestId("network-map").getAttribute("data-selected-id"),
+    ).toBeNull();
+  });
   it("redirects mounted authenticated routes after logout and clears private cached data", async () => {
     const { cache } = await workspace(
       <Routes>
@@ -76,7 +145,7 @@ describe("role-aware workspace and issue conflicts", () => {
   it("disables status changes when the API has not supplied an issue version", async () => {
     const { cache } = await workspace(<MapPage />);
     await screen.findByTestId("network-map");
-    cache.setQueryData<MapData>(["map", "MUNTENIA"], (old) => ({
+    cache.setQueryData<MapData>(["map", "ROMANIA"], (old) => ({
       ...old!,
       issueList: old!.issueList.map((issue) => ({ ...issue, version: null })),
     }));
@@ -141,7 +210,7 @@ describe("role-aware workspace and issue conflicts", () => {
     expect(getMap.mock.calls.length).toBeGreaterThan(callsBeforeConflict);
     const map = cache.getQueryData<{
       issueList: { id: string; status: string; version: number }[];
-    }>(["map", "MUNTENIA"]);
+    }>(["map", "ROMANIA"]);
     expect(map?.issueList.find((x) => x.id === "ISS-100")).toMatchObject({
       version: 2,
       status: "IN_PROGRESS",

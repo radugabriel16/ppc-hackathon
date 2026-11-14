@@ -13,8 +13,11 @@ class RegionResource(ApiModel):
     name: str
     center: dict | None
     bounds: dict | None
+    geometry: dict | None = None
+    subregions: list[dict] = []
+    meter_count: int = 0
 
-    @field_validator("center", mode="before")
+    @field_validator("center", "geometry", mode="before")
     @classmethod
     def parse_center(cls, value):
         return json.loads(value) if isinstance(value, str) else value
@@ -23,6 +26,7 @@ class RegionResource(ApiModel):
 class AssetResource(ApiModel):
     id: UUID
     region_id: UUID
+    subregion_id: UUID | None = None
     code: str
     name: str
     type: AssetType
@@ -31,6 +35,7 @@ class AssetResource(ApiModel):
 
 class MeterResource(ApiModel):
     id: UUID
+    subregion_id: UUID | None = None
     external_code: str
     asset_id: UUID
     client_id: UUID | None

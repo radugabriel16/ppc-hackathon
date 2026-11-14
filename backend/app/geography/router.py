@@ -10,7 +10,8 @@ from app.auth.dependencies import get_current_user
 from app.core.api import Pagination, paginate
 from app.core.db import get_catalog_db
 from app.geography.schemas import AssetResource, MeterResource, RegionResource
-from app.models.geography import NetworkAsset, Region
+from app.geography.service import issue_region_filter, region_filter
+from app.models.geography import NetworkAsset, Region, Subregion
 from app.models.issues import MapIssue
 from app.models.metering import Meter
 from app.models.outages import Outage
@@ -25,38 +26,88 @@ def list_regions(pagination: Pagination = Depends(), db: Session = Depends(get_c
     statement = select(
         Region.id, Region.code, Region.name, func.ST_AsGeoJSON(Region.center).label("center"),
         Region.bounds,
+        func.ST_AsGeoJSON(func.ST_Multi(func.ST_SimplifyPreserveTopology(Region.geometry, 0.001))).label("geometry"),
     ).order_by(Region.code)
-    return paginate(db, statement, pagination, RegionResource, mappings=True)
+    result = paginate(db, statement, pagination, RegionResource, mappings=True)
+    for region in result["items"]:
+        region.subregions = [
+            {
+                "id": str(s.id), "parentId": str(s.region_id), "code": s.code, "name": s.name,
+                "geometry": json.loads(geometry), "meterCount": count,
+            }
+            for s, geometry, count in db.execute(
+                select(
+                    Subregion,
+                    func.ST_AsGeoJSON(func.ST_Multi(func.ST_SimplifyPreserveTopology(Subregion.geometry, 0.001))),
+                    select(func.count()).select_from(Meter)
+                    .where(Meter.subregion_id == Subregion.id).correlate(Subregion).scalar_subquery(),
+                ).where(Subregion.region_id == region.id).order_by(Subregion.code)
+            )
+        ]
+        region.meter_count = sum(s["meterCount"] for s in region.subregions)
+    return result
 
 
 @router.get("/assets")
 def list_assets(
     region_id: Annotated[UUID | None, Query(alias="regionId")] = None,
+    subregion_id: Annotated[UUID | None, Query(alias="subregionId")] = None,
     pagination: Pagination = Depends(), db: Session = Depends(get_catalog_db),
 ):
     statement = select(NetworkAsset)
     if region_id is not None:
-        statement = statement.where(NetworkAsset.region_id == region_id)
+        statement = statement.where(region_filter(NetworkAsset, region_id))
+    if subregion_id is not None:
+        statement = statement.where(NetworkAsset.subregion_id == subregion_id)
     return paginate(db, statement.order_by(NetworkAsset.code), pagination, AssetResource)
 
 
 @router.get("/meters")
 def list_meters(
     region_id: Annotated[UUID | None, Query(alias="regionId")] = None,
+    subregion_id: Annotated[UUID | None, Query(alias="subregionId")] = None,
     pagination: Pagination = Depends(), db: Session = Depends(get_catalog_db),
 ):
     statement = select(Meter).join(NetworkAsset, Meter.asset_id == NetworkAsset.id)
     if region_id is not None:
-        statement = statement.where(NetworkAsset.region_id == region_id)
+        statement = statement.where(region_filter(NetworkAsset, region_id))
+    if subregion_id is not None:
+        statement = statement.where(Meter.subregion_id == subregion_id)
     return paginate(db, statement.order_by(Meter.external_code), pagination, MeterResource)
 
 
 @router.get("/map/features")
 def map_features(
-    layer: Literal["ASSETS", "ISSUES", "OUTAGES"],
+    layer: Literal["ASSETS", "ISSUES", "OUTAGES", "REGIONS", "SUBREGIONS"],
     region_id: Annotated[UUID | None, Query(alias="regionId")] = None,
+    subregion_id: Annotated[UUID | None, Query(alias="subregionId")] = None,
     db: Session = Depends(get_catalog_db),
 ):
+    if layer in ("REGIONS", "SUBREGIONS"):
+        model = Region if layer == "REGIONS" else Subregion
+        statement = select(
+            model, func.ST_AsGeoJSON(func.ST_Multi(func.ST_SimplifyPreserveTopology(model.geometry, 0.001))),
+        ).where(model.geometry.is_not(None)).order_by(model.code)
+        if region_id is not None:
+            column = Region.id if model is Region else Subregion.region_id
+            statement = statement.where(column == region_id)
+        if subregion_id is not None:
+            if model is Region:
+                statement = statement.where(Region.id == select(Subregion.region_id)
+                                            .where(Subregion.id == subregion_id).scalar_subquery())
+            else:
+                statement = statement.where(Subregion.id == subregion_id)
+        return {
+            "type": "FeatureCollection",
+            "features": [
+                {"type": "Feature", "id": str(area.id), "geometry": json.loads(geometry),
+                 "properties": {
+                     "id": str(area.id), "code": area.code, "name": area.name,
+                     "parentId": str(area.region_id) if model is Subregion else None,
+                 }}
+                for area, geometry in db.execute(statement)
+            ],
+        }
     if layer == "ASSETS":
         properties = func.json_build_object(
             "id", NetworkAsset.id, "kind", "ASSET", "assetType", NetworkAsset.type,
@@ -87,7 +138,13 @@ def map_features(
             .order_by(Outage.id)
         )
     if region_id is not None:
-        statement = statement.where(NetworkAsset.region_id == region_id)
+        statement = statement.where(
+            issue_region_filter(region_id) if layer == "ISSUES"
+            else region_filter(NetworkAsset, region_id)
+        )
+    if subregion_id is not None:
+        column = MapIssue.subregion_id if layer == "ISSUES" else NetworkAsset.subregion_id
+        statement = statement.where(column == subregion_id)
     return {
         "type": "FeatureCollection",
         "features": [

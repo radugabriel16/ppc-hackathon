@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useSource } from "./context";
 import type { Region } from "./models";
+import { useRegion } from "./region-context";
 
 export function useStorageBenchmark() {
   const source = useSource();
@@ -18,22 +19,25 @@ export function useStorageRecommendations() {
 }
 export function useMeterConsumption(region: Region) {
   const source = useSource();
+  const { subregionId } = useRegion();
   return useQuery({
-    queryKey: ["stats", "meters", region],
-    queryFn: () => source.getMeterConsumption(region),
+    queryKey: ["stats", "meters", region, subregionId],
+    queryFn: () => source.getMeterConsumption(region, subregionId),
   });
 }
 export function useOutageHotspots(region: Region) {
   const source = useSource();
+  const { subregionId } = useRegion();
   return useQuery({
-    queryKey: ["stats", "hotspots", region],
-    queryFn: () => source.getOutageHotspots(region),
+    queryKey: ["stats", "hotspots", region, subregionId],
+    queryFn: () => source.getOutageHotspots(region, subregionId),
   });
 }
 export function useForecast(region: Region) {
   const source = useSource();
+  const { subregionId } = useRegion();
   return useQuery({
-    queryKey: ["stats", "forecast", region],
-    queryFn: () => source.getForecast(region),
+    queryKey: ["stats", "forecast", region, subregionId],
+    queryFn: () => source.getForecast(region, subregionId),
   });
 }

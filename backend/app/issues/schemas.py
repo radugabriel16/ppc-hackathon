@@ -39,6 +39,7 @@ class IssueStatusUpdate(ApiModel):
 
 class IssueResource(ApiModel):
     id: UUID
+    subregion_id: UUID | None = None
     asset_id: UUID
     location: GeoPoint
     description: str | None

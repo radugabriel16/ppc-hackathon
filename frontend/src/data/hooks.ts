@@ -7,6 +7,8 @@ import {
 } from "@tanstack/react-query";
 import { useSource } from "./context";
 import { AppError } from "./errors";
+import { REGIONS } from "./models";
+import { useRegion } from "./region-context";
 import type {
   CaseFilter,
   CreateIssue,
@@ -54,11 +56,43 @@ export function useLogout() {
     onSuccess: () => cacheSession(cache, null),
   });
 }
-export function useMap(region: Region) {
+export function useGeography() {
   const source = useSource();
   return useQuery({
-    queryKey: ["map", region],
-    queryFn: () => source.getMap(region),
+    queryKey: ["geography"],
+    queryFn: () => source.getGeography(),
+    staleTime: Infinity,
+  });
+}
+export function useMap(region: Region, national = false) {
+  const source = useSource();
+  const { subregionId } = useRegion();
+  return useQuery({
+    queryKey: [
+      "map",
+      national ? "ROMANIA" : region,
+      ...(subregionId ? [subregionId] : []),
+    ],
+    queryFn: async () => {
+      if (!national) return source.getMap(region, subregionId);
+      const maps = await Promise.all(REGIONS.map((r) => source.getMap(r)));
+      return {
+        assets: {
+          type: "FeatureCollection" as const,
+          features: maps.flatMap((m) => m.assets.features),
+        },
+        issues: {
+          type: "FeatureCollection" as const,
+          features: maps.flatMap((m) => m.issues.features),
+        },
+        outages: {
+          type: "FeatureCollection" as const,
+          features: maps.flatMap((m) => m.outages.features),
+        },
+        assetList: maps.flatMap((m) => m.assetList),
+        issueList: maps.flatMap((m) => m.issueList),
+      };
+    },
     placeholderData: keepPreviousData,
   });
 }
@@ -103,9 +137,11 @@ export function useUpdateIssue() {
 }
 export function useFiles(filter: FileFilter) {
   const source = useSource();
+  const { subregionId } = useRegion();
+  const scoped = { ...filter, subregionId };
   return useQuery({
-    queryKey: ["files", filter],
-    queryFn: () => source.getFiles(filter),
+    queryKey: ["files", scoped],
+    queryFn: () => source.getFiles(scoped),
     refetchInterval: 5000,
   });
 }

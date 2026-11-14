@@ -23,6 +23,7 @@ import type {
   MeterConsumption,
   OutageHotspot,
   ForecastPoint,
+  GeographicArea,
 } from "./models";
 import type { UploadTransport } from "../upload/types";
 import type { DocumentType } from "../api/gen/types.gen";
@@ -33,11 +34,12 @@ export interface DataSource {
   readonly uploadScope?: string;
   readonly uploads: UploadTransport;
   getDocumentTypes?(): Promise<DocumentType[]>;
+  getGeography(): Promise<GeographicArea[]>;
   downloadFile?(id: string): Promise<Blob>;
   getSession(): Promise<Session | null>;
   login(input: LoginInput): Promise<Session>;
   logout(): Promise<void>;
-  getMap(region: Region): Promise<MapData>;
+  getMap(region: Region, subregionId?: string): Promise<MapData>;
   createIssue(input: CreateIssue): Promise<Issue>;
   updateIssue(input: {
     id: string;
@@ -51,9 +53,15 @@ export interface DataSource {
   getStatistics(region: Region): Promise<Statistics>;
   getStorageBenchmark(): Promise<StorageBenchmark[]>;
   getStorageRecommendations(): Promise<StorageRecommendation[]>;
-  getMeterConsumption(region: Region): Promise<MeterConsumption[]>;
-  getOutageHotspots(region: Region): Promise<OutageHotspot[]>;
-  getForecast(region: Region): Promise<ForecastPoint[]>;
+  getMeterConsumption(
+    region: Region,
+    subregionId?: string,
+  ): Promise<MeterConsumption[]>;
+  getOutageHotspots(
+    region: Region,
+    subregionId?: string,
+  ): Promise<OutageHotspot[]>;
+  getForecast(region: Region, subregionId?: string): Promise<ForecastPoint[]>;
   getPolicies(): Promise<EffectivePolicy[]>;
   reloadPolicies(): Promise<EffectivePolicy[]>;
   getSimulatorStatus(): Promise<SimulatorState>;

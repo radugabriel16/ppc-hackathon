@@ -96,6 +96,7 @@ def recommendations(
 @router.get("/meters")
 def meters(
     region_id: Annotated[UUID | None, Query(alias="regionId")] = None,
+    subregion_id: Annotated[UUID | None, Query(alias="subregionId")] = None,
     window: Window = Depends(), pagination: Pagination = Depends(),
     db: Session = Depends(get_catalog_db),
 ):
@@ -110,7 +111,9 @@ def meters(
             JOIN network_assets a ON a.id = m.asset_id
             JOIN regions r ON r.id = a.region_id
             WHERE mr.interval_start >= :start AND mr.interval_start < :end
-              AND (CAST(:region AS uuid) IS NULL OR r.id = CAST(:region AS uuid))
+              AND (CAST(:region AS uuid) IS NULL OR r.id = CAST(:region AS uuid)
+                   OR m.subregion_id = CAST(:region AS uuid))
+              AND (CAST(:subregion AS uuid) IS NULL OR m.subregion_id = CAST(:subregion AS uuid))
             GROUP BY m.id, m.external_code, r.code, day
         )
         SELECT id, label, region AS "regionCode", 1440 AS "intervalMinutes",
@@ -120,12 +123,13 @@ def meters(
                    'kWh', energy, 'anomaly', CASE WHEN energy = 0 THEN 'zero' ELSE NULL END
                ) ORDER BY day) AS readings
         FROM daily GROUP BY id, label, region ORDER BY region, label, id
-    """, {**window.params(), "region": region_id}, pagination, "meters")
+    """, {**window.params(), "region": region_id, "subregion": subregion_id}, pagination, "meters")
 
 
 @router.get("/outages/hotspots")
 def hotspots(
     region_id: Annotated[UUID | None, Query(alias="regionId")] = None,
+    subregion_id: Annotated[UUID | None, Query(alias="subregionId")] = None,
     window: Window = Depends(), pagination: Pagination = Depends(),
     db: Session = Depends(get_catalog_db),
 ):
@@ -139,7 +143,9 @@ def hotspots(
             FROM outages o
             JOIN network_assets a ON a.id = o.asset_id
             WHERE o.started_at < :end AND (o.ended_at IS NULL OR o.ended_at > :start)
-              AND (CAST(:region AS uuid) IS NULL OR a.region_id = CAST(:region AS uuid))
+              AND (CAST(:region AS uuid) IS NULL OR a.region_id = CAST(:region AS uuid)
+                   OR a.subregion_id = CAST(:region AS uuid))
+              AND (CAST(:subregion AS uuid) IS NULL OR a.subregion_id = CAST(:subregion AS uuid))
             GROUP BY o.asset_id
         )
         SELECT 'Feature' AS type,
@@ -151,5 +157,5 @@ def hotspots(
         FROM counts c JOIN network_assets a ON a.id = c.asset_id
         JOIN regions r ON r.id = a.region_id
         ORDER BY c.count DESC, a.id
-    """, {**window.params(), "region": region_id}, pagination, "features")
+    """, {**window.params(), "region": region_id, "subregion": subregion_id}, pagination, "features")
     return {"type": "FeatureCollection", **result}

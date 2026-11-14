@@ -3,13 +3,16 @@ import json
 from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from typing import Annotated
 from geoalchemy2.elements import WKTElement
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
 from app.core.db import get_catalog_db
+from app.core.api import Pagination
+from app.geography.service import issue_region_filter
 from app.core.logging import get_request_id
 from app.issues.schemas import IssueCreate, IssueResource, IssueStatusUpdate
 from app.models.audit import AuditEvent
@@ -20,6 +23,27 @@ from app.models.inspections import VideoInspection
 from app.models.issues import MapIssue
 
 router = APIRouter(prefix="/api/v1", tags=["map-issues"])
+
+
+@router.get("/map-issues", dependencies=[Depends(get_current_user)])
+def list_issues(
+    region_id: Annotated[UUID | None, Query(alias="regionId")] = None,
+    subregion_id: Annotated[UUID | None, Query(alias="subregionId")] = None,
+    pagination: Pagination = Depends(), db: Session = Depends(get_catalog_db),
+):
+    statement = select(MapIssue).join(NetworkAsset, NetworkAsset.id == MapIssue.asset_id)
+    if region_id is not None:
+        statement = statement.where(issue_region_filter(region_id))
+    if subregion_id is not None:
+        statement = statement.where(MapIssue.subregion_id == subregion_id)
+    total = db.scalar(select(func.count()).select_from(statement.subquery()))
+    rows = db.scalars(statement.order_by(MapIssue.created_at.desc(), MapIssue.id)
+                      .offset(pagination.page * pagination.size).limit(pagination.size))
+    return {
+        "items": [resource(db, row) for row in rows], "page": pagination.page,
+        "size": pagination.size, "totalElements": total,
+        "totalPages": (total + pagination.size - 1) // pagination.size,
+    }
 
 
 def resource(db: Session, issue: MapIssue) -> IssueResource:
@@ -66,6 +90,7 @@ def create_issue(
     )
     db.add(issue)
     db.flush()
+    db.refresh(issue, ["subregion_id"])
     result = resource(db, issue)
     audit(db, issue, user, "MAP_ISSUE_CREATED")
     db.commit()

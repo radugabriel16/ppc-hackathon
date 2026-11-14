@@ -3,10 +3,11 @@ import { Alert, Box, Button } from "@mui/material";
 import maplibregl from "maplibre-gl";
 import type { GeoJSONSource, Map as LibreMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { REGION_INFO } from "../data/models";
 import type { Asset, MapData, Region } from "../data/models";
+import type { GeographySelectionProps } from "./GeographyExplorer";
+import { areaBounds, areaFeatures } from "./map-geography";
 
-interface Props {
+interface Props extends GeographySelectionProps {
   data: MapData;
   region: Region;
   resolved: boolean;
@@ -21,23 +22,34 @@ function update(map: LibreMap, props: Props) {
   (map.getSource("assets") as GeoJSONSource)?.setData(props.data.assets);
   (map.getSource("issues") as GeoJSONSource)?.setData(props.data.issues);
   (map.getSource("outages") as GeoJSONSource)?.setData(props.data.outages);
-  const bbox = REGION_INFO[props.region].bbox;
-  (map.getSource("region") as GeoJSONSource)?.setData({
-    type: "Feature",
-    properties: {},
-    geometry: {
-      type: "Polygon",
-      coordinates: [
-        [
-          [bbox[0], bbox[1]],
-          [bbox[2], bbox[1]],
-          [bbox[2], bbox[3]],
-          [bbox[0], bbox[3]],
-          [bbox[0], bbox[1]],
-        ],
-      ],
-    },
-  });
+  (map.getSource("areas") as GeoJSONSource)?.setData(areaFeatures(props.areas));
+  const selected = props.areas.find((a) => a.id === props.selectedId);
+  const parentId = selected?.parentId ?? selected?.id;
+  for (const kind of ["region", "subregion"]) {
+    for (const suffix of ["fill", "line"]) {
+      const id = `${kind}-${suffix}`;
+      const isRegion = kind === "region";
+      map.setLayerZoomRange(
+        id,
+        isRegion || parentId ? 0 : 7.3,
+        isRegion && !parentId ? 7.3 : 24,
+      );
+      map.setFilter(
+        id,
+        isRegion
+          ? ["==", ["get", "parentId"], ""]
+          : parentId
+            ? ["==", ["get", "parentId"], parentId]
+            : ["!=", ["get", "parentId"], ""],
+      );
+    }
+  }
+  map.removeFeatureState({ source: "areas" }, "selected");
+  if (selected)
+    map.setFeatureState(
+      { source: "areas", id: selected.id },
+      { selected: true },
+    );
   for (const [key, ids] of Object.entries({
     assets: ["asset-points", "asset-lines"],
     issues: ["issue-points"],
@@ -56,12 +68,30 @@ export function NetworkMap(props: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<LibreMap | null>(null);
   const latest = useRef(props);
-  const previousRegion = useRef(props.region);
+  const previousSelection = useRef<string | undefined>(undefined);
   const [error, setError] = useState("");
   const [ready, setReady] = useState(false);
   useEffect(() => {
     latest.current = props;
-    if (map.current?.isStyleLoaded()) update(map.current, props);
+    if (map.current?.isStyleLoaded()) {
+      update(map.current, props);
+      if (previousSelection.current !== props.selectedId) {
+        previousSelection.current = props.selectedId;
+        const selected = props.areas.find((a) => a.id === props.selectedId);
+        const areas = selected
+          ? [selected]
+          : props.areas.filter((a) => !a.parentId);
+        if (areas.length)
+          map.current.fitBounds(areaBounds(areas), {
+            padding: 45,
+            maxZoom: 11,
+            duration: window.matchMedia("(prefers-reduced-motion: reduce)")
+              .matches
+              ? 0
+              : 700,
+          });
+      }
+    }
   }, [props]);
   useEffect(() => {
     if (!container.current) return;
@@ -81,6 +111,33 @@ export function NetworkMap(props: Props) {
       return;
     }
     map.current = instance;
+    let pulseFrame = 0;
+    let hovered: string | undefined;
+    const hoverFrames = new Map<string, number>();
+    const animateHover = (id: string, value: number) => {
+      const previous = hoverFrames.get(id);
+      if (previous !== undefined) cancelAnimationFrame(previous);
+      const target = { source: "areas", id };
+      const from = Number(instance.getFeatureState(target).hover ?? 0);
+      const start = performance.now();
+      const reduced = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+      ).matches;
+      const step = (now: number) => {
+        const progress = reduced ? 1 : Math.min((now - start) / 150, 1);
+        instance.setFeatureState(target, {
+          hover: from + (value - from) * progress,
+        });
+        if (progress < 1) hoverFrames.set(id, requestAnimationFrame(step));
+        else hoverFrames.delete(id);
+      };
+      step(start);
+    };
+    const tooltip = new maplibregl.Popup({
+      closeButton: false,
+      closeOnClick: false,
+      offset: 12,
+    });
     instance.addControl(
       new maplibregl.NavigationControl({ showCompass: false }),
       "top-right",
@@ -101,23 +158,66 @@ export function NetworkMap(props: Props) {
     instance.on("load", () => {
       setError("");
       setReady(true);
-      for (const id of ["assets", "issues", "outages", "region"])
+      for (const id of ["assets", "issues", "outages", "areas"])
         instance.addSource(id, { type: "geojson", data: empty });
+      for (const kind of ["region", "subregion"]) {
+        instance.addLayer({
+          id: `${kind}-fill`,
+          type: "fill",
+          source: "areas",
+          paint: {
+            "fill-color": "#176747",
+            "fill-opacity": [
+              "case",
+              ["boolean", ["feature-state", "selected"], false],
+              0.3,
+              [
+                "interpolate",
+                ["linear"],
+                ["number", ["feature-state", "hover"], 0],
+                0,
+                kind === "region" ? 0.1 : 0.07,
+                1,
+                0.23,
+              ],
+            ],
+          },
+        });
+        instance.addLayer({
+          id: `${kind}-line`,
+          type: "line",
+          source: "areas",
+          paint: {
+            "line-color": "#176747",
+            "line-width": [
+              "case",
+              ["boolean", ["feature-state", "selected"], false],
+              3.5,
+              [
+                "interpolate",
+                ["linear"],
+                ["number", ["feature-state", "hover"], 0],
+                0,
+                1.4,
+                1,
+                3,
+              ],
+            ],
+          },
+        });
+        instance.setPaintProperty(`${kind}-fill`, "fill-opacity-transition", {
+          duration: 150,
+        });
+        instance.setPaintProperty(`${kind}-line`, "line-width-transition", {
+          duration: 150,
+        });
+      }
       instance.addLayer({
-        id: "region-fill",
-        type: "fill",
-        source: "region",
-        paint: { "fill-color": "#176747", "fill-opacity": 0.035 },
-      });
-      instance.addLayer({
-        id: "region-line",
+        id: "area-pulse",
         type: "line",
-        source: "region",
-        paint: {
-          "line-color": "#438568",
-          "line-width": 1.4,
-          "line-dasharray": [4, 4],
-        },
+        source: "areas",
+        filter: ["==", ["get", "parentId"], ""],
+        paint: { "line-color": "#4c9a70", "line-width": 6, "line-opacity": 0 },
       });
       instance.addLayer({
         id: "asset-lines",
@@ -177,6 +277,61 @@ export function NetworkMap(props: Props) {
         },
       });
       update(instance, latest.current);
+      const selected = latest.current.areas.find(
+        (a) => a.id === latest.current.selectedId,
+      );
+      const initialAreas = selected
+        ? [selected]
+        : latest.current.areas.filter((a) => !a.parentId);
+      if (initialAreas.length)
+        instance.fitBounds(areaBounds(initialAreas), {
+          padding: 45,
+          duration: 0,
+        });
+      previousSelection.current = latest.current.selectedId;
+      if (
+        !window.matchMedia("(prefers-reduced-motion: reduce)").matches &&
+        !sessionStorage.getItem("region-outline-pulsed")
+      ) {
+        sessionStorage.setItem("region-outline-pulsed", "1");
+        const start = performance.now();
+        const pulse = (now: number) => {
+          const progress = Math.min((now - start) / 1400, 1);
+          instance.setPaintProperty(
+            "area-pulse",
+            "line-opacity",
+            Math.sin(progress * Math.PI) * 0.35,
+          );
+          if (progress < 1) pulseFrame = requestAnimationFrame(pulse);
+        };
+        pulseFrame = requestAnimationFrame(pulse);
+      }
+    });
+    instance.on("mousemove", (event) => {
+      if (!instance.getLayer("region-fill")) return;
+      const feature = instance.queryRenderedFeatures(event.point, {
+        layers: ["subregion-fill", "region-fill"],
+      })[0];
+      const id = feature?.properties.id as string | undefined;
+      if (hovered !== id) {
+        if (hovered) animateHover(hovered, 0);
+        hovered = id;
+        if (id) animateHover(id, 1);
+      }
+      instance.getCanvas().style.cursor = feature ? "pointer" : "";
+      if (!feature) {
+        tooltip.remove();
+        return;
+      }
+      const content = document.createElement("div");
+      content.textContent = `${feature.properties.name} · ${feature.properties.meterCount} meters`;
+      tooltip.setLngLat(event.lngLat).setDOMContent(content).addTo(instance);
+    });
+    instance.on("mouseout", () => {
+      if (hovered) animateHover(hovered, 0);
+      hovered = undefined;
+      instance.getCanvas().style.cursor = "";
+      tooltip.remove();
     });
     instance.on("click", (event) => {
       if (!instance.getLayer("asset-points")) return;
@@ -190,6 +345,17 @@ export function NetworkMap(props: Props) {
       });
       const feature = features[0];
       if (!feature) {
+        const area = instance.queryRenderedFeatures(event.point, {
+          layers: ["subregion-fill", "region-fill"],
+        })[0];
+        if (area) {
+          const selected = latest.current.areas.find(
+            (a) => a.id === area.properties.id,
+          );
+          if (selected) latest.current.onSelect(selected);
+          tooltip.remove();
+          return;
+        }
         // Offer a nearby asset; users can choose a different asset in the dialog.
         const distance = (asset: Asset) =>
           (asset.coordinates[0] - event.lngLat.lng) ** 2 +
@@ -232,33 +398,26 @@ export function NetworkMap(props: Props) {
     const resize = new ResizeObserver(() => instance.resize());
     resize.observe(container.current);
     return () => {
+      cancelAnimationFrame(pulseFrame);
+      for (const frame of hoverFrames.values()) cancelAnimationFrame(frame);
+      tooltip.remove();
       resize.disconnect();
       instance.remove();
       map.current = null;
     };
   }, []);
-  useEffect(() => {
-    if (previousRegion.current !== props.region) {
-      previousRegion.current = props.region;
-      const b = REGION_INFO[props.region].bbox;
-      map.current?.fitBounds(
-        [
-          [b[0], b[1]],
-          [b[2], b[3]],
-        ],
-        { padding: 45, duration: 800 },
-      );
-    }
-  }, [props.region]);
   const zoomRegion = () => {
-    const b = REGION_INFO[props.region].bbox;
-    map.current?.fitBounds(
-      [
-        [b[0], b[1]],
-        [b[2], b[3]],
-      ],
-      { padding: 50 },
-    );
+    const selected = props.areas.find((a) => a.id === props.selectedId);
+    const areas = selected
+      ? [selected]
+      : props.areas.filter((a) => !a.parentId);
+    if (areas.length)
+      map.current?.fitBounds(areaBounds(areas), {
+        padding: 50,
+        duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? 0
+          : 700,
+      });
   };
   return (
     <Box sx={{ position: "relative" }}>
@@ -290,7 +449,7 @@ export function NetworkMap(props: Props) {
           "&:hover": { bgcolor: "#eff4ed" },
         }}
       >
-        Zoom to {REGION_INFO[props.region].name}
+        Zoom to selection
       </Button>
     </Box>
   );

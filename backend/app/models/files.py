@@ -12,6 +12,9 @@ from app.models.enums import FileCategory, FileStatus, StorageBackend
 class File(UUIDPkMixin, Base):
     __tablename__ = "files"
 
+    subregion_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("subregions.id", ondelete="SET NULL"), index=True,
+    )
     region_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("regions.id", ondelete="RESTRICT"), nullable=False, index=True
     )

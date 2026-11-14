@@ -29,6 +29,8 @@ import type {
   ForecastPoint,
 } from "./models";
 import type { DataSource } from "./source";
+import { mockRegions } from "../mocks/fixtures";
+import { geographicAreas } from "./api-mapping";
 
 const delay = () => new Promise((resolve) => setTimeout(resolve, 180));
 const paged = <T>(rows: T[], page: number, size: number): Page<T> => ({
@@ -45,6 +47,10 @@ const demoHash = (seed: number) =>
 export class LocalDemoSource implements DataSource {
   readonly kind = "demo" as const;
   readonly uploads = new FakeUploadTransport({ store: new IndexedDemoStore() });
+  async getGeography() {
+    this.requireSession();
+    return geographicAreas(mockRegions);
+  }
   private session: Session | null = null;
   private readonly administration = new DemoAdministration(() => {
     if (this.requireSession().user.role !== "MANAGER")

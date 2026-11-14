@@ -3,5 +3,15 @@ import type { Region } from "./models";
 export const RegionContext = createContext<{
   region: Region;
   setRegion: (region: Region) => void;
-}>({ region: "MUNTENIA", setRegion: () => undefined });
+  selectedRegion: Region | null;
+  subregionId?: string;
+  setSubregion: (id?: string) => void;
+  clearRegion: () => void;
+}>({
+  region: "MUNTENIA",
+  setRegion: () => undefined,
+  selectedRegion: null,
+  setSubregion: () => undefined,
+  clearRegion: () => undefined,
+});
 export const useRegion = () => useContext(RegionContext);
