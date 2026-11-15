@@ -1,0 +1,3 @@
+[
+  {"name": "degraded", "listen": "0.0.0.0:8443", "upstream": "nginx:443", "enabled": true}
+]

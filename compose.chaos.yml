@@ -1,0 +1,43 @@
+# Included by docker-compose.yml; use docker compose without additional -f files.
+# Chaos/NFR demo tooling: toxiproxy (always on, edge only) and the demo helper (profile "demo").
+services:
+  toxiproxy:
+    image: ghcr.io/shopify/toxiproxy:2.9.0
+    command: ["-host=0.0.0.0", "-config=/config/toxiproxy.json"]
+    restart: unless-stopped
+    networks: [edge]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    volumes:
+      - ./infra/toxiproxy/toxiproxy.json:/config/toxiproxy.json:ro
+    healthcheck:
+      test: [CMD, /toxiproxy-cli, list]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
+
+  demo:
+    profiles: [demo]
+    image: filegrid-demo:0.1.0
+    build:
+      context: ./scripts/demo
+    working_dir: ${DEMO_REPO:-/repo}
+    environment:
+      COMPOSE_PROJECT_NAME: ${COMPOSE_PROJECT_NAME:-filegrid}
+      DEMO_REPO: ${DEMO_REPO:-/repo}
+    networks: [edge, internal]
+    volumes:
+      - demo-secrets:/run/secrets:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${DEMO_REPO:-.}:${DEMO_REPO:-/repo}
+
+networks:
+  edge:
+  internal:
+    internal: true
+
+volumes:
+  demo-secrets:
+    name: ${COMPOSE_PROJECT_NAME:-filegrid}_secrets
+    external: true
