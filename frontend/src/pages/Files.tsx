@@ -41,6 +41,7 @@ import {
   PageHeading,
   StatusChip,
 } from "../components/common";
+import { FileViewerDialog } from "../components/FileViewerDialog";
 
 export function VerificationDialog({
   id,
@@ -72,6 +73,8 @@ export function VerificationDialog({
             <Typography variant="caption" color="text.secondary">
               {file.id} · SHA-256
             </Typography>
+            <Typography variant="body2">Capture timestamp: {file.capturedAt ?? "Not supplied"}</Typography>
+            <Typography sx={{ whiteSpace: "pre-wrap" }}>{file.description || "No description supplied"}</Typography>
             <Alert
               severity={
                 file.status === "CORRUPT"
@@ -150,6 +153,7 @@ function FilesContent() {
   const [page, setPage] = useState(0);
   const [size, setSize] = useState(10);
   const [verify, setVerify] = useState("");
+  const [view, setView] = useState("");
   const query = useFiles({
     region,
     search,
@@ -256,6 +260,7 @@ function FilesContent() {
                   {query.data.items.map((file) => (
                     <TableRow key={file.id} hover>
                       <TableCell>
+                        <Button size="small" onClick={() => setView(file.id)}>View</Button>
                         {source.downloadFile && (
                           <Button
                             size="small"
@@ -345,6 +350,7 @@ function FilesContent() {
       {verify && (
         <VerificationDialog id={verify} onClose={() => setVerify("")} />
       )}
+      {view && <FileViewerDialog key={view} id={view} onClose={() => setView("")} />}
     </>
   );
 }

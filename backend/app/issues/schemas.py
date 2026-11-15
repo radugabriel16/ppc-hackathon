@@ -1,8 +1,8 @@
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import Field, model_validator
+from pydantic import AwareDatetime, Field, model_validator
 
 from app.core.api import ApiModel
 from app.models.enums import IssueSeverity, IssueStatus, IssueType
@@ -17,7 +17,7 @@ class GeoPoint(ApiModel):
 
 
 class IssueCreate(ApiModel):
-    asset_id: UUID
+    asset_id: UUID | None = None
     type: IssueType = IssueType.OUTAGE_REPORT
     region_id: UUID | None = None
     segment_id: UUID | None = None
@@ -30,9 +30,17 @@ class IssueCreate(ApiModel):
     location: GeoPoint
     description: str | None = None
     severity: IssueSeverity
+    title: str | None = Field(default=None, max_length=512)
+    captured_at: AwareDatetime | None = None
 
     @model_validator(mode="after")
     def validate_video_offset(self):
+        if self.asset_id is None and (
+            self.file_id is None or self.type not in (IssueType.DRONE_DETECTED, IssueType.OUTAGE_VIDEO)
+        ):
+            raise ValueError("assetId is required for manual reports")
+        if self.captured_at is not None and self.captured_at > datetime.now(timezone.utc):
+            raise ValueError("Capture timestamp cannot be in the future")
         if self.video_offset_seconds is not None and self.video_inspection_id is None:
             raise ValueError("videoOffsetSeconds requires videoInspectionId")
         if self.type in (IssueType.ML_FORECAST, IssueType.MISSING_DOCUMENTS):

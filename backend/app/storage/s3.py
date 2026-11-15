@@ -45,8 +45,17 @@ class S3Storage:
         return StoredObject(key, size)
 
     def get(self, key: str) -> Iterator[bytes]:
+        yield from self._get(key)
+
+    def get_range(self, key: str, start: int, end: int) -> Iterator[bytes]:
+        yield from self._get(key, f"bytes={start}-{end}")
+
+    def _get(self, key: str, byte_range: str | None = None) -> Iterator[bytes]:
         try:
-            response = self.client.get_object(Bucket=self.bucket, Key=object_key(key))
+            response = self.client.get_object(
+                Bucket=self.bucket, Key=object_key(key),
+                **({"Range": byte_range} if byte_range is not None else {}),
+            )
         except ClientError as exc:
             if exc.response["Error"]["Code"] in {"NoSuchKey", "404", "NotFound"}:
                 raise StorageNotFound("S3 object does not exist") from exc

@@ -16,6 +16,9 @@ import type {
   GetAuthMeData,
   GetAuthMeResponses,
   GetAuthMeErrors,
+  GetRomaniaBoundaryData,
+  GetRomaniaBoundaryResponses,
+  GetRomaniaBoundaryErrors,
   GetRegionsData,
   GetRegionsResponses,
   GetRegionsErrors,
@@ -264,6 +267,29 @@ export const getAuthMe = <ThrowOnError extends boolean = false>(
       },
     ],
     url: "/auth/me",
+    ...options,
+  });
+};
+
+/**
+ * Authoritative Romania boundary for map placement.
+ */
+export const getRomaniaBoundary = <ThrowOnError extends boolean = false>(
+  options?: Options<GetRomaniaBoundaryData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).get<
+    GetRomaniaBoundaryResponses,
+    GetRomaniaBoundaryErrors,
+    ThrowOnError
+  >({
+    security: [
+      {
+        in: "cookie",
+        name: "filegrid_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/boundaries/romania",
     ...options,
   });
 };
@@ -534,7 +560,7 @@ export const getFilesId = <ThrowOnError extends boolean = false>(
 };
 
 /**
- * Download the original bytes. Integrity is always verified: files <=10MB are fully read and checked before sending; larger files are hashed while streaming and the connection is aborted on mismatch. CONNECTION_DOCUMENT downloads are audited.
+ * Download the original bytes. Full-download integrity is verified: files <=10MB are fully read and checked before sending; larger files are hashed while streaming and the connection is aborted on mismatch. CONNECTION_DOCUMENT downloads and inline views are audited. Unencrypted S3 byte ranges require READY status and a successful previous integrity verification; partial responses do not rehash the full file.
  *
  */
 export const getFilesIdDownload = <ThrowOnError extends boolean = false>(

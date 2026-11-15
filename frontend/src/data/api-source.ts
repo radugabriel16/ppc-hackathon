@@ -105,6 +105,12 @@ export class ApiSource implements DataSource {
       }),
     );
   }
+  fileViewUrl(id: string) {
+    return `${this.client.getConfig().baseUrl}/files/${encodeURIComponent(id)}/download?inline=true`;
+  }
+  getRomaniaBoundary() {
+    return this.connection.read(sdk.getRomaniaBoundary({ client: this.client }));
+  }
   async getStorageBenchmark() {
     return storageBenchmark(
       await this.connection.read(
@@ -592,7 +598,7 @@ export class ApiSource implements DataSource {
     const asset = [...this.maps.values()]
       .flatMap((x) => x.assetList)
       .find((x) => x.id === input.assetId);
-    if (!asset)
+    if (!asset && !input.fileId)
       throw contractError(
         "Load the asset on the map before creating an issue.",
       );
@@ -614,9 +620,12 @@ export class ApiSource implements DataSource {
           assetId: input.assetId,
           location: {
             type: "Point",
-            coordinates: input.coordinates ?? asset.coordinates,
+            coordinates: input.coordinates ?? requireValue(asset, "issue.asset").coordinates,
           },
-          type: "OUTAGE_REPORT",
+          type: input.type ?? "OUTAGE_REPORT",
+          fileId: input.fileId,
+          title: input.title,
+          capturedAt: input.capturedAt,
           regionId: input.regionId,
           segmentId: input.segmentId,
           severity: input.severity,
@@ -627,7 +636,7 @@ export class ApiSource implements DataSource {
       }),
     );
     return {
-      ...issueRecord(data, asset.region),
+      ...issueRecord(data, asset?.region ?? await this.regionCode(data.regionId ?? undefined)),
       videoId: input.videoId,
       offsetSeconds: input.offsetSeconds,
     };

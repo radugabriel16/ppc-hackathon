@@ -1,8 +1,8 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import AwareDatetime, ConfigDict, Field, TypeAdapter
+from pydantic import AwareDatetime, ConfigDict, Field, TypeAdapter, field_validator
 
 from app.core.api import ApiModel
 from app.models.enums import FileCategory, FileStatus, StorageBackend
@@ -37,6 +37,15 @@ class DroneVideoMetadata(UploadMetadata):
     category: Literal[FileCategory.DRONE_VIDEO]
     asset_id: UUID
     recorded_at: AwareDatetime
+    captured_at: AwareDatetime | None = None
+    description: str | None = Field(default=None, max_length=1000)
+
+    @field_validator("captured_at")
+    @classmethod
+    def capture_not_future(cls, value):
+        if value is not None and value > datetime.now(timezone.utc):
+            raise ValueError("Capture timestamp cannot be in the future")
+        return value
 
 
 FileUploadMetadata = Annotated[
@@ -62,3 +71,6 @@ class FileResource(ApiModel):
     created_at: datetime
     ready_at: datetime | None
     last_verified_at: datetime | None
+    captured_at: datetime | None = None
+    description: str | None = None
+    placed_issue_id: UUID | None = None

@@ -48,6 +48,7 @@ export class ApiUploadTransport implements UploadTransport {
           category: "DRONE_VIDEO",
           fileName: input.fileName,
           sizeBytes: input.sizeBytes,
+          mediaType: input.mediaType,
           metadata,
         },
       }),

@@ -2,7 +2,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, BigInteger, Boolean, Enum, ForeignKey, Integer, String, TIMESTAMP
+from sqlalchemy import CheckConstraint, BigInteger, Boolean, Enum, ForeignKey, Integer, String, TIMESTAMP, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, UUIDPkMixin
@@ -11,7 +11,10 @@ from app.models.enums import FileCategory, FileStatus, StorageBackend
 
 class File(UUIDPkMixin, Base):
     __tablename__ = "files"
-    __table_args__ = (CheckConstraint("region_id IS NOT NULL OR category = 'CONNECTION_DOCUMENT'", name="ck_unassigned_connection_document"),)
+    __table_args__ = (
+        CheckConstraint("region_id IS NOT NULL OR category = 'CONNECTION_DOCUMENT'", name="ck_unassigned_connection_document"),
+        UniqueConstraint("placed_issue_id", name="uq_files_placed_issue"),
+    )
 
     subregion_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("subregions.id", ondelete="SET NULL"), index=True,
@@ -42,6 +45,11 @@ class File(UUIDPkMixin, Base):
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
     ready_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     last_verified_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    captured_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
+    description: Mapped[str | None] = mapped_column(String(1000))
+    placed_issue_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("map_issues.id", ondelete="SET NULL", name="fk_files_placed_issue"),
+    )
     maintenance_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
     maintenance_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     failure_reason: Mapped[str | None] = mapped_column(String(128))

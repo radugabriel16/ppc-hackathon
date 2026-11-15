@@ -62,6 +62,11 @@ class Storage(Protocol):
 
 
 @runtime_checkable
+class RangeStorage(Storage, Protocol):
+    def get_range(self, key: str, start: int, end: int) -> Iterator[bytes]: ...
+
+
+@runtime_checkable
 class InventoryStorage(Storage, Protocol):
     def inventory(self, cursor: uuid.UUID | None, limit: int) -> InventoryPage: ...
 

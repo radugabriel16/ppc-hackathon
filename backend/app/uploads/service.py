@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import mimetypes
 import uuid
 from contextlib import aclosing
 from datetime import datetime, timedelta, timezone
@@ -78,11 +79,14 @@ async def create_upload(
                 db.add(File(
                     id=file_id, region_id=linked_region(db, data.metadata),
                     category=data.category, original_name=data.file_name,
-                    media_type="application/octet-stream", size_bytes=data.size_bytes,
+                    media_type=data.media_type or mimetypes.guess_type(data.file_name)[0] or "application/octet-stream",
+                    size_bytes=data.size_bytes,
                     sha256=data.sha256 or "", storage_backend=StorageBackend.s3,
                     storage_locator=str(file_id), fallback_used=False,
                     status=FileStatus.STAGING, encrypted=False, uploaded_by=actor_id,
                     created_at=created_at,
+                    captured_at=data.metadata.captured_at or data.metadata.recorded_at,
+                    description=data.metadata.description,
                 ))
                 db.flush()
                 db.add(UploadSession(

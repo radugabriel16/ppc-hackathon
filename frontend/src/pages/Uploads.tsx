@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   Alert,
@@ -42,9 +43,22 @@ import {
   StatusChip,
 } from "../components/common";
 import { VerificationDialog } from "./Files";
+import { FileViewerDialog } from "../components/FileViewerDialog";
 
 function UploadResult({ id }: { id: string }) {
   const query = useFile(id);
+  const navigate = useNavigate();
+  const demo = useDemoMode();
+  const redirected = useRef(false);
+  const [view, setView] = useState(false);
+  useEffect(() => {
+    if (!demo && !redirected.current && query.data?.status === "READY" &&
+        !query.isFetching && !query.error && !query.data.placedIssueId &&
+        ["DRONE_VIDEO", "OUTAGE_RECORD"].includes(query.data.category)) {
+      redirected.current = true;
+      navigate(`/map?placeFile=${encodeURIComponent(id)}`);
+    }
+  }, [demo, id, navigate, query.data, query.isFetching, query.error]);
   return (
     <Stack gap={1}>
       {query.data && (
@@ -60,6 +74,8 @@ function UploadResult({ id }: { id: string }) {
         </Stack>
       )}
       {query.error && <ErrorNotice error={query.error} />}
+      <Button size="small" onClick={() => setView(true)}>View</Button>
+      {view && <FileViewerDialog id={id} onClose={() => setView(false)} />}
     </Stack>
   );
 }
@@ -90,6 +106,7 @@ export function UploadsPage() {
   const [corrupt, setCorrupt] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [verify, setVerify] = useState("");
+  const [view, setView] = useState("");
   const picker = useRef<HTMLInputElement>(null);
   const resumePicker = useRef<HTMLInputElement>(null);
   const resumeRecord = useRef<SavedUpload | undefined>(undefined);
@@ -116,8 +133,13 @@ export function UploadsPage() {
           return;
         }
         const timestamp = new Date(occurredAt + "Z").toISOString();
-        if (category === "DRONE_VIDEO")
-          metadata = { category, assetId, recordedAt: timestamp };
+        if (category === "DRONE_VIDEO") {
+          if (Date.parse(timestamp) > Date.now() || description.length > 1000) {
+            setInputError("Capture timestamp cannot be in the future; description must be at most 1000 characters.");
+            return;
+          }
+          metadata = { category, assetId, recordedAt: timestamp, capturedAt: timestamp, description };
+        }
         else if (category === "OUTAGE_RECORD")
           metadata = {
             category,
@@ -226,14 +248,25 @@ export function UploadsPage() {
                     <TextField
                       label={
                         category === "DRONE_VIDEO"
-                          ? "Recorded at (UTC)"
+                          ? "Capture timestamp (UTC)"
                           : "Started at (UTC)"
                       }
                       type="datetime-local"
+                      required
                       value={occurredAt}
                       onChange={(e) => setOccurredAt(e.target.value)}
-                      slotProps={{ inputLabel: { shrink: true } }}
+                      slotProps={{
+                        inputLabel: { shrink: true },
+                        htmlInput: category === "DRONE_VIDEO"
+                          ? { max: new Date().toISOString().slice(0, 16) } : {},
+                      }}
                     />
+                    {category === "DRONE_VIDEO" && (
+                      <TextField label="Description (optional)" multiline rows={3}
+                        value={description} onChange={(e) => setDescription(e.target.value)}
+                        slotProps={{ htmlInput: { maxLength: 1000 } }}
+                        helperText={`${description.length}/1000 characters`} />
+                    )}
                     {map.error && <ErrorNotice error={map.error} />}
                     {category === "OUTAGE_RECORD" && (
                       <>
@@ -593,9 +626,26 @@ export function UploadsPage() {
                 <Typography variant="caption" color="text.secondary">
                   {bytes(file.sizeBytes)} · {label(file.category)}
                 </Typography>
+                <Typography variant="caption" display="block">
+                  Capture timestamp: {file.capturedAt ?? "Not supplied"}
+                </Typography>
+                <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+                  {file.description || "No description supplied"}
+                </Typography>
+                {["DRONE_VIDEO", "OUTAGE_RECORD"].includes(file.category) && (
+                  <Typography variant="caption">
+                    {file.placedIssueId ? "Placed" : "Not placed"}
+                  </Typography>
+                )}
               </Box>
               <Stack direction="row" gap={1} alignItems="center">
                 <StatusChip status={file.status} />
+                <Button size="small" onClick={() => setView(file.id)}>View</Button>
+                {!demo && !file.placedIssueId && ["DRONE_VIDEO", "OUTAGE_RECORD"].includes(file.category) && (
+                  <Button size="small" component={Link} to={`/map?placeFile=${encodeURIComponent(file.id)}`}>
+                    Place on map
+                  </Button>
+                )}
                 <Button size="small" onClick={() => setVerify(file.id)}>
                   Report
                 </Button>
@@ -607,6 +657,7 @@ export function UploadsPage() {
       {verify && (
         <VerificationDialog id={verify} onClose={() => setVerify("")} />
       )}
+      {view && <FileViewerDialog key={view} id={view} onClose={() => setView("")} />}
     </>
   );
 }

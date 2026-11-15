@@ -16,6 +16,7 @@ class UploadCreate(ApiModel):
     file_name: str = Field(min_length=1, max_length=512)
     size_bytes: int = Field(gt=0, strict=True)
     sha256: Sha256 | None = None
+    media_type: str | None = Field(default=None, max_length=128, pattern=r"^[\w.+-]+/[\w.+-]+$")
     metadata: DroneVideoMetadata
 
     @field_validator("file_name")

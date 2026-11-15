@@ -219,7 +219,7 @@ export class UploadEngine {
     if (!this.session) {
       // Creation is deliberately not retried: the contract has no create idempotency key.
       const created = await this.options.transport.create(
-        { ...this.input, fileName: this.file.name, sizeBytes: this.file.size },
+        { ...this.input, fileName: this.file.name, sizeBytes: this.file.size, mediaType: this.file.type || undefined },
         signal,
       );
       chunkSize = created.chunkSize;

@@ -116,6 +116,22 @@ paths:
           $ref: "#/components/responses/Unauthorized"
 
   # ----------------------------------------------------------- geography ---
+  /boundaries/romania:
+    get:
+      operationId: getRomaniaBoundary
+      tags: [geography]
+      summary: Authoritative Romania boundary for map placement.
+      responses:
+        "200":
+          description: Romania boundary.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AreaGeometry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          description: Boundary is unavailable.
   /regions:
     get:
       operationId: getRegions
@@ -430,13 +446,19 @@ paths:
       operationId: getFilesIdDownload
       tags:
       - files
-      summary: 'Download the original bytes. Integrity is always verified: files <=10MB are fully read and checked
+      summary: 'Download the original bytes. Full-download integrity is verified: files <=10MB are fully read and checked
         before sending; larger files are hashed while streaming and the connection is aborted on mismatch. CONNECTION_DOCUMENT
-        downloads are audited.
+        downloads and inline views are audited. Unencrypted S3 byte ranges require READY
+        status and a successful previous integrity verification; partial responses do not rehash the full file.
 
         '
       parameters:
       - $ref: '#/components/parameters/IdPath'
+      - name: Range
+        in: header
+        schema:
+          type: string
+        description: Single bytes=start-end, bytes=start- or bytes=-suffix range.
       - name: inline
         in: query
         required: false
@@ -451,6 +473,21 @@ paths:
               schema:
                 type: string
                 format: binary
+        '206':
+          description: Partial bytes from an integrity-verified file.
+          headers:
+            Content-Range:
+              schema: {type: string}
+            Accept-Ranges:
+              schema: {type: string}
+          content:
+            application/octet-stream:
+              schema: {type: string, format: binary}
+        '416':
+          description: Invalid or unsatisfiable byte range.
+          headers:
+            Content-Range:
+              schema: {type: string}
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -2612,9 +2649,25 @@ components:
         recordedAt:
           type: string
           format: date-time
+        capturedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Capture timestamp, not in the future. Defaults to recordedAt for older clients.
+        description:
+          type: string
+          nullable: true
+          maxLength: 1000
     FileResource:
       type: object
       properties:
+        capturedAt: {type: string, format: date-time, nullable: true}
+        description: {type: string, nullable: true, maxLength: 1000}
+        placedIssueId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Existing upload-based issue; null means not placed.
         subregionId:
           type: string
           format: uuid
@@ -2685,6 +2738,11 @@ components:
       additionalProperties: false
       required: [category, fileName, sizeBytes, metadata]
       properties:
+        mediaType:
+          type: string
+          nullable: true
+          maxLength: 128
+          description: Original MIME type for inline viewing.
         category:
           type: string
           enum: [DRONE_VIDEO]
@@ -2816,8 +2874,14 @@ components:
     # --------------------------------------------------------- map-issues ---
     MapIssueCreateRequest:
       type: object
-      required: [assetId, location, severity]
+      required: [location, severity]
       properties:
+        title: {type: string, nullable: true, maxLength: 512}
+        capturedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Updates linked upload capture metadata on first placement; not in the future.
         type:
           type: string
           enum: [OUTAGE_REPORT, OUTAGE_VIDEO, DRONE_DETECTED]
@@ -2832,6 +2896,7 @@ components:
         assetId:
           type: string
           format: uuid
+          description: Required for manual reports; upload issues may omit it to select the nearest asset spatially. Upload issue creation is idempotent per fileId.
         videoInspectionId:
           type: string
           format: uuid

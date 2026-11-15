@@ -46,6 +46,8 @@ export interface DataSource {
   getDocumentTypes?(): Promise<DocumentType[]>;
   getGeography(): Promise<GeographicArea[]>;
   downloadFile?(id: string, inline?: boolean): Promise<Blob>;
+  fileViewUrl?(id: string): string;
+  getRomaniaBoundary?(): Promise<import("geojson").MultiPolygon>;
   getSession(): Promise<Session | null>;
   login(input: LoginInput): Promise<Session>;
   logout(): Promise<void>;

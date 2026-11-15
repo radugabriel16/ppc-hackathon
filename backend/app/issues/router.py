@@ -128,10 +128,37 @@ def create_issue(
 
 
 def create_validated_issue(body: IssueCreate, user: AppUser, db: Session, issue_id: UUID | None = None):
-    asset = db.get(NetworkAsset, body.asset_id)
+    file = None
+    upload_issue = body.type in (IssueType.DRONE_DETECTED, IssueType.OUTAGE_VIDEO) and body.file_id is not None
+    if upload_issue:
+        file = db.scalar(select(File).where(File.id == body.file_id).with_for_update())
+        if file is None:
+            raise HTTPException(422, "fileId does not identify an uploaded file")
+        if file.placed_issue_id is not None:
+            result = resource(db, db.get(MapIssue, file.placed_issue_id))
+            db.commit()
+            return result
+        existing = db.scalar(select(MapIssue).where(
+            MapIssue.file_id == file.id,
+            MapIssue.type.in_((IssueType.DRONE_DETECTED, IssueType.OUTAGE_VIDEO)),
+            MapIssue.is_historical.is_(False),
+        ).order_by(MapIssue.created_at, MapIssue.id).limit(1))
+        if existing is not None:
+            file.placed_issue_id = existing.id
+            result = resource(db, existing)
+            db.commit()
+            return result
+    area = locate(db, body.location, body.region_id, body.segment_id or body.subregion_id)
+    asset = db.get(NetworkAsset, body.asset_id) if body.asset_id else db.scalar(
+        select(NetworkAsset).where(NetworkAsset.region_id == area.region_id).order_by(
+            func.ST_Distance(
+                NetworkAsset.geometry,
+                func.ST_SetSRID(func.ST_Point(*body.location.coordinates), 4326),
+            ), NetworkAsset.id,
+        ).limit(1)
+    )
     if asset is None:
         raise HTTPException(422, detail="assetId does not identify a network asset")
-    area = locate(db, body.location, body.region_id, body.segment_id or body.subregion_id)
     if area.region_id != asset.region_id:
         raise HTTPException(422, "assetId must belong to the issue point's region")
     file_id = body.file_id
@@ -148,13 +175,20 @@ def create_validated_issue(body: IssueCreate, user: AppUser, db: Session, issue_
     if issue_type in (IssueType.OUTAGE_VIDEO, IssueType.DRONE_DETECTED) and file_id is None:
         raise HTTPException(422, "Video issues require an uploaded video")
     if file_id is not None:
-        file = db.get(File, file_id)
-        if file is None or file.region_id != area.region_id or file.status != FileStatus.READY:
+        file = file or db.get(File, file_id)
+        if file is None or file.status != FileStatus.READY or (
+            not upload_issue and file.region_id != area.region_id
+        ):
             raise HTTPException(422, "fileId must be READY and belong to the issue region")
         if issue_type in (IssueType.OUTAGE_VIDEO, IssueType.DRONE_DETECTED) and (
-            file.category != FileCategory.DRONE_VIDEO
+            file.category not in (
+                (FileCategory.DRONE_VIDEO,) if issue_type == IssueType.DRONE_DETECTED
+                else (FileCategory.OUTAGE_RECORD, FileCategory.DRONE_VIDEO)
+            )
         ):
             raise HTTPException(422, "fileId must identify an uploaded video")
+        if upload_issue and body.description is not None and len(body.description) > 1000:
+            raise HTTPException(422, "Upload issue description must not exceed 1000 characters")
     client_id = body.client_id
     if body.meter_id:
         meter = db.get(Meter, body.meter_id)
@@ -177,11 +211,15 @@ def create_validated_issue(body: IssueCreate, user: AppUser, db: Session, issue_
         **({"id": issue_id} if issue_id is not None else {}),
         **body.model_dump(exclude={
             "location", "region_id", "segment_id", "subregion_id", "type",
-            "file_id", "client_id", "description",
+            "file_id", "client_id", "description", "title", "captured_at", "asset_id",
         }),
-        type=issue_type, title=f"{label}: {area.name}",
-        description=f"{label} in {area.name} at {lon:.6f}, {lat:.6f}."
-        + (f" {body.description}" if body.description else ""),
+        asset_id=asset.id,
+        type=issue_type, title=body.title or f"{label}: {area.name}",
+        description=(
+            body.description if upload_issue
+            else f"{label} in {area.name} at {lon:.6f}, {lat:.6f}."
+            + (f" {body.description}" if body.description else "")
+        ),
         region_id=area.region_id, file_id=file_id, client_id=client_id,
         location=WKTElement(f"POINT({lon} {lat})", srid=4326),
         created_by=user.id, created_at=datetime.now(timezone.utc),
@@ -189,6 +227,12 @@ def create_validated_issue(body: IssueCreate, user: AppUser, db: Session, issue_
     )
     db.add(issue)
     db.flush()
+    if upload_issue:
+        file.placed_issue_id = issue.id
+        if body.captured_at is not None:
+            file.captured_at = body.captured_at
+        if body.description is not None:
+            file.description = body.description
     db.refresh(issue, ["subregion_id"])
     result = resource(db, issue)
     audit(db, issue, user, "MAP_ISSUE_CREATED")

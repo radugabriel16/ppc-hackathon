@@ -333,6 +333,7 @@ export class LocalDemoSource implements DataSource {
       });
     const issue: Issue & { version: number } = {
       ...input,
+      assetId: asset!.id,
       description: input.description.trim(),
       id: `ISS-${crypto.randomUUID().slice(0, 6)}`,
       region: asset!.region,

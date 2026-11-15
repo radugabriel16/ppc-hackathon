@@ -2,8 +2,8 @@ import json
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
@@ -21,6 +21,14 @@ from app.geography.query import bounding_box, feature_page, validate_scope
 router = APIRouter(
     prefix="/api/v1", tags=["geography"], dependencies=[Depends(get_current_user)]
 )
+
+
+@router.get("/boundaries/romania")
+def romania_boundary(db: Session = Depends(get_catalog_db)):
+    geometry = db.scalar(text("SELECT ST_AsGeoJSON(geometry) FROM national_boundaries WHERE code='RO'"))
+    if geometry is None:
+        raise HTTPException(503, "Romania boundary is unavailable")
+    return json.loads(geometry)
 
 
 @router.get("/regions")

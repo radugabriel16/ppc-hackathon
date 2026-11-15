@@ -1,4 +1,5 @@
 from contextlib import aclosing
+import re
 from datetime import datetime, timezone
 from tempfile import SpooledTemporaryFile
 from typing import Annotated
@@ -27,6 +28,7 @@ from app.models.auth import AppUser
 from app.models.enums import FileCategory, FileStatus
 from app.models.files import File
 from app.storage.base import CHUNK_SIZE
+from app.storage.base import RangeStorage
 
 router = APIRouter(prefix="/api/v1", tags=["files"])
 
@@ -128,13 +130,44 @@ async def download_file(
         return prepare_reader(request, db, id, user.id, download=True, view=inline)
 
     reader = await anyio.to_thread.run_sync(prepare)
+    supports_range = (
+        not reader.file.encrypted
+        and isinstance(
+            reader.manager.storages[reader.file.storage_backend].adapter, RangeStorage,
+        )
+    )
     headers = {
         "Content-Length": str(reader.file.size_bytes),
-        "Content-Disposition": f"{'inline' if inline and reader.file.media_type in {'application/pdf', 'image/jpeg', 'image/png'} else 'attachment'}; filename*=UTF-8''{quote(reader.file.original_name, safe='')}",
+        "Content-Disposition": f"{'inline' if inline and (reader.file.media_type in {'application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'} or reader.file.media_type.startswith('video/')) else 'attachment'}; filename*=UTF-8''{quote(reader.file.original_name, safe='')}",
         "X-Content-Type-Options": "nosniff",
         "Cache-Control": "no-store",
         "Content-Security-Policy": "sandbox",
+        "Accept-Ranges": "bytes" if supports_range else "none",
     }
+    byte_range = request.headers.get("Range")
+    if byte_range and supports_range:
+        match = re.fullmatch(r"bytes=([0-9]{0,20})-([0-9]{0,20})", byte_range)
+        size = reader.file.size_bytes
+        if match is None or not any(match.groups()) or size == 0:
+            raise HTTPException(416, "Invalid byte range", headers={"Content-Range": f"bytes */{size}"})
+        first, last = match.groups()
+        if first:
+            start = int(first)
+            end = min(int(last), size - 1) if last else size - 1
+        else:
+            start, end = max(0, size - int(last)), size - 1
+        if start > end or start >= size:
+            raise HTTPException(416, "Unsatisfiable byte range", headers={"Content-Range": f"bytes */{size}"})
+        if reader.file.last_verified_at is None:
+            raise HTTPException(
+                409, {"code": "INTEGRITY_NOT_VERIFIED", "message": "Verify file integrity before partial playback"},
+            )
+        headers["Content-Length"] = str(end - start + 1)
+        headers["Content-Range"] = f"bytes {start}-{end}/{size}"
+        return StreamingResponse(
+            reader.range_chunks(start, end), status_code=206,
+            media_type=reader.file.media_type, headers=headers,
+        )
     if reader.file.size_bytes > SMALL_DOWNLOAD:
         return StreamingResponse(reader.download(), media_type=reader.file.media_type, headers=headers)
     buffer = SpooledTemporaryFile(max_size=SPOOL_SIZE)

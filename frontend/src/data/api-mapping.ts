@@ -68,6 +68,10 @@ export function fileRecord(dto: FileResource, region: Region): FileRecord {
     createdAt: requireValue(dto.createdAt, "file.createdAt"),
     expectedSha256: dto.sha256 ?? "",
     actualSha256: "",
+    mediaType: dto.mediaType,
+    capturedAt: dto.capturedAt ?? undefined,
+    description: dto.description ?? undefined,
+    placedIssueId: dto.placedIssueId ?? undefined,
   };
 }
 export function issueRecord(dto: MapIssue, region: Region): Issue {
@@ -89,6 +93,7 @@ export function issueRecord(dto: MapIssue, region: Region): Issue {
     caseId: dto.caseId ?? undefined,
     forecastDate: dto.forecastDate ?? undefined,
     createdAt: dto.createdAt,
+    fileId: dto.fileId ?? undefined,
   };
 }
 // GeoJSON's properties are completely untyped by the contract. Whitelist map data

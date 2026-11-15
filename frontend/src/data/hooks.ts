@@ -133,6 +133,8 @@ export function useCreateIssue() {
       void cache.invalidateQueries({ queryKey: ["map"] });
       void cache.invalidateQueries({ queryKey: ["statistics"] });
       void cache.invalidateQueries({ queryKey: ["issues"] });
+      void cache.invalidateQueries({ queryKey: ["files"] });
+      void cache.invalidateQueries({ queryKey: ["file"] });
     },
   });
 }

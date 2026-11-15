@@ -6,7 +6,7 @@ import logging
 import math
 import time
 from collections.abc import AsyncIterator, Callable, Iterator, Sequence
-from contextlib import asynccontextmanager
+from contextlib import aclosing, asynccontextmanager
 from ftplib import Error as FtpError
 from typing import BinaryIO, TypeVar
 from uuid import UUID
@@ -28,6 +28,7 @@ from app.storage.base import (
     InventoryStorage,
     MultipartPart,
     MultipartStorage,
+    RangeStorage,
     Storage,
     StorageNotFound,
     StorageTimeout,
@@ -152,6 +153,7 @@ class ManagedStorage:
     async def _operation(
         self, category: FileCategory, operation: str,
         transferred: Callable[[], int] | None = None,
+        *, streaming: bool = False,
     ) -> AsyncIterator[float]:
         start = time.monotonic()
         deadline = anyio.current_time() + self.timeout
@@ -165,7 +167,7 @@ class ManagedStorage:
             generation = self.breaker.before_call()
             # Keep cancellation scopes inside _run, never across streamed yields.
             yield deadline
-            if anyio.current_time() >= deadline:
+            if not streaming and anyio.current_time() >= deadline:
                 raise TimeoutError
         except CircuitOpen:
             outcome = "circuit_open"
@@ -239,11 +241,30 @@ class ManagedStorage:
             return result
 
     async def get(self, category: FileCategory, key: str) -> AsyncIterator[bytes]:
+        async with aclosing(self._get(category, self.adapter.get(key))) as chunks:
+            async for chunk in chunks:
+                yield chunk
+
+    async def get_range(
+        self, category: FileCategory, key: str, start: int, end: int,
+    ) -> AsyncIterator[bytes]:
+        if not isinstance(self.adapter, RangeStorage):
+            raise TypeError("Storage adapter does not support byte ranges")
+        async with aclosing(self._get(
+            category, self.adapter.get_range(key, start, end), streaming=True,
+        )) as chunks:
+            async for chunk in chunks:
+                yield chunk
+
+    async def _get(
+        self, category: FileCategory, iterator: Iterator[bytes], *, streaming: bool = False,
+    ) -> AsyncIterator[bytes]:
         transferred = 0
-        async with self._operation(category, "get", lambda: transferred) as deadline:
-            iterator = self.adapter.get(key)
+        async with self._operation(category, "get", lambda: transferred, streaming=streaming) as deadline:
             try:
-                while (chunk := await self._run(_next_chunk, iterator, deadline=deadline)) is not None:
+                while (chunk := await self._run(
+                    _next_chunk, iterator, deadline=None if streaming else deadline,
+                )) is not None:
                     transferred += len(chunk)
                     self._bytes(category, "get", len(chunk))
                     yield chunk

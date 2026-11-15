@@ -5,6 +5,7 @@ export interface UploadInput {
   category: Category;
   fileName: string;
   sizeBytes: number;
+  mediaType?: string;
   metadata: {
     region: Region;
     simulateCorrupt?: boolean;

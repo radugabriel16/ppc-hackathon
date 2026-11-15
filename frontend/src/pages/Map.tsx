@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import {
   Alert,
   Box,
@@ -28,7 +29,9 @@ import {
   useGeography,
   useSession,
   useUpdateIssue,
+  useFile,
 } from "../data/hooks";
+import { useSource } from "../data/context";
 import { AppError } from "../data/errors";
 import { label, REGION_INFO } from "../data/models";
 import type {
@@ -57,6 +60,10 @@ import {
   issueDocumentsUrl,
 } from "../components/issue-presentation";
 import { ASSET_MARKERS } from "../components/station-icons";
+import { FileViewerDialog } from "../components/FileViewerDialog";
+import { UploadPlacementPanel } from "../components/UploadPlacementPanel";
+import type { PlacementPoint } from "../components/UploadPlacementPanel";
+import { geometryContains, reportArea } from "../components/map-geography";
 
 function CreateIssueDialog({
   data,
@@ -260,6 +267,49 @@ export function MapPage() {
     | null
   >(null);
   const [params, setParams] = useSearchParams();
+  const placeFile = params.get("placeFile") ?? "";
+  const placementFile = useFile(placeFile);
+  const source = useSource();
+  const boundary = useQuery({
+    queryKey: ["romania-boundary"],
+    enabled: !!placeFile,
+    queryFn: () => {
+      if (!source.getRomaniaBoundary) throw new Error("Map placement requires API mode.");
+      return source.getRomaniaBoundary();
+    },
+    staleTime: Infinity,
+  });
+  const [view, setView] = useState("");
+  const [placement, setPlacement] = useState<{ key: string; point?: PlacementPoint; message: string } | null>(null);
+  const placementKey = `${placeFile}:${selectedId ?? ""}`;
+  const draft = placement?.key === placementKey ? placement : undefined;
+  const closePlacement = () => {
+    setPlacement(null);
+    setParams((previous) => {
+      const next = new URLSearchParams(previous);
+      next.delete("placeFile");
+      return next;
+    });
+  };
+  const placePoint = (coordinates: [number, number]) => {
+    if (!boundary.data || geography.isPending || query.isPlaceholderData) {
+      setPlacement({ key: placementKey, message: "Wait for the map boundaries and assets to load." });
+      return;
+    }
+    if (!geometryContains(boundary.data, coordinates)) {
+      setPlacement({ key: placementKey, point: draft?.point, message: "Choose a point inside Romania." });
+      return;
+    }
+    const area = reportArea(areas, selectedId, coordinates);
+    if (!area) {
+      setPlacement({ key: placementKey, point: draft?.point, message: "Choose a point inside the selected region or segment and the operational areas." });
+      return;
+    }
+    setPlacement({
+      key: placementKey, message: "",
+      point: { coordinates, regionId: area.parentId!, segmentId: area.id },
+    });
+  };
   const selected = params.get("issue") ?? "";
   const setSelected = (id: string) =>
     setParams((previous) => {
@@ -294,7 +344,11 @@ export function MapPage() {
           issueList: [],
         }
       : data;
-  const issue = data?.issueList.find((x) => x.id === selected);
+  const issue = !placeFile ? data?.issueList.find((x) => x.id === selected) : undefined;
+  const issueFile = useFile(
+    issue?.fileId && ["DRONE_DETECTED", "OUTAGE_VIDEO"].includes(issue.type ?? "")
+      ? issue.fileId : undefined,
+  );
   const open = data?.issueList.filter((x) => x.status === "OPEN").length ?? 0;
   const inProgress =
     data?.issueList.filter((x) => x.status === "IN_PROGRESS").length ?? 0;
@@ -316,7 +370,7 @@ export function MapPage() {
           <Button
             variant="contained"
             startIcon={<Add />}
-            disabled={!data || query.isPlaceholderData}
+            disabled={!data || query.isPlaceholderData || !!placeFile}
             onClick={() => setCreate({})}
           >
             Create issue
@@ -365,6 +419,14 @@ export function MapPage() {
         </Alert>
       )}
       {!issue && update.error && <ErrorNotice error={update.error} />}
+      {placeFile && (
+        <Box mb={2}>
+          {(placementFile.isPending || boundary.isPending) && <Loading label="Loading upload placement…" />}
+          {placementFile.error && <ErrorNotice error={placementFile.error} />}
+          {boundary.error && <ErrorNotice error={boundary.error} />}
+          {(!placementFile.data || !data) && <Button onClick={closePlacement}>Cancel placement</Button>}
+        </Box>
+      )}
       {data && (
         <Box
           sx={{
@@ -395,7 +457,7 @@ export function MapPage() {
                 color="text.secondary"
                 sx={{ display: { xs: "none", sm: "block" } }}
               >
-                Left click to select · Right click to report
+                {placeFile ? "Left click to place · Right-click reporting disabled" : "Left click to select · Right click to report"}
               </Typography>
             </Stack>
             <Divider />
@@ -434,6 +496,9 @@ export function MapPage() {
               onCreate={setCreate}
               onIssue={setSelected}
               selectedIssue={selected}
+              placing={!!placeFile}
+              placementPoint={draft?.point?.coordinates}
+              onPlacementClick={placePoint}
             />
             <Box sx={{ px: 2, py: 1 }}>
               <Typography variant="caption" color="text.secondary">
@@ -453,6 +518,21 @@ export function MapPage() {
             </Box>
           </Paper>
           <Stack gap={2}>
+            {placeFile && placementFile.data && (
+              <UploadPlacementPanel key={placeFile} file={placementFile.data}
+                point={draft?.point} message={draft?.message ?? ""}
+                onCancel={closePlacement} onView={() => setView(placeFile)}
+                onCreated={(created) => {
+                  setPlacement(null);
+                  setParams((previous) => {
+                    const next = new URLSearchParams(previous);
+                    next.delete("placeFile");
+                    next.set("issue", created.id);
+                    return next;
+                  });
+                  setNotice(true);
+                }} />
+            )}
             <Paper variant="outlined" sx={{ p: 2.3 }}>
               <Typography variant="h6" mb={1}>
                 Map layers
@@ -681,6 +761,22 @@ export function MapPage() {
           <DialogContent>
             <Stack spacing={2}>
               <Typography>{issue.description}</Typography>
+              {issue.fileId && ["DRONE_DETECTED", "OUTAGE_VIDEO"].includes(issue.type ?? "") && (
+                <>
+                  {issueFile.isPending && <Loading label="Loading linked file…" />}
+                  {issueFile.error && <ErrorNotice error={issueFile.error} />}
+                  <Typography variant="body2">
+                    Capture timestamp: {issueFile.data?.capturedAt ?? "Not supplied"}
+                  </Typography>
+                  <Typography variant="body2">
+                    Region: {areas.find((area) => area.id === issue.regionId)?.name ?? label(issue.region)}
+                    {" · "}Segment: {areas.find((area) => area.id === issue.segmentId)?.name ?? issue.segmentId ?? "Not supplied"}
+                  </Typography>
+                  <Button onClick={() => setView(issue.fileId!)}>
+                    {issueFile.data?.mediaType?.startsWith("video/") ? "View video" : "View file"}
+                  </Button>
+                </>
+              )}
               <Chip
                 label={ISSUE_TYPES[issue.type ?? "OUTAGE_REPORT"].label}
                 sx={{ alignSelf: "start" }}
@@ -800,6 +896,7 @@ export function MapPage() {
           }}
         />
       )}
+      {view && <FileViewerDialog key={view} id={view} onClose={() => setView("")} />}
     </Box>
   );
 }

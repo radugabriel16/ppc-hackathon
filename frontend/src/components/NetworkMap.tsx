@@ -28,6 +28,9 @@ interface Props extends GeographySelectionProps {
   selectedIssue?: string;
   station?: Asset;
   onStation: (station?: Asset) => void;
+  placing?: boolean;
+  placementPoint?: [number, number];
+  onPlacementClick?: (point: [number, number]) => void;
 }
 const empty = { type: "FeatureCollection" as const, features: [] };
 const issueFilter = (resolved: boolean): maplibregl.ExpressionSpecification =>
@@ -117,6 +120,12 @@ export function NetworkMap(props: Props) {
   const zoomedMeters = useRef<string | undefined>(undefined);
   const [error, setError] = useState("");
   const [ready, setReady] = useState(false);
+  useEffect(() => {
+    if (!ready || !map.current || !props.placing || !props.placementPoint) return;
+    const marker = new maplibregl.Marker({ color: "#25816e" })
+      .setLngLat(props.placementPoint).addTo(map.current);
+    return () => { marker.remove(); };
+  }, [ready, props.placing, props.placementPoint]);
   const [context, setContext] = useState<{
     left: number;
     top: number;
@@ -592,6 +601,10 @@ export function NetworkMap(props: Props) {
       tooltip.remove();
     });
     instance.on("click", (event) => {
+      if (latest.current.placing) {
+        latest.current.onPlacementClick?.([event.lngLat.lng, event.lngLat.lat]);
+        return;
+      }
       if (!instance.getLayer("station-points")) return;
       const feature = instance.queryRenderedFeatures(event.point, {
         layers: ["issue-points"],
@@ -641,6 +654,7 @@ export function NetworkMap(props: Props) {
     });
     instance.on("contextmenu", (event) => {
       event.preventDefault();
+      if (latest.current.placing) return;
       tooltip.remove();
       window.clearTimeout(tooltipTimeout);
       setContext({
@@ -677,7 +691,7 @@ export function NetworkMap(props: Props) {
   return (
     <Box sx={{ position: "relative" }}>
       <Menu
-        open={!!context}
+        open={!!context && !props.placing}
         onClose={() => setContext(null)}
         anchorReference="anchorPosition"
         anchorPosition={context ?? undefined}

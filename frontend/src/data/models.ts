@@ -67,6 +67,10 @@ export interface FileRecord {
   createdAt: string;
   expectedSha256: string;
   actualSha256: string;
+  mediaType?: string;
+  capturedAt?: string;
+  description?: string;
+  placedIssueId?: string;
 }
 export interface FileFilter {
   region: Region;
@@ -107,9 +111,10 @@ export interface Issue {
   caseId?: string;
   forecastDate?: string;
   createdAt?: string;
+  fileId?: string;
 }
 export interface CreateIssue {
-  assetId: string;
+  assetId?: string;
   severity: Severity;
   description: string;
   videoId?: string;
@@ -117,6 +122,10 @@ export interface CreateIssue {
   coordinates?: [number, number];
   regionId?: string;
   segmentId?: string;
+  fileId?: string;
+  type?: Extract<IssueType, "OUTAGE_REPORT" | "OUTAGE_VIDEO" | "DRONE_DETECTED">;
+  title?: string;
+  capturedAt?: string;
 }
 export interface IssueFilter {
   region?: Region;

@@ -126,6 +126,12 @@ async def _store_file(
             encryption_key_id=key.id if encrypted else None,
             uploaded_by=actor_id,
             created_at=datetime.now(timezone.utc),
+            captured_at=(
+                metadata.captured_at or metadata.recorded_at
+                if isinstance(metadata, DroneVideoMetadata)
+                else metadata.started_at if isinstance(metadata, OutageRecordMetadata) else None
+            ),
+            description=(getattr(metadata, "description", None) or "")[:1000] or None,
         )
         db.add(file)
         db.commit()
@@ -239,6 +245,29 @@ class FileReader:
         self.actual_sha256 = ""
         self.checked_at: datetime | None = None
         self.document_action: str | None = None
+
+    async def range_chunks(self, start: int, end: int) -> AsyncIterator[bytes]:
+        storage = self.manager.storages[self.file.storage_backend]
+        size = 0
+        try:
+            async with aclosing(storage.get_range(
+                self.file.category, self.file.storage_locator, start, end,
+            )) as chunks:
+                async for chunk in chunks:
+                    size += len(chunk)
+                    if size > end - start + 1:
+                        raise IntegrityError("Stored range exceeds requested size")
+                    yield chunk
+            if size != end - start + 1:
+                raise IntegrityError("Stored range size mismatch")
+        except (StorageNotFound, IntegrityError) as exc:
+            await anyio.to_thread.run_sync(
+                record_check, self.file, False, datetime.now(timezone.utc),
+                self.actor_id, self.request_id,
+            )
+            raise IntegrityError("Stored file range failed integrity verification") from exc
+        except StorageUnavailable as exc:
+            raise self.manager._unavailable() from exc
 
     async def chunks(self) -> AsyncIterator[bytes]:
         digest = hashlib.sha256()

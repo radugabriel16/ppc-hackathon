@@ -47,7 +47,11 @@ function ringContains(ring: number[][], [x, y]: [number, number]) {
 }
 
 export function areaContains(area: GeographicArea, point: [number, number]) {
-  return area.geometry.coordinates.some(([outer, ...holes]) => {
+  return geometryContains(area.geometry, point);
+}
+
+export function geometryContains(geometry: MultiPolygon, point: [number, number]) {
+  return geometry.coordinates.some(([outer, ...holes]) => {
     const boundary = ringContains(outer, point);
     if (boundary === "boundary") return true;
     return (
