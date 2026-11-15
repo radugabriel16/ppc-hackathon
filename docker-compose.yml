@@ -1,6 +1,6 @@
 name: filegrid
 
-include: [compose.observability.yml, compose.simulator.yml]
+include: [compose.observability.yml, compose.simulator.yml, compose.chaos.yml]
 
 x-otel: &otel-environment
   OTEL_RESOURCE_ATTRIBUTES: service.namespace=filegrid,deployment.environment=demo
