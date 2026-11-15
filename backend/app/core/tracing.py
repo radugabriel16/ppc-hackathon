@@ -48,6 +48,6 @@ def configure_tracing(app: FastAPI, role: str) -> TracerProvider | None:
             _provider = provider
         FastAPIInstrumentor.instrument_app(
             app, tracer_provider=_provider,
-            excluded_urls="health/live,health/ready,metrics",
+            excluded_urls="health/live,health/ready,metrics,customers/lookup",
         )
         return _provider

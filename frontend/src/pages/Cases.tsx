@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   Box,
+  Button,
   Checkbox,
   Chip,
   InputAdornment,
@@ -21,6 +22,8 @@ import {
   TableRow,
 } from "@mui/material";
 import { AccessTime, Search } from "@mui/icons-material";
+import { IntakeWorkspace, type UploadSlot } from "../documents/IntakeWorkspace";
+import type { IntakeDocumentType } from "../api/gen/types.gen";
 import { useCases } from "../data/hooks";
 import { label } from "../data/models";
 import type { CaseRecord } from "../data/models";
@@ -51,13 +54,16 @@ function storedView(): { view: "list" | "grid"; error: string } {
 function CasesContent() {
   const { selectedRegion, subregionId } = useRegion();
   const [preference, setPreference] = useState(storedView);
+  const [uploadSlot, setUploadSlot] = useState<UploadSlot | null>(null);
+  const [previewId, setPreviewId] = useState<string | null>(null);
+  const [missingOnly, setMissingOnly] = useState(true);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<CaseRecord["status"] | "">("");
   const [page, setPage] = useState(0);
   const query = useCases({
     region: selectedRegion ?? undefined,
     segmentId: subregionId,
-    missingOnly: true,
+    missingOnly,
     search,
     status: status || undefined,
     page,
@@ -67,9 +73,25 @@ function CasesContent() {
     <>
       <PageHeading
         eyebrow="CASE WORKSPACE"
-        title="Keep every case moving."
-        detail="Clients missing required documents, ordered by due date. Region and segment follow the workspace scope."
+        title="Manage Customer Documents"
+        detail="Load documents, review unmatched files and track every client checklist. Region and segment follow the workspace scope."
       />
+      <IntakeWorkspace
+        slot={uploadSlot}
+        clearSlot={() => setUploadSlot(null)}
+        previewId={previewId}
+        clearPreview={() => setPreviewId(null)}
+      />
+      <Button
+        onClick={() => {
+          setMissingOnly(!missingOnly);
+          setPage(0);
+        }}
+      >
+        {missingOnly
+          ? "Show all clients"
+          : "Show clients with missing documents"}
+      </Button>
       <Paper variant="outlined" sx={{ p: 2.5, mb: 2.5 }}>
         <Stack direction={{ xs: "column", sm: "row" }} gap={2}>
           <TextField
@@ -160,7 +182,12 @@ function CasesContent() {
                   {query.data.items.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell>
-                        {item.title}
+                        {item.customerName ?? item.title}
+                        {item.cnpMasked && (
+                          <Typography variant="caption" display="block">
+                            CNP {item.cnpMasked}
+                          </Typography>
+                        )}
                         <Typography variant="caption" display="block">
                           {item.id}
                         </Typography>
@@ -174,10 +201,30 @@ function CasesContent() {
                           : "No due date"}
                       </TableCell>
                       <TableCell>
-                        {item.documents
-                          .filter((d) => !d.received)
-                          .map((d) => d.name)
-                          .join(", ")}
+                        {item.intakeDocuments?.length
+                          ? item.intakeDocuments.map((doc) => (
+                              <Button
+                                key={doc.documentType}
+                                size="small"
+                                onClick={() => {
+                                  if (doc.fileId) setPreviewId(doc.fileId);
+                                  else if (item.customerId)
+                                    setUploadSlot({
+                                      customerId: item.customerId,
+                                      documentType:
+                                        doc.documentType as IntakeDocumentType,
+                                      customerName:
+                                        item.customerName ?? item.title,
+                                    });
+                                }}
+                              >
+                                {doc.name} — {doc.status}
+                              </Button>
+                            ))
+                          : item.documents
+                              .filter((d) => !d.received)
+                              .map((d) => d.name)
+                              .join(", ")}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -211,7 +258,14 @@ function CasesContent() {
                       <Typography className="eyebrow">{item.id}</Typography>
                       <StatusChip status={item.status} />
                     </Stack>
-                    <Typography variant="h6">{item.title}</Typography>
+                    <Typography variant="h6">
+                      {item.customerName ?? item.title}
+                    </Typography>
+                    {item.cnpMasked && (
+                      <Typography variant="caption">
+                        CNP {item.cnpMasked}
+                      </Typography>
+                    )}
                     <Stack
                       direction="row"
                       gap={1}
@@ -257,42 +311,65 @@ function CasesContent() {
                           {missing ? `${missing} missing` : "All received"}
                         </Typography>
                       </Stack>
-                      {item.documents.map((doc) => (
-                        <Stack
-                          direction="row"
-                          alignItems="center"
-                          key={doc.name}
-                          spacing={1}
+                      {item.intakeDocuments?.map((doc) => (
+                        <Button
+                          key={doc.documentType}
+                          fullWidth
+                          sx={{ justifyContent: "flex-start" }}
+                          onClick={() => {
+                            if (doc.fileId) setPreviewId(doc.fileId);
+                            else if (item.customerId)
+                              setUploadSlot({
+                                customerId: item.customerId,
+                                documentType:
+                                  doc.documentType as IntakeDocumentType,
+                                customerName: item.customerName ?? item.title,
+                              });
+                          }}
                         >
-                          <Checkbox
-                            checked={doc.received}
-                            disabled
-                            size="small"
-                            sx={{
-                              p: 0.4,
-                              "&.Mui-disabled": {
-                                color: doc.received ? "#4b8461" : "#c4c9c1",
-                              },
-                            }}
-                            inputProps={{
-                              "aria-label": `${doc.name}: ${doc.received ? "received" : "missing"}`,
-                            }}
-                          />
-                          <Typography
-                            variant="body2"
-                            color={
-                              doc.received ? "text.secondary" : "text.primary"
-                            }
-                          >
-                            {doc.name}
-                          </Typography>
-                          {!doc.received && (
-                            <Typography variant="caption" color="warning.main">
-                              Missing
-                            </Typography>
-                          )}
-                        </Stack>
+                          {doc.name} — {doc.status}
+                        </Button>
                       ))}
+                      {!item.intakeDocuments?.length &&
+                        item.documents.map((doc) => (
+                          <Stack
+                            direction="row"
+                            alignItems="center"
+                            key={doc.name}
+                            spacing={1}
+                          >
+                            <Checkbox
+                              checked={doc.received}
+                              disabled
+                              size="small"
+                              sx={{
+                                p: 0.4,
+                                "&.Mui-disabled": {
+                                  color: doc.received ? "#4b8461" : "#c4c9c1",
+                                },
+                              }}
+                              inputProps={{
+                                "aria-label": `${doc.name}: ${doc.received ? "received" : "missing"}`,
+                              }}
+                            />
+                            <Typography
+                              variant="body2"
+                              color={
+                                doc.received ? "text.secondary" : "text.primary"
+                              }
+                            >
+                              {doc.name}
+                            </Typography>
+                            {!doc.received && (
+                              <Typography
+                                variant="caption"
+                                color="warning.main"
+                              >
+                                Missing
+                              </Typography>
+                            )}
+                          </Stack>
+                        ))}
                     </Box>
                   </Paper>
                 );

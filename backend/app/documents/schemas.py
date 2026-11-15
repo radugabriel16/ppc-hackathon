@@ -1,6 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
+from pydantic import Field
 from app.core.api import ApiModel
 from app.models.enums import CaseStatus, ClientType
 
@@ -13,6 +14,11 @@ class ClientResource(ApiModel):
 
 
 class CaseResource(ApiModel):
+    customer_name: str | None = None
+    cnp_masked: str | None = None
+    region_id: UUID | None = None
+    complete: bool = False
+    document_slots: list[dict] = Field(default_factory=list, serialization_alias="documents")
     id: UUID
     client_id: UUID
     status: CaseStatus

@@ -12,6 +12,7 @@ from app.models import Region
 from fixtures.seed import seed
 from fixtures.geography import seed_geography
 from fixtures.meters import seed_meters
+from fixtures.document_clients import seed_document_clients
 
 BOOTSTRAP_LOCK_ID = 7346021901
 
@@ -38,6 +39,7 @@ def main() -> None:
                     print("Catalog already populated; seed skipped.")
                 seed_geography(session)
                 seed_meters(session)
+                seed_document_clients(session)
                 session.commit()
                 seed_users(session)
                 print("Demo accounts ready (existing credentials preserved).")

@@ -1,0 +1,62 @@
+{
+  "1_aviz.pdf": {
+    "reason": null,
+    "detectedType": "REQUEST_FORM"
+  },
+  "1_carte_identitate.pdf": {
+    "reason": null,
+    "detectedType": "CONNECTION_APPROVAL"
+  },
+  "2_aviz.pdf": {
+    "reason": null,
+    "detectedType": "REQUEST_FORM"
+  },
+  "2_carte_identitate.pdf": {
+    "reason": null,
+    "detectedType": "CONNECTION_APPROVAL"
+  },
+  "invalid_checksum.pdf": {
+    "reason": "CNP_INVALID",
+    "detectedType": "REQUEST_FORM"
+  },
+  "unknown_client.pdf": {
+    "reason": "CUSTOMER_NOT_FOUND",
+    "detectedType": "REQUEST_FORM"
+  },
+  "both_titles.pdf": {
+    "reason": "AMBIGUOUS_TYPE",
+    "detectedType": null
+  },
+  "no_title.pdf": {
+    "reason": "UNRECOGNIZED_TYPE",
+    "detectedType": null
+  },
+  "two_cnps.pdf": {
+    "reason": "CNP_AMBIGUOUS",
+    "detectedType": "REQUEST_FORM"
+  },
+  "identity.pdf": {
+    "reason": "IDENTITY_DOCUMENT",
+    "detectedType": "ID"
+  },
+  "identity.jpg": {
+    "reason": "NO_EXTRACTABLE_TEXT",
+    "detectedType": null
+  },
+  "scanned.pdf": {
+    "reason": "NO_EXTRACTABLE_TEXT",
+    "detectedType": null
+  },
+  "encrypted.pdf": {
+    "reason": "PARSE_ERROR",
+    "detectedType": null
+  },
+  "corrupt.pdf": {
+    "reason": "PARSE_ERROR",
+    "detectedType": null
+  },
+  "request.pdf.txt": {
+    "reason": "UNSUPPORTED_FORMAT",
+    "detectedType": null
+  }
+}

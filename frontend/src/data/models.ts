@@ -145,6 +145,10 @@ export interface MapData {
   meters?: MeterMarker[];
 }
 export interface CaseRecord {
+  customerId?: string;
+  customerName?: string | null;
+  cnpMasked?: string | null;
+  intakeDocuments?: import("../api/gen/types.gen").CaseDocumentSlot[];
   id: string;
   title: string;
   region: Region;

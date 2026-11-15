@@ -316,6 +316,11 @@ export type ConnectionCase = {
   status?: CaseStatus;
   openedAt?: string;
   dueAt?: string | null;
+  customerName?: string;
+  cnpMasked?: string | null;
+  complete?: boolean;
+  regionId?: string;
+  documents?: Array<CaseDocumentSlot>;
 };
 
 export type ConnectionCasePage = PageMeta & {
@@ -393,7 +398,7 @@ export type DroneVideoMetadata = {
 export type FileResource = {
   subregionId?: string | null;
   id?: string;
-  regionId?: string;
+  regionId?: string | null;
   category?: FileCategory;
   originalName?: string;
   mediaType?: string;
@@ -704,6 +709,92 @@ export type Alert = {
   severity?: string;
   message?: string;
   occurredAt?: string;
+};
+
+export type IntakeDocumentType = "ID" | "REQUEST_FORM" | "CONNECTION_APPROVAL";
+
+export type DocumentIntakeItem = {
+  id: string;
+  batchId?: string | null;
+  fileId?: string | null;
+  originalFileName: string;
+  status:
+    | "PROCESSING"
+    | "AUTO_LINKED"
+    | "NEEDS_REVIEW"
+    | "CONFIRMED"
+    | "REJECTED"
+    | "FAILED";
+  reviewQueue?: "IDENTITY" | "MANUAL";
+  reviewReason?:
+    | "IDENTITY_DOCUMENT"
+    | "NO_EXTRACTABLE_TEXT"
+    | "UNRECOGNIZED_TYPE"
+    | "AMBIGUOUS_TYPE"
+    | "CNP_MISSING"
+    | "CNP_INVALID"
+    | "CNP_AMBIGUOUS"
+    | "CUSTOMER_NOT_FOUND"
+    | "TYPE_ALREADY_PRESENT"
+    | "CONTENT_MISMATCH"
+    | "UNSUPPORTED_FORMAT"
+    | "PARSE_ERROR";
+  detectedType?: IntakeDocumentType;
+  cnpMasked?: string | null;
+  suggestedCustomerId?: string | null;
+  confirmedType?: IntakeDocumentType;
+  customerId?: string | null;
+  reviewedBy?: string | null;
+  reviewedAt?: string | null;
+  errorDetail?: string | null;
+  version: number;
+  createdAt: string;
+};
+
+export type DocumentIntakePage = PageMeta & {
+  items?: Array<DocumentIntakeItem>;
+};
+
+export type DocumentIntakeBatch = {
+  id: string;
+  status: "PROCESSING" | "COMPLETED";
+  totalCount: number;
+  autoLinkedCount: number;
+  reviewCount: number;
+  failedCount: number;
+  createdAt?: string;
+  finishedAt?: string | null;
+  items: Array<DocumentIntakeItem>;
+};
+
+export type DocumentIntakeAccepted = {
+  batchId: string;
+};
+
+export type DocumentIntakeConfirm = {
+  documentType: IntakeDocumentType;
+  cnp: string;
+  version: number;
+  replaceExisting?: boolean;
+};
+
+export type DocumentIntakeReject = {
+  reason: string;
+  version: number;
+};
+
+export type CustomerLookup = {
+  customerId: string;
+  customerName: string;
+  cnpMasked: string;
+};
+
+export type CaseDocumentSlot = {
+  documentType: string;
+  name: string;
+  status: "PRESENT" | "MISSING";
+  fileId?: string | null;
+  uploadedAt?: string | null;
 };
 
 /**
@@ -1070,6 +1161,8 @@ export type GetConnectionCasesData = {
     regionId?: string;
     page?: number;
     size?: number;
+    search?: string;
+    complete?: boolean;
   };
   url: "/connection-cases";
 };
@@ -1273,7 +1366,9 @@ export type GetFilesIdDownloadData = {
   path: {
     id: string;
   };
-  query?: never;
+  query?: {
+    inline?: boolean;
+  };
   url: "/files/{id}/download";
 };
 
@@ -2649,6 +2744,291 @@ export type GetAlertsRecentResponses = {
 
 export type GetAlertsRecentResponse =
   GetAlertsRecentResponses[keyof GetAlertsRecentResponses];
+
+export type CreateCustomerDocumentData = {
+  body: {
+    file: Blob | File;
+    customerId?: string;
+    documentType?: IntakeDocumentType;
+    confirmManual?: boolean;
+  };
+  path?: never;
+  query?: never;
+  url: "/customer-documents";
+};
+
+export type CreateCustomerDocumentErrors = {
+  /**
+   * Not authenticated.
+   */
+  401: _Error;
+  /**
+   * Authenticated but not authorized for this action.
+   */
+  403: _Error;
+  /**
+   * Body exceeds the category's maxSizeBytes policy.
+   */
+  413: _Error;
+  /**
+   * Request failed schema/business validation.
+   */
+  422: _Error;
+};
+
+export type CreateCustomerDocumentError =
+  CreateCustomerDocumentErrors[keyof CreateCustomerDocumentErrors];
+
+export type CreateCustomerDocumentResponses = {
+  /**
+   * Success
+   */
+  201: DocumentIntakeItem;
+};
+
+export type CreateCustomerDocumentResponse =
+  CreateCustomerDocumentResponses[keyof CreateCustomerDocumentResponses];
+
+export type CreateCustomerDocumentBatchData = {
+  body: {
+    files: Array<Blob | File>;
+  };
+  path?: never;
+  query?: never;
+  url: "/customer-documents/batches";
+};
+
+export type CreateCustomerDocumentBatchErrors = {
+  /**
+   * Not authenticated.
+   */
+  401: _Error;
+  /**
+   * Authenticated but not authorized for this action.
+   */
+  403: _Error;
+  /**
+   * Body exceeds the category's maxSizeBytes policy.
+   */
+  413: _Error;
+  /**
+   * Request failed schema/business validation.
+   */
+  422: _Error;
+};
+
+export type CreateCustomerDocumentBatchError =
+  CreateCustomerDocumentBatchErrors[keyof CreateCustomerDocumentBatchErrors];
+
+export type CreateCustomerDocumentBatchResponses = {
+  /**
+   * Success
+   */
+  202: DocumentIntakeAccepted;
+};
+
+export type CreateCustomerDocumentBatchResponse =
+  CreateCustomerDocumentBatchResponses[keyof CreateCustomerDocumentBatchResponses];
+
+export type GetCustomerDocumentBatchData = {
+  body?: never;
+  path: {
+    batchId: string;
+  };
+  query?: never;
+  url: "/customer-documents/batches/{batchId}";
+};
+
+export type GetCustomerDocumentBatchErrors = {
+  /**
+   * Not authenticated.
+   */
+  401: _Error;
+  /**
+   * Authenticated but not authorized for this action.
+   */
+  403: _Error;
+  /**
+   * Request failed schema/business validation.
+   */
+  422: _Error;
+};
+
+export type GetCustomerDocumentBatchError =
+  GetCustomerDocumentBatchErrors[keyof GetCustomerDocumentBatchErrors];
+
+export type GetCustomerDocumentBatchResponses = {
+  /**
+   * Success
+   */
+  200: DocumentIntakeBatch;
+};
+
+export type GetCustomerDocumentBatchResponse =
+  GetCustomerDocumentBatchResponses[keyof GetCustomerDocumentBatchResponses];
+
+export type GetDocumentReviewItemsData = {
+  body?: never;
+  path?: never;
+  query?: {
+    queue?: "IDENTITY" | "MANUAL";
+    batchId?: string;
+    page?: number;
+    size?: number;
+  };
+  url: "/customer-documents/review-items";
+};
+
+export type GetDocumentReviewItemsErrors = {
+  /**
+   * Not authenticated.
+   */
+  401: _Error;
+  /**
+   * Authenticated but not authorized for this action.
+   */
+  403: _Error;
+  /**
+   * Request failed schema/business validation.
+   */
+  422: _Error;
+};
+
+export type GetDocumentReviewItemsError =
+  GetDocumentReviewItemsErrors[keyof GetDocumentReviewItemsErrors];
+
+export type GetDocumentReviewItemsResponses = {
+  /**
+   * Success
+   */
+  200: DocumentIntakePage;
+};
+
+export type GetDocumentReviewItemsResponse =
+  GetDocumentReviewItemsResponses[keyof GetDocumentReviewItemsResponses];
+
+export type ConfirmDocumentReviewItemData = {
+  body: DocumentIntakeConfirm;
+  path: {
+    itemId: string;
+  };
+  query?: never;
+  url: "/customer-documents/review-items/{itemId}/confirm";
+};
+
+export type ConfirmDocumentReviewItemErrors = {
+  /**
+   * Not authenticated.
+   */
+  401: _Error;
+  /**
+   * Authenticated but not authorized for this action.
+   */
+  403: _Error;
+  /**
+   * Optimistic version conflict or existing document requires review.
+   */
+  409: _Error;
+  /**
+   * Request failed schema/business validation.
+   */
+  422: _Error;
+};
+
+export type ConfirmDocumentReviewItemError =
+  ConfirmDocumentReviewItemErrors[keyof ConfirmDocumentReviewItemErrors];
+
+export type ConfirmDocumentReviewItemResponses = {
+  /**
+   * Success
+   */
+  200: DocumentIntakeItem;
+};
+
+export type ConfirmDocumentReviewItemResponse =
+  ConfirmDocumentReviewItemResponses[keyof ConfirmDocumentReviewItemResponses];
+
+export type RejectDocumentReviewItemData = {
+  body: DocumentIntakeReject;
+  path: {
+    itemId: string;
+  };
+  query?: never;
+  url: "/customer-documents/review-items/{itemId}/reject";
+};
+
+export type RejectDocumentReviewItemErrors = {
+  /**
+   * Not authenticated.
+   */
+  401: _Error;
+  /**
+   * Authenticated but not authorized for this action.
+   */
+  403: _Error;
+  /**
+   * Optimistic version conflict or existing document requires review.
+   */
+  409: _Error;
+  /**
+   * Request failed schema/business validation.
+   */
+  422: _Error;
+};
+
+export type RejectDocumentReviewItemError =
+  RejectDocumentReviewItemErrors[keyof RejectDocumentReviewItemErrors];
+
+export type RejectDocumentReviewItemResponses = {
+  /**
+   * Success
+   */
+  200: DocumentIntakeItem;
+};
+
+export type RejectDocumentReviewItemResponse =
+  RejectDocumentReviewItemResponses[keyof RejectDocumentReviewItemResponses];
+
+export type LookupDocumentCustomerData = {
+  body?: never;
+  path?: never;
+  query: {
+    cnp: string;
+  };
+  url: "/customers/lookup";
+};
+
+export type LookupDocumentCustomerErrors = {
+  /**
+   * Not authenticated.
+   */
+  401: _Error;
+  /**
+   * Authenticated but not authorized for this action.
+   */
+  403: _Error;
+  /**
+   * Request failed schema/business validation.
+   */
+  422: _Error;
+  /**
+   * Lookup rate limit exceeded
+   */
+  429: unknown;
+};
+
+export type LookupDocumentCustomerError =
+  LookupDocumentCustomerErrors[keyof LookupDocumentCustomerErrors];
+
+export type LookupDocumentCustomerResponses = {
+  /**
+   * Success
+   */
+  200: CustomerLookup;
+};
+
+export type LookupDocumentCustomerResponse =
+  LookupDocumentCustomerResponses[keyof LookupDocumentCustomerResponses];
 
 export type ClientOptions = {
   baseUrl: `${string}://${string}/api/v1` | (string & {});

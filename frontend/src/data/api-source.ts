@@ -1,3 +1,4 @@
+import { DocumentIntakeApi } from "./document-intake";
 import * as sdk from "../api/gen/sdk.gen";
 import type {
   PageMeta,
@@ -52,6 +53,7 @@ import type { DataSource } from "./source";
 
 export class ApiSource implements DataSource {
   readonly uploads;
+  readonly documentIntake;
   readonly connection: ApiConnection;
   get uploadScope() {
     return `${this.kind}:${this.client.getConfig().baseUrl}`;
@@ -63,6 +65,7 @@ export class ApiSource implements DataSource {
     readonly kind: "api" | "mock" = "api",
   ) {
     this.connection = new ApiConnection(baseUrl);
+    this.documentIntake = new DocumentIntakeApi(this.connection);
     this.uploads = new ApiUploadTransport(this.connection);
   }
   private get client() {
@@ -71,11 +74,12 @@ export class ApiSource implements DataSource {
   getDocumentTypes() {
     return this.connection.read(sdk.getDocumentTypes({ client: this.client }));
   }
-  downloadFile(id: string) {
+  downloadFile(id: string, inline = false) {
     return this.connection.read(
       sdk.getFilesIdDownload({
         client: this.client,
         path: { id },
+        query: { inline },
         parseAs: "blob",
       }),
     );
@@ -595,7 +599,10 @@ export class ApiSource implements DataSource {
     const dto = await this.connection.read(
       sdk.getFilesId({ client: this.client, path: { id } }),
     );
-    const file = fileRecord(dto, await this.regionCode(dto.regionId));
+    const file = fileRecord(
+      dto,
+      await this.regionCode(dto.regionId ?? undefined),
+    );
     if (file.status === "READY" || file.status === "CORRUPT") {
       const verify = await this.connection.read(
         sdk.getFilesIdVerify({ client: this.client, path: { id } }),
@@ -657,6 +664,10 @@ export class ApiSource implements DataSource {
     const records = await Promise.all(
       scopedRows.map(async (dto) => ({
         id: requireValue(dto.id, "case.id"),
+        customerId: dto.clientId,
+        customerName: dto.customerName,
+        cnpMasked: dto.cnpMasked,
+        intakeDocuments: dto.documents,
         title: missingCases
           ? `${requireValue(missingCases.get(dto.id)?.externalCode, "client.externalCode")} · Connection case ${dto.id?.slice(0, 8)}`
           : `Connection case ${requireValue(dto.id, "case.id").slice(0, 8)}`,

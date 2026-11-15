@@ -2,7 +2,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, Enum, ForeignKey, Integer, String, TIMESTAMP
+from sqlalchemy import CheckConstraint, BigInteger, Boolean, Enum, ForeignKey, Integer, String, TIMESTAMP
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, UUIDPkMixin
@@ -11,12 +11,13 @@ from app.models.enums import FileCategory, FileStatus, StorageBackend
 
 class File(UUIDPkMixin, Base):
     __tablename__ = "files"
+    __table_args__ = (CheckConstraint("region_id IS NOT NULL OR category = 'CONNECTION_DOCUMENT'", name="ck_unassigned_connection_document"),)
 
     subregion_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("subregions.id", ondelete="SET NULL"), index=True,
     )
-    region_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("regions.id", ondelete="RESTRICT"), nullable=False, index=True
+    region_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("regions.id", ondelete="RESTRICT"), nullable=True, index=True
     )
     category: Mapped[FileCategory] = mapped_column(
         Enum(FileCategory, name="file_category"), nullable=False, index=True

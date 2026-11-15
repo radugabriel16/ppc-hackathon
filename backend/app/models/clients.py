@@ -24,6 +24,9 @@ class Client(UUIDPkMixin, Base):
         Enum(ClientType, name="client_type"), nullable=False
     )
 
+    cnp_hmac: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)
+    cnp_masked: Mapped[str | None] = mapped_column(String(16))
+
     cases: Mapped[list["ConnectionCase"]] = relationship(back_populates="client")
 
 
@@ -64,6 +67,7 @@ class ClientDocument(UUIDPkMixin, Base):
     file_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("files.id", ondelete="RESTRICT"), nullable=False
     )
+    superseded_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
     uploaded_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
 
     case: Mapped["ConnectionCase"] = relationship(back_populates="documents")

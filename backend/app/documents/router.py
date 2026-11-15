@@ -46,6 +46,7 @@ def list_cases(
     segment_id: Annotated[UUID | None, Query(alias="segmentId")] = None,
     subregion_id: Annotated[UUID | None, Query(alias="subregionId")] = None,
     client_id: Annotated[UUID | None, Query(alias="clientId")] = None,
+    search: str | None = None, complete: bool | None = None,
     status: CaseStatus | None = None, type: IssueType | None = None,
     from_time: Annotated[AwareDatetime | None, Query(alias="from")] = None,
     to_time: Annotated[AwareDatetime | None, Query(alias="to")] = None,
@@ -55,6 +56,18 @@ def list_cases(
     statement = select(ConnectionCase).join(Client, ConnectionCase.client_id == Client.id)
     if region_id is not None:
         statement = statement.where(Client.region_id == region_id)
+    if search:
+        statement = statement.where(Client.external_code.ilike('%' + search[:128] + '%'))
+    missing_slot = exists(select(DocumentType.id).where(
+        DocumentType.required_for_connection.is_(True),
+        ~exists(select(ClientDocument.id).join(File).where(
+            ClientDocument.case_id == ConnectionCase.id,
+            ClientDocument.document_type_id == DocumentType.id,
+            ClientDocument.superseded_at.is_(None), File.status == FileStatus.READY,
+        )).correlate(ConnectionCase, DocumentType),
+    ))
+    if complete is not None:
+        statement = statement.where(~missing_slot if complete else missing_slot)
     if client_id:
         statement = statement.where(ConnectionCase.client_id == client_id)
     if status:
@@ -79,7 +92,22 @@ def list_cases(
             MapIssue.case_id == ConnectionCase.id, MapIssue.type == type,
             MapIssue.is_historical.is_(False),
         )))
-    return paginate(db, statement.order_by(ConnectionCase.id), pagination, CaseResource)
+    result = paginate(db, statement.order_by(ConnectionCase.id), pagination, CaseResource)
+    types = db.scalars(select(DocumentType).where(DocumentType.required_for_connection.is_(True)).order_by(DocumentType.code)).all()
+    for row in result['items']:
+        client = db.get(Client, row.client_id)
+        row.customer_name, row.cnp_masked, row.region_id = client.external_code, client.cnp_masked, client.region_id
+        docs = db.execute(select(ClientDocument, File).join(File).where(
+            ClientDocument.case_id == row.id, ClientDocument.superseded_at.is_(None),
+            File.status == FileStatus.READY).order_by(ClientDocument.uploaded_at.desc())).all()
+        row.document_slots = []
+        for dtype in types:
+            linked = next((doc for doc in docs if doc.ClientDocument.document_type_id == dtype.id), None)
+            row.document_slots.append(dict(documentType=dtype.code, name=dtype.name,
+                status='PRESENT' if linked else 'MISSING', fileId=linked.File.id if linked else None,
+                uploadedAt=linked.ClientDocument.uploaded_at if linked else None))
+        row.complete = all(d['status'] == 'PRESENT' for d in row.document_slots)
+    return result
 
 
 @router.get("/clients/missing-documents")
@@ -121,7 +149,7 @@ def case_documents(id: UUID, db: Session = Depends(get_catalog_db)):
     rows = db.execute(
         select(ClientDocument, File.status)
         .join(File, ClientDocument.file_id == File.id)
-        .where(ClientDocument.case_id == id)
+        .where(ClientDocument.case_id == id, ClientDocument.superseded_at.is_(None))
         .order_by(ClientDocument.uploaded_at, ClientDocument.id)
     ).all()
     present = {doc.document_type_id for doc, status in rows if status == FileStatus.READY}

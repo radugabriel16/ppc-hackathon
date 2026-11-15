@@ -26,6 +26,7 @@ from app.files.schemas import (
     FileUploadMetadata,
     FileResource,
     OutageRecordMetadata,
+    UnassignedDocumentMetadata,
 )
 from app.inspections.service import link_inspection
 from app.models.audit import AuditEvent
@@ -41,6 +42,8 @@ SMALL_DOWNLOAD = 10 * 1024 * 1024
 
 
 def linked_region(db: Session, metadata: FileUploadMetadata) -> uuid.UUID:
+    if isinstance(metadata, UnassignedDocumentMetadata):
+        return None
     if isinstance(metadata, ConnectionDocumentMetadata):
         region_id = document_region(db, metadata)
     else:

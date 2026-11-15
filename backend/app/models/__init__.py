@@ -40,3 +40,5 @@ __all__ = [
     "Reminder",
     "Alert",
 ]
+
+from app.models.document_intake import DocumentIntakeBatch, DocumentIntakeItem  # noqa: F401
