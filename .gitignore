@@ -25,6 +25,7 @@ secrets/
 # Compose / data volumes
 **/pgdata/
 **/data/
+backups/
 
 # IDE / OS
 .vscode/

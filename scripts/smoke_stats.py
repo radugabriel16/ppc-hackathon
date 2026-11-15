@@ -99,7 +99,7 @@ print(json.dumps({"origin": str(s.app_origin).rstrip("/"),
                 assert segment["horizonDays"] == 3
                 assert segment["uncertaintyIntervalsAvailable"] is False
                 assert segment["predictsOutageProbability"] is False
-                assert segment["dataSource"] == "CATALOG_METER_READINGS"
+                assert segment["dataSource"] == "HISTORY_AND_CATALOG_METER_READINGS"
                 assert segment["modelVersion"].startswith("hgb_smooth:3a025fc48832")
                 assert [day["horizon"] for day in segment["forecasts"]] == [1, 2, 3]
                 for day in segment["forecasts"]:

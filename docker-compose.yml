@@ -24,6 +24,9 @@ x-backend: &backend
     STORAGE_DB_PORT: "5432"
     STORAGE_DB_NAME: ${STORAGE_DB_NAME:-filegrid_storage}
     STORAGE_DB_USER: ${STORAGE_DB_USER:-filegrid}
+    HISTORY_DB_HOST: history-db
+    HISTORY_DB_PORT: "5432"
+    HISTORY_DB_NAME: ${HISTORY_DB_NAME:-filegrid_history}
     S3_ENDPOINT_URL: http://seaweedfs:8333
     S3_REGION: ${S3_REGION:-us-east-1}
     S3_BUCKET: ${S3_BUCKET:-filegrid}
@@ -135,6 +138,28 @@ services:
       start_period: 15s
     restart: unless-stopped
 
+  history-db:
+    image: postgres:16.6-bookworm
+    environment:
+      POSTGRES_DB: ${HISTORY_DB_NAME:-filegrid_history}
+      POSTGRES_USER: history_admin
+      POSTGRES_PASSWORD_FILE: /run/secrets/history_db_password
+    volumes:
+      - secrets:/run/secrets:ro
+      - history-data:/var/lib/postgresql/data
+    networks:
+      - internal
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 15s
+    restart: unless-stopped
+
   seaweedfs:
     image: chrislusf/seaweedfs:3.80
     working_dir: /data
@@ -210,6 +235,8 @@ services:
         condition: service_healthy
       storage-db:
         condition: service_healthy
+      history-db:
+        condition: service_healthy
     restart: "no"
 
   api-ingest:
@@ -279,5 +306,6 @@ volumes:
   certs:
   catalog-data:
   storage-data:
+  history-data:
   seaweed-data:
   ftp-data:

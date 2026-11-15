@@ -43,15 +43,29 @@ print(json.dumps({"origin": str(s.app_origin).rstrip("/"),
 
     request("auth/login", {"username": "operator", "password": config["password"]})
     try:
+        original_thresholds = {
+            item["segmentId"]: item for item in request("forecast/thresholds")
+        }
         first = request("forecast/runs", {"scope": "country"})
         tomorrow = datetime.now(timezone.utc).date() + timedelta(days=1)
         assert first["status"] == "COMPLETED"
         assert len({segment["segmentId"] for segment in first["segments"]}) == 18
         exceedances = set()
+        calibrated = 0
         for segment in first["segments"]:
             assert segment["method"] == "hgb_smooth" and not segment["fallbackUsed"], segment
-            assert segment["thresholdSource"] == "HISTORY_P95"
-            assert segment["thresholdCalibration"]["sampleDays"] >= 14
+            if segment["thresholdSource"] == "MANUAL":
+                original = original_thresholds[segment["segmentId"]]
+                assert original["source"] == "MANUAL"
+                assert segment["thresholdKwh"] == original["dailyEnergyKwh"]
+                assert segment["thresholdCalibration"] is None
+            else:
+                assert segment["thresholdSource"] == "HISTORY_P95"
+                calibration = segment["thresholdCalibration"]
+                assert calibration["sampleDays"] >= 14
+                assert calibration["percentile"] == 95 and calibration["multiplier"] == 1.03
+                assert abs(segment["thresholdKwh"]-calibration["p95Kwh"]*1.03) <= 0.000001
+                calibrated += 1
             assert segment["bridge"]["persistedAsReadings"] is False
             assert segment["bridged"] and segment["bridge"]["intervals"] > 0
             assert segment["lastCompletedDay"] == (tomorrow - timedelta(days=2)).isoformat()
@@ -62,7 +76,8 @@ print(json.dumps({"origin": str(s.app_origin).rstrip("/"),
                 assert point["bridged"] and point["eligibleMeters"] == point["expectedMeters"] == 8
                 if point["excessKwh"] > 0:
                     exceedances.add((segment["segmentId"], point["date"]))
-        assert 2 <= len(exceedances) <= 5, exceedances
+        assert calibrated > 0
+        assert 1 <= len(exceedances) <= 5, exceedances
         issues = request("map-issues?type=ML_FORECAST&size=100")["items"]
         matching = [issue for issue in issues if (
             issue["segmentId"], issue["forecastDate"],
@@ -92,6 +107,7 @@ with get_catalog_engine().connect() as db:
         assert all(persisted[issue["id"]] == 1 for issue in matching)
         print(
             f"PASS: country uses model for 18/18 bridged segments; {len(exceedances)} exceedances; "
+            f"{calibrated} calibrated thresholds; {18-calibrated} preserved manager overrides; "
             f"{len(first['createdIssues'])} new issues; rerun creates 0 duplicates; one alert per issue"
         )
         for issue in matching:

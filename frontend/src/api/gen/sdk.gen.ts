@@ -428,7 +428,7 @@ export const getDocumentTypes = <ThrowOnError extends boolean = false>(
 };
 
 /**
- * List files with filters.
+ * List operational files with filters.
  */
 export const getFiles = <ThrowOnError extends boolean = false>(
   options?: Options<GetFilesData, ThrowOnError>,

@@ -21,6 +21,9 @@ secret() {
 
 secret catalog_db_password 32
 secret storage_db_password 32
+secret history_db_password 32
+secret history_db_reader_password 32
+secret history_db_writer_password 32
 secret s3_access_key_id 16
 secret s3_secret_access_key 32
 secret ftp_password 32

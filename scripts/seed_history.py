@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
-"""Seed synthetic history for existing meters through the running Compose stack."""
+"""Seed training history for registered meters into history-db, never catalog-db."""
 from __future__ import annotations
 
 import argparse
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 import hashlib
 import importlib.util
 import json
 from pathlib import Path
 import sqlite3
-import subprocess
-import sys
 import tempfile
 from uuid import NAMESPACE_URL, uuid5
 
@@ -20,64 +19,24 @@ CLIENT_TYPES = {"RESIDENTIAL", "COMMERCIAL", "INDUSTRIAL"}
 
 
 def last_complete_interval(now):
-    """Allow the generator's maximum two-minute delivery delay after each UTC slot."""
-    available = now - timedelta(minutes=2)
-    return available.replace(
-        hour=available.hour // 6 * 6, minute=0, second=0, microsecond=0,
-    )
-
-
-def finalize_history(connection, summary, completed_end, as_of):
-    from sqlalchemy import select, text
-    from sqlalchemy.orm import Session
-    from app.forecast.service import READINGS
-    from app.forecast.thresholds import calibrate_threshold
-    from app.models.geography import Subregion
-
-    with Session(connection) as db:
-        summary["thresholds"] = []
-        for segment in db.scalars(select(Subregion).order_by(Subregion.code)).all():
-            complete = db.execute(text(READINGS.replace(
-                "m.asset_id = :segment", "m.subregion_id = :segment",
-            )), {
-                "segment": segment.id, "start": completed_end - timedelta(hours=6),
-                "end": completed_end, "cutoff": as_of,
-            }).all()
-            expected = db.scalar(text(
-                "SELECT count(*) FROM meters WHERE subregion_id=:id"
-            ), {"id": segment.id})
-            if len(complete) != expected:
-                raise ValueError(f"Latest completed six-hour interval is incomplete for {segment.code}")
-            config = calibrate_threshold(db, segment.id, as_of)
-            summary["thresholds"].append({
-                "segment": segment.code, "dailyEnergyKwh": float(config.daily_energy_kwh),
-                "source": config.source, "calibration": config.calibration,
-            })
-        db.flush()
-    return summary
+    available = now-timedelta(minutes=2)
+    return available.replace(hour=available.hour//6*6, minute=0, second=0, microsecond=0)
 
 
 def match_profiles(meters, profiles):
-    """Reserve matching typed profiles first; never assign types to catalog meters."""
-    used = set()
-    matches = []
+    used, matches = set(), []
     for meter in sorted(meters, key=lambda m: m["client_type"] is None):
         kind = meter["client_type"]
         if kind is not None and kind not in CLIENT_TYPES:
             raise ValueError(f"Unsupported catalog client type: {kind}")
-        source = next((
-            profile for profile in profiles
-            if profile["id"] not in used and profile["region"] == meter["region"]
+        candidates = [
+            profile for profile in profiles if profile["region"] == meter["region"]
             and (kind is None or profile["client_type"] == kind)
-        ), None)
+        ]
+        source = next((p for p in candidates if p["id"] not in used), None)
         if source is None:
-            candidates = [
-                profile for profile in profiles if profile["region"] == meter["region"]
-                and (kind is None or profile["client_type"] == kind)
-            ]
             if not candidates:
                 raise ValueError(f"No unused history-v2 profile for {meter['external_code']}")
-            # The delivered demo has 126 profiles; the catalog has 144 meters.
             index = int(hashlib.sha256(meter["external_code"].encode()).hexdigest(), 16)
             source = candidates[index % len(candidates)]
         used.add(source["id"])
@@ -86,7 +45,6 @@ def match_profiles(meters, profiles):
 
 
 def uncovered(start, end, existing):
-    """Keep existing observations; fill only gaps, including partial six-hour slots."""
     position = start
     for left, right in existing:
         if right <= position:
@@ -103,211 +61,145 @@ def uncovered(start, end, existing):
 
 
 def reading(meter, start, end, energy, received):
-    from decimal import Decimal
-
-    key = f"{meter['external_code']}:{start.isoformat()}"
     payload = {
-        "meterExternalCode": meter["external_code"], "readingKey": key,
-        "seq": int((start - datetime(2020, 1, 1, tzinfo=UTC)).total_seconds()),
+        "meterExternalCode": meter["external_code"],
+        "readingKey": f"{meter['external_code']}:{start.isoformat()}",
+        "seq": int((start-datetime(2020, 1, 1, tzinfo=UTC)).total_seconds()),
         "intervalStart": start.isoformat(), "intervalEnd": end.isoformat(),
         "energyKwh": round(energy, 6),
     }
     raw = json.dumps(payload, sort_keys=True).encode()
     identity = f"filegrid:seed-history-v2:{meter['id']}:{start.isoformat()}"
     return (
-        str(uuid5(NAMESPACE_URL, identity)), meter["id"], key, payload["seq"],
+        str(uuid5(NAMESPACE_URL, identity)), meter["id"], payload["readingKey"], payload["seq"],
         start, end, Decimal(str(payload["energyKwh"])), received,
-        str(uuid5(NAMESPACE_URL, identity + ":file")), meter["region_id"],
+        str(uuid5(NAMESPACE_URL, identity+":file")), meter["region_id"],
         raw, hashlib.sha256(raw).hexdigest(),
     )
 
 
 def seed_history(generator_source, schema_source, days, seed):
-    from psycopg.rows import dict_row
-    from app.core.db import get_catalog_engine, get_storage_engine
+    from psycopg.types.json import Jsonb
+    from sqlalchemy import text
+    from app.core.db import get_catalog_engine
+    from history_common import writer_engine
 
     now = datetime.now(UTC)
     completed_end = last_complete_interval(now)
-    origin = (now - timedelta(minutes=10)).replace(hour=0, minute=0, second=0, microsecond=0)
+    origin = (now-timedelta(minutes=10)).replace(hour=0, minute=0, second=0, microsecond=0)
+    start = origin-timedelta(days=days)
+    finish = now.replace(hour=0, minute=0, second=0, microsecond=0)+timedelta(days=1)
     if origin.date().isoformat() < "2026-05-14":
         raise ValueError("The live model requires an origin on/after 2026-05-14")
-    start = origin - timedelta(days=days)
-    finish = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
-    summary = {
-        "synthetic": True, "generator": "filegrid-history-v2", "seed": seed,
-        "start": start.isoformat(), "asOf": now.isoformat(),
-        "origin": origin.date().isoformat(), "days": days,
-        "tomorrowOrigin": (now.date() + timedelta(days=1)).isoformat(),
-        "lastCompleteIntervalEnd": completed_end.isoformat(),
-    }
-    with get_catalog_engine().begin() as connection:
-        db = connection.connection.driver_connection
-        with db.cursor(row_factory=dict_row) as cursor:
-            # Serialize seeders and ingest while checking interval gaps and inserting.
-            cursor.execute("LOCK TABLE meter_readings IN SHARE ROW EXCLUSIVE MODE")
+    with get_catalog_engine().connect() as catalog:
+        meters = [dict(row) for row in catalog.execute(text("""
+            SELECT m.id::text,m.external_code,c.client_type::text,
+                   m.subregion_id::text AS segment_id,m.asset_id::text,
+                   r.id::text AS region_id,r.code AS region
+            FROM meters m JOIN network_assets a ON a.id=m.asset_id
+            JOIN regions r ON r.id=a.region_id LEFT JOIN clients c ON c.id=m.client_id
+            ORDER BY r.code,m.external_code
+        """)).mappings()]
+        occupied = defaultdict(list)
+        for row in catalog.execute(text("""
+            SELECT meter_id::text,interval_start,interval_end FROM meter_readings
+            WHERE interval_start<:end AND interval_end>:start ORDER BY meter_id,interval_start
+        """), {"start": start, "end": finish}):
+            occupied[row[0]].append((row[1], row[2]))
+    if not meters:
+        raise ValueError("No registered catalog meters")
+    summary = {"synthetic": True, "database": "history-db", "meters": len(meters), "inserted": 0}
+    engine = writer_engine()
+    try:
+        with engine.begin() as connection, tempfile.TemporaryDirectory(prefix="filegrid-history-") as directory:
+            cursor = connection.connection.driver_connection.cursor()
+            cursor.execute("SELECT pg_advisory_xact_lock(7346021903)")
             cursor.execute("""
-                SELECT m.id::text, m.external_code, c.client_type::text,
-                       m.subregion_id::text AS segment_id, r.id::text AS region_id, r.code AS region
-                FROM meters m JOIN network_assets a ON a.id = m.asset_id
-                JOIN regions r ON r.id = a.region_id
-                LEFT JOIN clients c ON c.id = m.client_id
-                ORDER BY r.code, m.external_code
-            """)
-            catalog = cursor.fetchall()
-            if not catalog:
-                raise ValueError("No existing catalog meters")
-            summary["meters"] = len(catalog)
-            cursor.execute("""
-                SELECT meter_id::text, interval_start, interval_end, received_at
-                FROM meter_readings
-                WHERE interval_start < %s AND interval_end > %s
-                ORDER BY meter_id, interval_start, interval_end
+                SELECT meter_id::text,interval_start,interval_end FROM history.meter_readings
+                WHERE interval_start<%s AND interval_end>%s ORDER BY meter_id,interval_start
             """, (finish, start))
-            occupied = defaultdict(list)
-            late = 0
-            for row in cursor:
-                occupied[row["meter_id"]].append((row["interval_start"], row["interval_end"]))
-                if row["interval_start"] < origin and row["received_at"] > origin + timedelta(minutes=10):
-                    late += 1
-            summary["warnings"] = [{
-                "code": "LATE_EXISTING_READINGS", "count": late,
-                "message": "Existing arrivals after the model cutoff are preserved; affected meters may use a baseline.",
-            }] if late else []
-            pending = []
-            with tempfile.TemporaryDirectory(prefix="filegrid-history-") as directory:
-                root = Path(directory)
-                (root / "generate.py").write_text(generator_source)
-                (root / "schema_sqlite.sql").write_text(schema_source)
-                spec = importlib.util.spec_from_file_location("history_v2", root / "generate.py")
-                generator = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(generator)
-                generator.generate(
-                    root / "data", seed=seed, start=start.date().isoformat(),
-                    end=finish.date().isoformat(),
-                )
-                with sqlite3.connect(root / "data/history.sqlite") as history:
-                    history.row_factory = sqlite3.Row
-                    profiles = [dict(row) for row in history.execute("""
-                        SELECT c.id, r.code AS region, c.client_type FROM contoare c
-                        JOIN segmente s ON s.id = c.segment_id
-                        JOIN regiuni r ON r.id = s.region_id ORDER BY c.external_code
-                    """)]
-                    summary["profiles"] = {}
-                    summary["syntheticProfileMeters"] = []
-                    for meter, profile in match_profiles(catalog, profiles):
-                        source = profile["id"]
-                        summary["profiles"][meter["external_code"]] = source
-                        if meter["client_type"] is None:
-                            summary["syntheticProfileMeters"].append({
-                                "meter": meter["external_code"],
-                                "reason": "MISSING_CLIENT_TYPE",
-                                "syntheticProfileType": profile["client_type"],
-                                "catalogClientTypeChanged": False,
-                            })
-                        intervals = occupied[meter["id"]]
-                        for row in history.execute("""
-                            SELECT * FROM stats_contor WHERE meter_id = ? ORDER BY interval_start
-                        """, (source,)):
-                            left = datetime.fromisoformat(row["interval_start"])
-                            right = datetime.fromisoformat(row["interval_end"])
-                            received = datetime.fromisoformat(row["received_at"])
-                            # Do not backdate availability or write unfinished/future readings.
-                            if right > completed_end or received > now:
-                                continue
-                            for gap_start, gap_end in uncovered(left, right, intervals):
-                                energy = row["energy_kwh"] * ((gap_end - gap_start) / (right - left))
-                                pending.append(reading(
-                                    meter, gap_start, gap_end, energy, received,
-                                ))
-            summary["candidates"] = len(pending)
-            if not pending:
-                return finalize_history(connection, {
-                    **summary, "inserted": 0, "filesInserted": 0, "payloadsInserted": 0,
-                }, completed_end, now)
-            cursor.execute("""
-                CREATE TEMP TABLE seed_history_readings (
-                    id uuid, meter_id uuid, reading_key text, seq integer,
-                    interval_start timestamptz, interval_end timestamptz,
-                    energy_kwh numeric, received_at timestamptz, file_id uuid,
-                    region_id uuid, content bytea, sha256 text
-                ) ON COMMIT DROP
-            """)
-            with cursor.copy("COPY seed_history_readings FROM STDIN") as copy:
-                for row in pending:
-                    copy.write_row(row)
-            # As with ingest, durable bytes precede READY catalog rows. On a catalog
-            # failure the normal orphan collector can reclaim unreferenced payloads.
-            with get_storage_engine().begin() as storage_connection:
-                storage = storage_connection.connection.driver_connection
-                with storage.cursor() as storage_cursor:
-                    storage_cursor.execute("""
-                        CREATE TEMP TABLE seed_history_contents (
-                            file_id uuid, content bytea
-                        ) ON COMMIT DROP
-                    """)
-                    with storage_cursor.copy("COPY seed_history_contents FROM STDIN") as copy:
-                        for row in pending:
-                            copy.write_row((row[8], row[10]))
-                    storage_cursor.execute("""
-                        INSERT INTO file_contents (file_id, content)
-                        SELECT file_id, content FROM seed_history_contents
-                        ON CONFLICT DO NOTHING
-                    """)
-                    summary["payloadsInserted"] = storage_cursor.rowcount
-            cursor.execute("""
-                INSERT INTO files (
-                    id, region_id, category, original_name, media_type, size_bytes,
-                    sha256, storage_backend, storage_locator, fallback_used, encrypted,
-                    status, created_at, ready_at
-                )
-                SELECT file_id, region_id, 'METER_READING',
-                       'synthetic-history-v2-' || file_id::text || '.json',
-                       'application/json', octet_length(content), sha256, 'db',
-                       file_id::text, false, false, 'READY', received_at, received_at
-                FROM seed_history_readings ON CONFLICT DO NOTHING
-            """)
-            summary["filesInserted"] = cursor.rowcount
-            cursor.execute("""
-                INSERT INTO meter_readings (
-                    id, meter_id, reading_key, seq, interval_start, interval_end,
-                    energy_kwh, received_at, file_id
-                )
-                SELECT id, meter_id, reading_key, seq, interval_start, interval_end,
-                       energy_kwh, received_at, file_id
-                FROM seed_history_readings ON CONFLICT DO NOTHING
-            """)
-            summary["inserted"] = cursor.rowcount
-            finalize_history(connection, summary, completed_end, now)
+            for meter_id, left, right in cursor:
+                occupied[meter_id].append((left, right))
+            for intervals in occupied.values():
+                intervals.sort()
+            if all(not list(uncovered(start, completed_end, occupied[meter["id"]])) for meter in meters):
+                return summary
+            root = Path(directory)
+            (root / "generate.py").write_text(generator_source)
+            (root / "schema_sqlite.sql").write_text(schema_source)
+            spec = importlib.util.spec_from_file_location("history_v2", root / "generate.py")
+            generator = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(generator)
+            generator.generate(root / "data", seed=seed, start=start.date().isoformat(), end=finish.date().isoformat())
+            with sqlite3.connect(root / "data/history.sqlite") as source:
+                source.row_factory = sqlite3.Row
+                profiles = [dict(row) for row in source.execute("""
+                    SELECT c.id,r.code AS region,c.client_type FROM contoare c
+                    JOIN segmente s ON s.id=c.segment_id
+                    JOIN regiuni r ON r.id=s.region_id ORDER BY c.external_code
+                """)]
+                for meter, profile in match_profiles(meters, profiles):
+                    cursor.execute("""
+                        INSERT INTO history.meters VALUES (%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING
+                    """, tuple(meter[k] for k in (
+                        "id", "external_code", "client_type", "segment_id", "asset_id", "region_id", "region",
+                    )))
+                    pending = []
+                    for interval in source.execute(
+                        "SELECT * FROM stats_contor WHERE meter_id=? ORDER BY interval_start", (profile["id"],),
+                    ):
+                        left, right, received = (
+                            datetime.fromisoformat(interval[k])
+                            for k in ("interval_start", "interval_end", "received_at")
+                        )
+                        if right > completed_end or received > now:
+                            continue
+                        for gap_start, gap_end in uncovered(left, right, occupied[meter["id"]]):
+                            pending.append(reading(
+                                meter, gap_start, gap_end,
+                                interval["energy_kwh"]*((gap_end-gap_start)/(right-left)), received,
+                            ))
+                    if not pending:
+                        continue
+                    cursor.executemany("""
+                        INSERT INTO history.files(id,metadata) VALUES (%s,%s) ON CONFLICT DO NOTHING
+                    """, [(row[8], Jsonb({
+                        "id": row[8], "region_id": row[9], "category": "METER_READING",
+                        "original_name": f"synthetic-history-v2-{row[8]}.json",
+                        "size_bytes": len(row[10]), "sha256": row[11],
+                        "storage_backend": "history-db", "synthetic": True,
+                    })) for row in pending])
+                    cursor.executemany("""
+                        INSERT INTO history.file_contents(file_id,content) VALUES (%s,%s) ON CONFLICT DO NOTHING
+                    """, [(row[8], row[10]) for row in pending])
+                    cursor.executemany("""
+                        INSERT INTO history.meter_readings
+                        (id,meter_id,reading_key,seq,interval_start,interval_end,energy_kwh,received_at,file_id)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING
+                    """, [row[:9] for row in pending])
+                    summary["inserted"] += cursor.rowcount
+    finally:
+        engine.dispose()
     return summary
 
 
 def main():
+    from history_common import ROOT, in_container, print_summary
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--days", type=int, default=730, help="Complete UTC days (minimum 28)")
+    parser.add_argument("--days", type=int, default=730)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--inside", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
     if args.days < 28:
         parser.error("--days must be at least 28")
-    root = Path(__file__).resolve().parents[1]
-    generator = root / "model-ML/filegrid-history-v2"
-    payload = {
-        "script": Path(__file__).read_text(),
-        "generator_source": (generator / "generate.py").read_text(),
-        "schema_source": (generator / "schema_sqlite.sql").read_text(),
-        "days": args.days, "seed": args.seed,
-    }
-    worker = """
-import json, sys
-data = json.load(sys.stdin)
-scope = {"__name__": "seed_history"}
-exec(compile(data.pop("script"), "scripts/seed_history.py", "exec"), scope)
-print(json.dumps(scope["seed_history"](**data), indent=2))
-"""
-    result = subprocess.run(
-        ["docker", "compose", "exec", "-T", "api-files", "python", "-c", worker],
-        cwd=root, input=json.dumps(payload), text=True, check=False,
-    )
-    sys.exit(result.returncode)
+    if args.inside:
+        generator = ROOT / "model-ML/filegrid-history-v2"
+        print_summary(seed_history(
+            (generator / "generate.py").read_text(), (generator / "schema_sqlite.sql").read_text(),
+            args.days, args.seed,
+        ))
+    else:
+        in_container("seed_history.py", ["--days", str(args.days), "--seed", str(args.seed)])
 
 
 if __name__ == "__main__":

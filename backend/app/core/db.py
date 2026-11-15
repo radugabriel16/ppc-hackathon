@@ -16,6 +16,15 @@ def get_catalog_engine():
 
 
 @lru_cache
+def get_history_engine() -> Engine:
+    return sqlalchemy.create_engine(
+        get_settings().history_db_url(), pool_pre_ping=True,
+        pool_size=4, max_overflow=0, pool_timeout=2,
+        connect_args={"connect_timeout": 2, "options": "-c statement_timeout=10000"},
+    )
+
+
+@lru_cache
 def get_storage_engine() -> Engine:
     settings = get_settings()
     timeout = max(1, int(settings.storage_io_timeout_seconds))

@@ -64,7 +64,7 @@ def scoped_segments(db, body):
     return db.scalars(statement).all()
 
 
-def exceedance_issue(db, segment, point, threshold, actor_id, now):
+def exceedance_issue(db, segment, point, threshold, actor_id, now, issue_id=None):
     target = date.fromisoformat(point["date"])
     predicted = point["predictedEnergyKwh"]
     excess = round(predicted - threshold, 6)
@@ -84,7 +84,7 @@ def exceedance_issue(db, segment, point, threshold, actor_id, now):
     if asset_id is None:
         raise HTTPException(503, "Forecast segment has no registered network asset")
     issue_id = db.scalar(insert(MapIssue).values(
-        id=uuid4(), type=IssueType.ML_FORECAST, title=title, description=description,
+        id=issue_id or uuid4(), type=IssueType.ML_FORECAST, title=title, description=description,
         region_id=segment.region_id, subregion_id=segment.id, asset_id=asset_id,
         location=location, forecast_date=target, severity=IssueSeverity.HIGH,
         status=IssueStatus.OPEN, version=1, created_by=actor_id, created_at=now,

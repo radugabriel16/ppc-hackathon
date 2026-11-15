@@ -23,6 +23,7 @@ from app.jobs.maintenance import integrity_scrub, reconcile_files
 from app.jobs.meter_gaps import detect_meter_gaps
 from app.jobs.reminders import send_reminders
 from app.jobs.missing_documents import missing_document_issues
+from app.jobs.forecasts import daily_forecasts
 from app.jobs.scheduling import job_run
 from app.models.enums import FileStatus
 from app.models.files import File
@@ -155,6 +156,7 @@ def worker_jobs(manager: PolicyManager, key: DocumentKey):
         ("meter_gaps", detect_meter_gaps, ()),
         ("reminders", send_reminders, ()),
         ("missing_document_issues", missing_document_issues, ()),
+        ("daily_forecasts", daily_forecasts, ()),
     )
 
 

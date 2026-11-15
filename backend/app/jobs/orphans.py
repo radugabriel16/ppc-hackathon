@@ -7,6 +7,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.core.db import get_catalog_engine
+from app.core.db import get_history_engine
 from app.core.settings import get_settings
 from app.jobs.scheduling import job_run
 from app.models.enums import FileCategory, FileStatus, StorageBackend
@@ -14,6 +15,8 @@ from app.models.files import File
 from app.models.maintenance import WorkerState
 from app.policies.service import PolicyManager
 from app.storage.base import StorageUnavailable
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from app.uploads.service import now
 
 logger = logging.getLogger("app.jobs.orphans")
@@ -58,13 +61,27 @@ async def delete_backend_orphans(
 
         def referenced():
             with Session(get_catalog_engine()) as db:
-                return set(db.scalars(select(File.id).where(
+                result = set(db.scalars(select(File.id).where(
                     File.id.in_(ids),
                     or_(
                         File.storage_backend == backend,
                         File.status == FileStatus.STAGING,
                     ),
                 )))
+            if backend != StorageBackend.db and ids:
+                try:
+                    with get_history_engine().connect() as history:
+                        result.update(history.scalars(text("""
+                            SELECT id FROM history.files WHERE id=ANY(:ids)
+                                AND metadata->>'storage_backend'=:backend
+                            UNION
+                            SELECT id FROM history.domain_metadata WHERE id=ANY(:ids)
+                                AND kind LIKE 'files_catalog:%'
+                                AND metadata->>'storage_backend'=:backend
+                        """), {"ids": ids, "backend": backend.value}))
+                except (SQLAlchemyError, OSError, ValueError) as exc:
+                    raise StorageUnavailable("Archived file inventory unavailable; cleanup deferred") from exc
+            return result
 
         retained = await anyio.to_thread.run_sync(referenced)
         deleted = 0

@@ -12,3 +12,4 @@ include = ["app*", "filegrid_forecast*"]
 
 [tool.setuptools.package-data]
 filegrid_forecast = ["checksums.json", "model/*.joblib"]
+"app.history" = ["migrations/*.sql"]

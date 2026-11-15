@@ -34,6 +34,25 @@ class Settings(BaseSettings):
     storage_db_name: str = Field(default="filegrid_storage", alias="STORAGE_DB_NAME")
     storage_db_user: str = Field(default="filegrid", alias="STORAGE_DB_USER")
 
+    history_db_host: str = Field(default="history-db", alias="HISTORY_DB_HOST")
+    history_db_port: int = Field(default=5432, alias="HISTORY_DB_PORT")
+    history_db_name: str = Field(default="filegrid_history", alias="HISTORY_DB_NAME")
+
+    def history_db_url(self, role: str = "reader"):
+        from sqlalchemy import URL
+
+        if role not in ("reader", "writer", "admin"):
+            raise ValueError("Unknown history database role")
+        return URL.create(
+            "postgresql+psycopg",
+            username="history_admin" if role == "admin" else f"filegrid_history_{role}",
+            password=self.storage_secret(
+                "history_db_password" if role == "admin" else f"history_db_{role}_password"
+            ),
+            host=self.history_db_host, port=self.history_db_port,
+            database=self.history_db_name,
+        )
+
     s3_endpoint_url: str = Field(default="http://seaweedfs:8333", alias="S3_ENDPOINT_URL")
     s3_region: str = Field(default="us-east-1", alias="S3_REGION")
     s3_bucket: str = Field(default="filegrid", alias="S3_BUCKET")

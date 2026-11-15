@@ -64,7 +64,9 @@ def list_issues(
     pagination: Pagination = Depends(), db: Session = Depends(get_catalog_db),
 ):
     validate_dates(from_time, to_time)
-    statement = select(MapIssue).join(NetworkAsset, NetworkAsset.id == MapIssue.asset_id)
+    statement = select(MapIssue, point_geojson(MapIssue.location)).join(
+        NetworkAsset, NetworkAsset.id == MapIssue.asset_id,
+    )
     if not include_historical:
         statement = statement.where(MapIssue.is_historical.is_(False))
     if region_id is not None:
@@ -82,19 +84,20 @@ def list_issues(
     if to_time:
         statement = statement.where(MapIssue.created_at < to_time)
     total = db.scalar(select(func.count()).select_from(statement.subquery()))
-    rows = db.scalars(statement.order_by(MapIssue.created_at.desc(), MapIssue.id)
+    rows = db.execute(statement.order_by(MapIssue.created_at.desc(), MapIssue.id)
                       .offset(pagination.page * pagination.size).limit(pagination.size))
     return {
-        "items": [resource(db, row) for row in rows], "page": pagination.page,
+        "items": [resource(db, row, location) for row, location in rows], "page": pagination.page,
         "size": pagination.size, "totalElements": total,
         "totalPages": (total + pagination.size - 1) // pagination.size,
     }
 
 
-def resource(db: Session, issue: MapIssue) -> IssueResource:
-    location = db.scalar(
-        select(point_geojson(MapIssue.location)).where(MapIssue.id == issue.id)
-    )
+def resource(db: Session, issue: MapIssue, location=None) -> IssueResource:
+    if location is None:
+        location = db.scalar(
+            select(point_geojson(MapIssue.location)).where(MapIssue.id == issue.id)
+        )
     return IssueResource(
         **{
             field: getattr(issue, field)
@@ -121,6 +124,10 @@ def create_issue(
     body: IssueCreate, user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_catalog_db),
 ):
+    return create_validated_issue(body, user, db)
+
+
+def create_validated_issue(body: IssueCreate, user: AppUser, db: Session, issue_id: UUID | None = None):
     asset = db.get(NetworkAsset, body.asset_id)
     if asset is None:
         raise HTTPException(422, detail="assetId does not identify a network asset")
@@ -167,6 +174,7 @@ def create_issue(
     }[issue_type]
     lon, lat = body.location.coordinates
     issue = MapIssue(
+        **({"id": issue_id} if issue_id is not None else {}),
         **body.model_dump(exclude={
             "location", "region_id", "segment_id", "subregion_id", "type",
             "file_id", "client_id", "description",

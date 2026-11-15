@@ -16,7 +16,7 @@ from app.models.issues import MapIssue
 logger = logging.getLogger(__name__)
 
 
-def sync_missing_documents(db):
+def sync_missing_documents(db, issue_id_for_case=None):
     now = datetime.now(timezone.utc)
     missing = db.execute(text(MISSING_CASES)).mappings().all()
     missing_ids = [row["case_id"] for row in missing]
@@ -32,7 +32,8 @@ def sync_missing_documents(db):
             doc["name"] for doc in row["missing_document_types"]
         ) + "."
         issue_id = db.scalar(insert(MapIssue).values(
-            id=uuid4(), type=IssueType.MISSING_DOCUMENTS, title=title,
+            id=issue_id_for_case(row["case_id"]) if issue_id_for_case else uuid4(),
+            type=IssueType.MISSING_DOCUMENTS, title=title,
             description=description, region_id=row["region_id"],
             subregion_id=row["segment_id"], asset_id=asset, location=row["location"],
             client_id=row["client_id"], case_id=row["case_id"],

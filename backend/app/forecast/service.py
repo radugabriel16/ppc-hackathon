@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from filegrid_forecast.core import History
 from filegrid_forecast.service import ForecastService
+from app.history.readings import check_history, complete_readings
 
 logger = logging.getLogger(__name__)
 TRAINING_CUTOFF = date(2026, 5, 14)
@@ -161,7 +162,7 @@ def predict(
             )
     if result["fallbackUsed"]:
         result["method"] = "hgb_smooth_with_baseline_recent_daily_mean"
-    result["dataSource"] = "CATALOG_METER_READINGS"
+    result["dataSource"] = "HISTORY_AND_CATALOG_METER_READINGS"
     result["generatedAt"] = datetime.now(timezone.utc).isoformat()
     return result
 
@@ -185,6 +186,7 @@ class ForecastRuntime:
                 "message": self.error or "Forecast model unavailable",
             }, headers={"Retry-After": "300"})
         key = (f"{'subregion' if subregion else 'asset'}:{segment}", origin)
+        check_history()
         # Sync FastAPI handlers run in its threadpool; serialize the shared estimator
         # and bound both cache memory and duplicate concurrent predictions.
         with self.lock:
@@ -192,6 +194,13 @@ class ForecastRuntime:
             if not subregion and cached and time.monotonic() - cached[0] < 300:
                 self.cache.move_to_end(key)
                 return cached[1]
+            if not subregion:
+                persisted = db.scalar(text("""
+                    SELECT result FROM forecast_snapshots WHERE asset_id=:asset AND origin=:origin
+                """), {"asset": segment, "origin": origin})
+                if persisted is not None:
+                    self.cache[key] = (time.monotonic(), persisted)
+                    return persisted
             metadata_sql = METERS if not subregion else """
                 SELECT m.id::text, m.external_code, c.client_type::text,
                        s.id::text AS segment_id, s.code AS segment, r.code AS region
@@ -211,16 +220,14 @@ class ForecastRuntime:
                 })
             end = pd.Timestamp(origin, tz="UTC")
             start = end - pd.Timedelta(days=730)
-            readings_sql = READINGS.replace("m.asset_id = :segment", "m.subregion_id = :segment") if subregion else READINGS
             cutoff = min(
                 (end + pd.Timedelta(minutes=10)).to_pydatetime(),
                 datetime.now(timezone.utc),
             )
-            readings = pd.DataFrame(db.execute(text(readings_sql), {
-                "segment": segment, "start": start.to_pydatetime(),
-                "end": end.to_pydatetime(),
-                "cutoff": cutoff,
-            }).mappings().all(), columns=[
+            readings = pd.DataFrame(complete_readings(
+                db, segment, start.to_pydatetime(), end.to_pydatetime(),
+                cutoff, subregion=subregion,
+            ), columns=[
                 "meter_id", "interval_start", "interval_end", "energy_kwh", "received_at",
             ])
             history = History.from_frames(meters, readings, start, end)

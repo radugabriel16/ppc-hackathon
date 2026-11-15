@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.auth.seed import seed_users
 from app.core.db import get_catalog_engine, get_storage_engine
 from app.models import Region
+from app.history.migrate import migrate_history
 from fixtures.seed import seed
 from fixtures.geography import seed_geography
 from fixtures.meters import seed_meters
@@ -26,6 +27,7 @@ def main() -> None:
         lock.execute(text("SELECT pg_advisory_lock(:id)"), {"id": BOOTSTRAP_LOCK_ID})
         try:
             command.upgrade(config, "head")
+            migrate_history()
             with get_storage_engine().begin() as storage:
                 storage.exec_driver_sql(
                     (backend_dir.parent / "infra/storage-db/init.sql").read_text()

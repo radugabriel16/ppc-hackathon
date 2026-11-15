@@ -54,10 +54,13 @@ def list_files(
     subregion_id: Annotated[UUID | None, Query(alias="subregionId")] = None,
     category: FileCategory | None = None,
     status: FileStatus | None = None,
+    include_meter_readings: Annotated[bool, Query(alias="includeMeterReadings")] = False,
     pagination: Pagination = Depends(),
     db: Session = Depends(get_catalog_db),
 ):
     statement = select(File)
+    if category is None and not include_meter_readings:
+        statement = statement.where(File.category != FileCategory.METER_READING)
     if region_id is not None:
         statement = statement.where(region_filter(File, region_id))
     for column, value in ((File.subregion_id, subregion_id), (File.category, category), (File.status, status)):

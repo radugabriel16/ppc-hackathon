@@ -7,6 +7,8 @@ from sqlalchemy.dialects.postgresql import insert
 
 from app.forecast.service import READINGS
 from app.models.forecast import SegmentThreshold
+from app.history.readings import complete_readings
+import numpy as np
 
 THRESHOLD_MULTIPLIER = 1.03
 DAILY_HISTORY = f"""
@@ -28,9 +30,15 @@ def calibrate_threshold(db, segment_id, as_of: datetime):
         return existing
     end = as_of.astimezone(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     start = end - timedelta(days=28)
-    p95, days = db.execute(text(DAILY_HISTORY), {
-        "segment": segment_id, "start": start, "end": end, "cutoff": as_of,
-    }).one()
+    slots = complete_readings(db, segment_id, start, end, as_of, subregion=True)
+    expected = db.scalar(text("SELECT count(*) FROM meters WHERE subregion_id=:id"),
+                         {"id": segment_id})
+    daily = {}
+    for slot in slots:
+        daily.setdefault(slot["interval_start"].date(), []).append(slot["energy_kwh"])
+    totals = [sum(values) for values in daily.values() if len(values) == 4 * expected]
+    days = len(totals)
+    p95 = float(np.percentile(totals, 95)) if totals else None
     if days < 14 or p95 is None or p95 <= 0:
         raise HTTPException(503, f"Threshold calibration needs 14 complete segment days: {segment_id}")
     values = {

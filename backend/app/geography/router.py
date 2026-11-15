@@ -16,6 +16,7 @@ from app.models.geography import NetworkAsset, Region, Subregion
 from app.models.issues import MapIssue
 from app.models.metering import Meter
 from app.models.outages import Outage
+from app.geography.query import bounding_box, feature_page, validate_scope
 
 router = APIRouter(
     prefix="/api/v1", tags=["geography"], dependencies=[Depends(get_current_user)]
@@ -92,8 +93,13 @@ def map_features(
     subregion_id: Annotated[UUID | None, Query(alias="subregionId")] = None,
     segment_id: Annotated[UUID | None, Query(alias="segmentId")] = None,
     include_historical: bool = Depends(historical_access),
+    bbox=Depends(bounding_box),
+    scope: Literal["country", "region", "segment"] | None = None,
+    page: int = Query(default=0, ge=0),
+    size: int = Query(default=1000, ge=1, le=2000),
     db: Session = Depends(get_catalog_db),
 ):
+    validate_scope(scope, region_id, segment_id or subregion_id)
     if layer in ("REGIONS", "SUBREGIONS"):
         model = Region if layer == "REGIONS" else Subregion
         statement = select(
@@ -108,17 +114,22 @@ def map_features(
                                             .where(Subregion.id == subregion_id).scalar_subquery())
             else:
                 statement = statement.where(Subregion.id == subregion_id)
-        return {
-            "type": "FeatureCollection",
-            "features": [
+        if segment_id is not None:
+            column = Subregion.id if model is Subregion else Region.id
+            value = segment_id if model is Subregion else select(Subregion.region_id).where(
+                Subregion.id == segment_id,
+            ).scalar_subquery()
+            statement = statement.where(column == value)
+        if bbox is not None:
+            statement = statement.where(func.ST_Intersects(model.geometry, bbox))
+        return feature_page([
                 {"type": "Feature", "id": str(area.id), "geometry": json.loads(geometry),
                  "properties": {
                      "id": str(area.id), "code": area.code, "name": area.name,
                      "parentId": str(area.region_id) if model is Subregion else None,
                  }}
-                for area, geometry in db.execute(statement)
-            ],
-        }
+                for area, geometry in db.execute(statement.offset(page*size).limit(size+1))
+            ], page, size)
     if layer == "ASSETS":
         properties = func.json_build_object(
             "id", NetworkAsset.id, "kind", "ASSET", "assetType", NetworkAsset.type,
@@ -163,12 +174,12 @@ def map_features(
     if segment_id is not None:
         column = MapIssue.subregion_id if layer == "ISSUES" else NetworkAsset.subregion_id
         statement = statement.where(column == segment_id)
-    return {
-        "type": "FeatureCollection",
-        "features": [
+    if bbox is not None:
+        geometry_column = MapIssue.location if layer == "ISSUES" else NetworkAsset.geometry
+        statement = statement.where(func.ST_Intersects(geometry_column, bbox))
+    return feature_page([
             {"type": "Feature",
              "geometry": geometry if isinstance(geometry, dict) else json.loads(geometry),
              "properties": properties}
-            for geometry, properties in db.execute(statement)
-        ],
-    }
+            for geometry, properties in db.execute(statement.offset(page*size).limit(size+1))
+        ], page, size)

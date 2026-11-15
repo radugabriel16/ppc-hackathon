@@ -23,6 +23,9 @@ COPY config /app/config
 COPY fixtures /app/fixtures
 COPY infra/init/create_bucket.py /app/infra/init/create_bucket.py
 COPY infra/storage-db/init.sql /app/infra/storage-db/init.sql
+COPY scripts /app/scripts
+COPY model-ML/filegrid-history-v2/generate.py /app/model-ML/filegrid-history-v2/generate.py
+COPY model-ML/filegrid-history-v2/schema_sqlite.sql /app/model-ML/filegrid-history-v2/schema_sqlite.sql
 WORKDIR /app/backend
 USER 10001:10001
 

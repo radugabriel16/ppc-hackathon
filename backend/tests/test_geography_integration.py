@@ -152,7 +152,9 @@ def test_spatial_boundary_assignment_links_and_filters(geography, monkeypatch):
         ("assets", "items", selected[0]), ("meters", "items", selected[1]),
         ("files", "items", selected[2]), ("map-issues", "items", selected[3]),
     ):
-        response = client.get(f"/api/v1/{path}", params=params)
+        response = client.get(f"/api/v1/{path}", params={
+            **params, **({"includeMeterReadings": True} if path == "files" else {}),
+        })
         assert response.status_code == 200, response.text
         ids = {x["id"] for x in response.json()[key]}
         assert str(row.id) in ids

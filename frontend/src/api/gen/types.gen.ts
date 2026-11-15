@@ -74,7 +74,7 @@ export type ForecastMetadata = {
   schemaVersion: "1";
   predictionKind: "DAILY_ENERGY_FORECAST";
   units: "kWh/day";
-  dataSource: "CATALOG_METER_READINGS";
+  dataSource: "CATALOG_METER_READINGS" | "HISTORY_AND_CATALOG_METER_READINGS";
   origin: string;
   asOf: string;
   lastCompletedDay: string;
@@ -290,6 +290,12 @@ export type GeoJsonFeature = {
 export type GeoJsonFeatureCollection = {
   type?: "FeatureCollection";
   features?: Array<GeoJsonFeature>;
+  page?: number;
+  size?: number;
+  /**
+   * Map feature queries are bounded; request page+1 if true.
+   */
+  hasMore?: boolean;
 };
 
 export type PageMeta = {
@@ -712,6 +718,18 @@ export type Alert = {
 export type IncludeHistorical = boolean;
 
 /**
+ * WGS84 west,south,east,north; finite coordinates, west<east, south<north. Intersects the viewport before paging; invalid bounds return 422.
+ *
+ */
+export type Bbox = string;
+
+/**
+ * Optional scope validation. country accepts no region/segment ID; region requires only regionId; segment requires segmentId or subregionId. Legacy region/subregion/segment filters remain supported without scope.
+ *
+ */
+export type MapScope = "country" | "region" | "segment";
+
+/**
  * Geographic segment UUID; identical to subregionId.
  */
 export type SegmentIdQuery = string;
@@ -966,6 +984,21 @@ export type GetMapFeaturesData = {
   path?: never;
   query: {
     /**
+     * WGS84 west,south,east,north; finite coordinates, west<east, south<north. Intersects the viewport before paging; invalid bounds return 422.
+     *
+     */
+    bbox?: string;
+    /**
+     * Optional scope validation. country accepts no region/segment ID; region requires only regionId; segment requires segmentId or subregionId. Legacy region/subregion/segment filters remain supported without scope.
+     *
+     */
+    scope?: "country" | "region" | "segment";
+    page?: number;
+    /**
+     * Bounded map page; hasMore indicates a following page.
+     */
+    size?: number;
+    /**
      * Include retained historical issues; true requires MANAGER.
      */
     includeHistorical?: boolean;
@@ -1158,6 +1191,11 @@ export type GetFilesData = {
   body?: never;
   path?: never;
   query?: {
+    /**
+     * Include raw meter payload files in an unfiltered listing. Defaults to false so the UI file browser lists operational documents, outage records and videos. Explicit category=METER_READING always includes them.
+     *
+     */
+    includeMeterReadings?: boolean;
     /**
      * Restrict results to this subregion; combined with regionId when both are supplied.
      */

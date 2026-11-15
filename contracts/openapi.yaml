@@ -187,6 +187,13 @@ paths:
       tags: [geography]
       summary: GeoJSON features for the map UI. Never exposes client name/email.
       parameters:
+        - $ref: "#/components/parameters/Bbox"
+        - $ref: "#/components/parameters/MapScope"
+        - $ref: "#/components/parameters/Page"
+        - name: size
+          in: query
+          description: Bounded map page; hasMore indicates a following page.
+          schema: {type: integer, minimum: 1, maximum: 2000, default: 1000}
         - $ref: "#/components/parameters/IncludeHistorical"
         - $ref: "#/components/parameters/SegmentIdQuery"
         - $ref: "#/components/parameters/SubregionIdQuery"
@@ -353,8 +360,15 @@ paths:
     get:
       operationId: getFiles
       tags: [files]
-      summary: List files with filters.
+      summary: List operational files with filters.
       parameters:
+        - name: includeMeterReadings
+          in: query
+          description: >
+            Include raw meter payload files in an unfiltered listing. Defaults to
+            false so the UI file browser lists operational documents, outage
+            records and videos. Explicit category=METER_READING always includes them.
+          schema: {type: boolean, default: false}
         - $ref: "#/components/parameters/SubregionIdQuery"
         - $ref: "#/components/parameters/RegionIdQuery"
         - name: category
@@ -1414,6 +1428,21 @@ components:
       in: query
       description: Include retained historical issues; true requires MANAGER.
       schema: {type: boolean, default: false}
+    Bbox:
+      name: bbox
+      in: query
+      description: >
+        WGS84 west,south,east,north; finite coordinates, west<east, south<north.
+        Intersects the viewport before paging; invalid bounds return 422.
+      schema: {type: string, example: "24.5,43.65,27.5,45.55"}
+    MapScope:
+      name: scope
+      in: query
+      description: >
+        Optional scope validation. country accepts no region/segment ID;
+        region requires only regionId; segment requires segmentId or subregionId.
+        Legacy region/subregion/segment filters remain supported without scope.
+      schema: {type: string, enum: [country, region, segment]}
     SegmentIdQuery:
       name: segmentId
       in: query
@@ -1627,7 +1656,7 @@ components:
         schemaVersion: {type: string, enum: ["1"]}
         predictionKind: {type: string, enum: [DAILY_ENERGY_FORECAST]}
         units: {type: string, enum: ["kWh/day"]}
-        dataSource: {type: string, enum: [CATALOG_METER_READINGS]}
+        dataSource: {type: string, enum: [CATALOG_METER_READINGS, HISTORY_AND_CATALOG_METER_READINGS]}
         origin: {type: string, format: date-time}
         asOf: {type: string, format: date-time}
         lastCompletedDay: {type: string, format: date}
@@ -1996,6 +2025,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/GeoJsonFeature"
+        page: {type: integer, minimum: 0}
+        size: {type: integer, minimum: 1}
+        hasMore:
+          type: boolean
+          description: Map feature queries are bounded; request page+1 if true.
 
     # --------------------------------------------------------- pagination ---
     PageMeta:
