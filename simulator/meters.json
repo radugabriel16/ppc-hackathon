@@ -1,0 +1,578 @@
+[
+  {
+    "externalCode": "MTR-0001",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "MTR-0002",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "MTR-0003",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "MTR-0004",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "MTR-0005",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "MTR-0006",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "MTR-0007",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "MTR-0008",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "MTR-0009",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "MTR-0010",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "MTR-0011",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "MTR-0012",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-1-001",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-1-002",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-1-003",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-1-004",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-1-005",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-1-006",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-1-007",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-1-008",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-2-001",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-2-002",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-2-003",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-2-004",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-2-005",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-2-006",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-2-007",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-2-008",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-3-006",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-3-007",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-3-008",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-4-001",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-4-002",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-4-003",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-4-004",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-4-005",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-4-006",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-4-007",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-4-008",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-5-001",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-5-002",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-5-003",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-5-004",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-5-005",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-5-006",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-5-007",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-5-008",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-6-001",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-6-002",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-6-003",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-6-004",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-6-005",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-6-006",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-6-007",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-BANAT-6-008",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-1-001",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-1-002",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-1-003",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-1-004",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-1-005",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-1-006",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-1-007",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-1-008",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-2-001",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-2-002",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-2-003",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-2-004",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-2-005",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-2-006",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-2-007",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-2-008",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-3-001",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-3-002",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-3-003",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-3-004",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-3-005",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-3-006",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-3-007",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-3-008",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-4-003",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-4-004",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-4-005",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-4-006",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-4-007",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-4-008",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-5-001",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-5-002",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-5-003",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-5-004",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-5-005",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-5-006",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-5-007",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-5-008",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-6-001",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-6-002",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-6-003",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-6-004",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-6-005",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-6-006",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-6-007",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-DOBROGEA-6-008",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-1-001",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-1-002",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-1-003",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-1-004",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-1-005",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-1-006",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-1-007",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-1-008",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-2-001",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-2-002",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-2-003",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-2-004",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-2-005",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-2-006",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-2-007",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-2-008",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-3-001",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-3-002",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-3-003",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-3-004",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-3-005",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-3-006",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-3-007",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-3-008",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-4-001",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-4-002",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-4-003",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-4-004",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-4-005",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-4-006",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-4-007",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-4-008",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-5-006",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-5-007",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-5-008",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-6-001",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-6-002",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-6-003",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-6-004",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-6-005",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-6-006",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-6-007",
+    "clientType": "RESIDENTIAL"
+  },
+  {
+    "externalCode": "RO-MUNTENIA-6-008",
+    "clientType": "RESIDENTIAL"
+  }
+]

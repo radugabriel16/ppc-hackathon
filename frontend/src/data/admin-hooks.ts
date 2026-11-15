@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSource } from "./context";
 import { useSession } from "./hooks";
 import type { SimulatorBackfill, SimulatorStart } from "./models";
+import { usePageVisible } from "./meter-readings-hooks";
 
 export const ADMIN_REFRESH_MS = 10000;
 export function usePolicies() {
@@ -25,17 +26,23 @@ export function useReloadPolicies() {
 export function useSimulatorStatus() {
   const source = useSource();
   const { data: session } = useSession();
+  const visible = usePageVisible();
   return useQuery({
     queryKey: ["admin", "simulator"],
     queryFn: () => source.getSimulatorStatus(),
-    enabled: session?.user.role === "MANAGER",
-    refetchInterval: ADMIN_REFRESH_MS,
+    enabled: session?.user.role === "MANAGER" && visible,
+    refetchInterval: visible ? 2000 : false,
   });
 }
 export function useSimulatorControls() {
   const source = useSource();
   const cache = useQueryClient();
-  const onSuccess = () => cache.invalidateQueries({ queryKey: ["admin"] });
+  const onSuccess = async () => {
+    await Promise.all([
+      cache.invalidateQueries({ queryKey: ["admin"] }),
+      cache.invalidateQueries({ queryKey: ["meter-readings"] }),
+    ]);
+  };
   const start = useMutation({
     mutationFn: (input: SimulatorStart) => source.startSimulator(input),
     onSuccess,

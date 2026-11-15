@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import {
   Box,
   Button,
@@ -60,6 +61,7 @@ function storedView(): { view: "list" | "grid"; error: string } {
 }
 function CasesContent({ documents }: { documents: boolean }) {
   const { selectedRegion, subregionId } = useRegion();
+  const [params] = useSearchParams();
   const [preference, setPreference] = useState(() =>
     documents ? { view: "list" as const, error: "" } : storedView(),
   );
@@ -73,6 +75,8 @@ function CasesContent({ documents }: { documents: boolean }) {
   const [status, setStatus] = useState<CaseRecord["status"] | "">("");
   const [page, setPage] = useState(0);
   const query = useCases({
+    clientId: params.get("clientId") || undefined,
+    caseId: params.get("caseId") || undefined,
     priorityCaseId,
     region: selectedRegion ?? undefined,
     segmentId: subregionId,

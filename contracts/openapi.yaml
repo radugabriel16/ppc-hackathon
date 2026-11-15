@@ -722,6 +722,7 @@ paths:
       operationId: getMeterReadings
       tags: [metering]
       summary: Query stored meter readings.
+      description: Individual catalog-db rows only, never history-db or aggregates. Default interval_desc preserves interval-end ordering. received_desc orders by server receivedAt descending, then id descending. Zero-based pagination, size capped at 100. Meter and segment labels are included; source and ingest outcomes are not stored.
       parameters:
         - name: meterId
           in: query
@@ -738,6 +739,12 @@ paths:
           schema:
             type: string
             format: date-time
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [interval_desc, received_desc]
+            default: interval_desc
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/Size"
       responses:
@@ -749,6 +756,8 @@ paths:
                 $ref: "#/components/schemas/MeterReadingPage"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
 
   # ------------------------------------------------------------ map-issues ---
   /map-issues:
@@ -2757,6 +2766,22 @@ components:
     MeterReading:
       type: object
       properties:
+        meterCode:
+          type: string
+          description: Meter external code, included in list responses.
+        segmentId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Meter segment, included in list responses.
+        segmentCode:
+          type: string
+          nullable: true
+          description: Segment code, included in list responses.
+        segmentName:
+          type: string
+          nullable: true
+          description: Segment name, included in list responses.
         id:
           type: string
           format: uuid

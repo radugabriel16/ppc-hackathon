@@ -2,7 +2,7 @@ import React, { lazy, Suspense } from "react";
 import ReactDOM from "react-dom/client";
 import { CssBaseline, ThemeProvider } from "@mui/material";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { theme } from "./theme";
 import { SourceContext } from "./data/context";
 import { prepareSource } from "./data/bootstrap";
@@ -38,6 +38,10 @@ const queryClient = new QueryClient({
     mutations: { retry: false },
   },
 });
+function CasesRedirect() {
+  const location = useLocation();
+  return <Navigate to={{ pathname: "/documents", search: location.search }} replace />;
+}
 const root = ReactDOM.createRoot(document.getElementById("root")!);
 prepareSource(import.meta.env)
   .then((source) => {
@@ -63,7 +67,7 @@ prepareSource(import.meta.env)
                             }
                           />
                           <Route path="/files" element={<FilesPage />} />
-                          <Route path="/cases" element={<CasesPage />} />
+                          <Route path="/cases" element={<CasesRedirect />} />
                           <Route
                             path="/documents"
                             element={<CasesPage documents />}

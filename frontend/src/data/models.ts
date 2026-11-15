@@ -159,6 +159,8 @@ export interface CaseRecord {
   documents: { name: string; received: boolean }[];
 }
 export interface CaseFilter {
+  clientId?: string;
+  caseId?: string;
   priorityCaseId?: string;
   region?: Region;
   segmentId?: string;
@@ -207,6 +209,38 @@ export interface MeterConsumption {
   intervalMinutes: number;
   readings: MeterReading[];
 }
+export interface ReadingMeter {
+  id: string;
+  code: string;
+  segmentId: string | null;
+}
+export interface RawMeterReading {
+  id: string;
+  meterId: string;
+  meterCode: string;
+  segmentId: string | null;
+  segmentCode: string | null;
+  segmentName: string | null;
+  receivedAt: string;
+  intervalStart: string;
+  intervalEnd: string;
+  energyKwh: number;
+  seq: number;
+  readingKey: string;
+}
+export interface MeterReadingFilter {
+  meterId?: string;
+  order?: "interval_desc" | "received_desc";
+  from?: string;
+  to?: string;
+  page: number;
+  size: number;
+}
+export interface MeterReadingWindow {
+  readings: RawMeterReading[];
+  from: string | null;
+  to: string | null;
+}
 export interface OutageHotspot {
   id: string;
   assetName: string;
@@ -240,7 +274,8 @@ export interface SimulatorStart {
   readingsPerSecond: number;
 }
 export interface SimulatorBackfill {
-  anomaly: (typeof BACKFILL_ANOMALIES)[number];
+  profile?: (typeof SIMULATOR_PROFILES)[number];
+  anomaly?: (typeof BACKFILL_ANOMALIES)[number];
   from: string;
   to: string;
 }
@@ -248,6 +283,12 @@ export interface SimulatorState {
   running: boolean;
   profile: string | null;
   readingsPerSecond: number | null;
+  meterCount?: number;
+  meterSource?: string;
+  outboxSize?: number;
+  generationPaused?: boolean;
+  lastError?: string | null;
+  counters?: Record<string, unknown>;
 }
 export interface ScenarioRun {
   id: string;

@@ -25,6 +25,10 @@ import type {
   StorageBenchmark,
   StorageRecommendation,
   MeterConsumption,
+  MeterReadingFilter,
+  MeterReadingWindow,
+  RawMeterReading,
+  ReadingMeter,
   OutageHotspot,
   ForecastPoint,
 } from "./models";
@@ -94,6 +98,18 @@ export class LocalDemoSource implements DataSource {
   }
   async getMeterConsumption(): Promise<MeterConsumption[]> {
     return [];
+  }
+  async getReadingMeters(): Promise<ReadingMeter[]> {
+    this.requireSession();
+    return [];
+  }
+  async getMeterReadings(filter: MeterReadingFilter): Promise<Page<RawMeterReading>> {
+    this.requireSession();
+    return paged([], filter.page, filter.size);
+  }
+  async getMeterReadingWindow(): Promise<MeterReadingWindow> {
+    this.requireSession();
+    return { readings: [], from: null, to: null };
   }
   async getOutageHotspots(): Promise<OutageHotspot[]> {
     return [];
@@ -397,6 +413,8 @@ export class LocalDemoSource implements DataSource {
         .filter(
           (x) =>
             (!filter.region || x.region === filter.region) &&
+            (!filter.clientId || x.customerId === filter.clientId) &&
+            (!filter.caseId || x.id === filter.caseId) &&
             (!filter.missingOnly || x.documents.some((d) => !d.received)) &&
             (!filter.status || filter.status === x.status) &&
             `${x.title} ${x.id}`

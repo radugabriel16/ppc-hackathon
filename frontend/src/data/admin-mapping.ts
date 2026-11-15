@@ -31,6 +31,18 @@ export function simulatorState(dto: SimulatorStatus): SimulatorState {
     running: requireValue(dto.running, "simulator.running"),
     profile: dto.profile ?? null,
     readingsPerSecond: dto.readingsPerSecond ?? null,
+    ...("meterCount" in dto && typeof dto.meterCount === "number"
+      ? { meterCount: dto.meterCount } : {}),
+    ...("meterSource" in dto && typeof dto.meterSource === "string"
+      ? { meterSource: dto.meterSource } : {}),
+    ...("outboxSize" in dto && typeof dto.outboxSize === "number"
+      ? { outboxSize: dto.outboxSize } : {}),
+    ...("generationPaused" in dto && typeof dto.generationPaused === "boolean"
+      ? { generationPaused: dto.generationPaused } : {}),
+    ...("lastError" in dto && (typeof dto.lastError === "string" || dto.lastError === null)
+      ? { lastError: dto.lastError } : {}),
+    ...("counters" in dto && typeof dto.counters === "object" && dto.counters !== null
+      ? { counters: Object.fromEntries(Object.entries(dto.counters)) } : {}),
   };
 }
 export function scenarioRun(dto: RunDto): ScenarioRun {

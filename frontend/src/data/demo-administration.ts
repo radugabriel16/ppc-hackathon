@@ -66,16 +66,16 @@ export class DemoAdministration {
     const run: ScenarioRun = {
       id: crypto.randomUUID(),
       kind: "BACKFILL",
-      profile: input.anomaly,
+      profile: input.profile ?? "normal",
       startedAt: now,
       endedAt: now,
-      counters: { anomalies: 1 },
+      counters: { readings: 0 },
     };
     this.runs.unshift(run);
     this.alerts.unshift({
       id: crypto.randomUUID(),
       severity: "WARNING",
-      message: `Demo ${input.anomaly} anomaly in historical readings.`,
+      message: `Demo ${input.profile ?? "normal"} backfill of historical readings.`,
       occurredAt: now,
     });
     return run;

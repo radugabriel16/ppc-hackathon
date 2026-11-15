@@ -5,6 +5,7 @@ import type {
   Region as ApiRegion,
   FileResource,
   ConnectionCase,
+  MeterReading as ApiMeterReading,
 } from "../api/gen/types.gen";
 import { ApiConnection, contractError, requireValue } from "./api-client";
 import { ApiUploadTransport } from "./api-upload";
@@ -48,8 +49,28 @@ import type {
   IssueFilter,
   ForecastRunCreate,
   MeterMarker,
+  MeterReadingFilter,
+  MeterReadingWindow,
+  RawMeterReading,
 } from "./models";
 import type { DataSource } from "./source";
+
+function rawMeterReading(dto: ApiMeterReading): RawMeterReading {
+  return {
+    id: requireValue(dto.id, "reading.id"),
+    meterId: requireValue(dto.meterId, "reading.meterId"),
+    meterCode: requireValue(dto.meterCode, "reading.meterCode"),
+    segmentId: dto.segmentId ?? null,
+    segmentCode: dto.segmentCode ?? null,
+    segmentName: dto.segmentName ?? null,
+    receivedAt: requireValue(dto.receivedAt, "reading.receivedAt"),
+    intervalStart: requireValue(dto.intervalStart, "reading.intervalStart"),
+    intervalEnd: requireValue(dto.intervalEnd, "reading.intervalEnd"),
+    energyKwh: requireValue(dto.energyKwh, "reading.energyKwh"),
+    seq: requireValue(dto.seq, "reading.seq"),
+    readingKey: requireValue(dto.readingKey, "reading.readingKey"),
+  };
+}
 
 export class ApiSource implements DataSource {
   readonly uploads;
@@ -112,6 +133,65 @@ export class ApiSource implements DataSource {
       ),
       region,
     );
+  }
+  async getReadingMeters(region?: Region, segmentId?: string) {
+    const regionId = region ? await this.regionId(region) : undefined;
+    const meters = await this.all((page) =>
+      this.connection.read(
+        sdk.getMeters({
+          client: this.client,
+          query: { regionId, segmentId, page, size: 100 },
+        }),
+      ),
+    );
+    return meters.map((meter) => ({
+      id: requireValue(meter.id, "meter.id"),
+      code: requireValue(meter.externalCode, "meter.externalCode"),
+      segmentId: meter.segmentId ?? null,
+    }));
+  }
+  async getMeterReadings(filter: MeterReadingFilter): Promise<Page<RawMeterReading>> {
+    const data = await this.connection.read(
+      sdk.getMeterReadings({ client: this.client, query: filter }),
+    );
+    return {
+      items: requireValue(data.items, "readings.items").map(rawMeterReading),
+      page: requireValue(data.page, "readings.page"),
+      size: requireValue(data.size, "readings.size"),
+      totalElements: requireValue(data.totalElements, "readings.totalElements"),
+      totalPages: requireValue(data.totalPages, "readings.totalPages"),
+    };
+  }
+  async getMeterReadingWindow(meterId: string): Promise<MeterReadingWindow> {
+    const latest = (await this.getMeterReadings({
+      meterId, order: "interval_desc", page: 0, size: 1,
+    })).items[0];
+    if (!latest) return { readings: [], from: null, to: null };
+    const end = Date.parse(latest.intervalStart);
+    const start = end - 7 * 86400000;
+    const from = new Date(start).toISOString();
+    const readings = await this.all((page) =>
+      this.connection.read(
+        sdk.getMeterReadings({
+          client: this.client,
+          query: {
+            meterId, from, to: latest.intervalEnd,
+            order: "interval_desc", page, size: 100,
+          },
+        }),
+      ),
+    );
+    return {
+      from,
+      to: latest.intervalStart,
+      readings: readings.map(rawMeterReading).filter((reading) => {
+        const time = Date.parse(reading.intervalStart);
+        return time >= start && time <= end;
+      }).sort((a, b) =>
+        Date.parse(a.intervalStart) - Date.parse(b.intervalStart) ||
+        a.id.localeCompare(b.id),
+      ),
+    };
   }
   async getOutageHotspots(region: Region, subregionId?: string) {
     return outageHotspots(
@@ -199,8 +279,7 @@ export class ApiSource implements DataSource {
         sdk.createAdminSimulatorBackfill({
           client: this.client,
           headers: this.connection.mutationHeaders(),
-          // The contract has no anomalies field; anomaly names are backfill profiles.
-          body: { profile: input.anomaly, from: input.from, to: input.to },
+          body: { profile: input.profile ?? "normal", from: input.from, to: input.to },
         }),
       ),
     );
@@ -670,7 +749,11 @@ export class ApiSource implements DataSource {
       : undefined;
     const scopedRows = (
       await this.caseRows(filter.region, filter.segmentId)
-    ).filter((dto) => !missingCases || missingCases.has(dto.id));
+    ).filter((dto) =>
+      (!missingCases || missingCases.has(dto.id)) &&
+      (!filter.clientId || dto.clientId === filter.clientId) &&
+      (!filter.caseId || dto.id === filter.caseId),
+    );
     const records = await Promise.all(
       scopedRows.map(async (dto) => ({
         id: requireValue(dto.id, "case.id"),

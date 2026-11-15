@@ -33,6 +33,7 @@ from app.geography.router import router as geography_router
 from app.issues.router import router as issues_router
 from app.jobs.worker import run_worker_loop
 from app.metering.router import router as metering_router
+from app.metering.router import read_router as meter_readings_router
 from app.policies.router import router as policies_router
 from app.policies.service import PolicyManager
 from app.storage.registry import create_storages
@@ -42,10 +43,11 @@ from app.auth.router import router as auth_router
 
 logger = logging.getLogger("app.main")
 
-# "files" mounts every domain router except metering, which is ingest-only.
+# Meter ingestion stays on "ingest"; catalog reading queries also run on "files".
 FILES_ROLE_ROUTERS = (
     auth_router,
     geography_router,
+    meter_readings_router,
     documents_router,
     intake_router,
     files_router,

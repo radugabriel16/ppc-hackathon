@@ -19,13 +19,14 @@ import {
 import { ErrorNotice, Empty, Loading, PageHeading } from "../components/common";
 import { MapLinkButton } from "../components/Shell";
 import { StatisticsChart } from "../components/StatisticsChart";
+import { MeterReadingPanel } from "../components/MeterReadingPanel";
+import { useReadingMeters } from "../data/meter-readings-hooks";
 import { HotspotMap } from "../components/HotspotMap";
 import { ForecastPanel } from "../components/ForecastPanel";
 import {
   benchmarkOption,
   BENCHMARK_METRICS,
   forecastOption,
-  meterOption,
   type BenchmarkMetric,
 } from "../charts/options";
 import type { HotspotMode } from "../charts/hotspots";
@@ -33,7 +34,6 @@ import { useDataMode } from "../data/hooks";
 import {
   useStorageBenchmark,
   useStorageRecommendations,
-  useMeterConsumption,
   useOutageHotspots,
   useForecast,
 } from "../data/stats-hooks";
@@ -258,26 +258,20 @@ function Recommendations() {
 }
 
 function Meters({ region }: { region: Region }) {
-  const { selectedRegion } = useRegion();
-  const query = useMeterConsumption(region);
+  const { selectedRegion, subregionId } = useRegion();
+  const query = useReadingMeters(selectedRegion ? region : undefined, subregionId);
   const [selected, setSelected] = useState("");
   const meter =
     query.data?.find((meter) => meter.id === selected) ?? query.data?.[0];
-  const missing =
-    meter?.readings.filter((reading) => reading.kWh === null).length ?? 0;
-  const flagged =
-    meter?.readings.filter(
-      (reading) => reading.anomaly === "spike" || reading.anomaly === "zero",
-    ).length ?? 0;
   return (
     <Paper variant="outlined" sx={{ p: 3, minWidth: 0 }}>
       <Typography variant="h6" component="h2" mb={1}>
         Meter consumption
       </Typography>
       <Typography variant="body2" color="text.secondary" mb={2}>
-        Interval energy in{" "}
-        {selectedRegion ? REGION_INFO[region].name : "Romania"}. Diamonds mark
-        anomalies; shaded windows mark missing readings.
+        Individual ingested interval energy in{" "}
+        {selectedRegion ? REGION_INFO[region].name : "Romania"}.
+        Select Raw to see exact readings, or group them into UTC hourly/daily totals.
       </Typography>
       <StatContent query={query} empty={!query.data?.length}>
         {meter && (
@@ -298,56 +292,12 @@ function Meters({ region }: { region: Region }) {
               >
                 {query.data?.map((meter) => (
                   <option key={meter.id} value={meter.id}>
-                    {meter.label} · {meter.id}
+                    {meter.code} · {meter.id}
                   </option>
                 ))}
               </TextField>
-              <Typography variant="body2" color="text.secondary">
-                {meter.intervalMinutes}-minute intervals · {flagged} anomalies ·{" "}
-                {missing} missing readings
-              </Typography>
             </Stack>
-            {meter.readings.length ? (
-              <>
-                <StatisticsChart
-                  option={meterOption(meter)}
-                  label={`Consumption for ${meter.label}, including ${flagged} anomalies and ${missing} missing readings`}
-                  height={360}
-                />
-                <Box component="details" sx={{ mt: 2 }}>
-                  <summary>View meter readings</summary>
-                  <TableContainer>
-                    <Table size="small" aria-label="Meter readings">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Time</TableCell>
-                          <TableCell>kWh</TableCell>
-                          <TableCell>Observation</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {meter.readings.map((reading) => (
-                          <TableRow key={reading.timestamp}>
-                            <TableCell>{time(reading.timestamp)}</TableCell>
-                            <TableCell>
-                              {reading.kWh === null
-                                ? "Missing"
-                                : numeric(reading.kWh)}
-                            </TableCell>
-                            <TableCell>{reading.anomaly ?? "—"}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                </Box>
-              </>
-            ) : (
-              <Empty
-                title="No data yet"
-                detail="This meter has no readings in the reported time window."
-              />
-            )}
+            <MeterReadingPanel key={meter.id} meter={meter} region={region} />
           </>
         )}
       </StatContent>

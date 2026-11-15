@@ -503,6 +503,22 @@ export type MeterReadingIngestRequest = {
 };
 
 export type MeterReading = {
+  /**
+   * Meter external code, included in list responses.
+   */
+  meterCode?: string;
+  /**
+   * Meter segment, included in list responses.
+   */
+  segmentId?: string | null;
+  /**
+   * Segment code, included in list responses.
+   */
+  segmentCode?: string | null;
+  /**
+   * Segment name, included in list responses.
+   */
+  segmentName?: string | null;
   id?: string;
   meterId?: string;
   readingKey?: string;
@@ -1786,6 +1802,7 @@ export type GetMeterReadingsData = {
     meterId?: string;
     from?: string;
     to?: string;
+    order?: "interval_desc" | "received_desc";
     page?: number;
     size?: number;
   };
@@ -1797,6 +1814,10 @@ export type GetMeterReadingsErrors = {
    * Not authenticated.
    */
   401: _Error;
+  /**
+   * Request failed schema/business validation.
+   */
+  422: _Error;
 };
 
 export type GetMeterReadingsError =

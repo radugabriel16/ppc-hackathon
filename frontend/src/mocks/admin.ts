@@ -8,6 +8,7 @@ import type {
   ScenarioRun,
 } from "../api/gen/types.gen";
 import type { DemoStore } from "../upload/fake-transport";
+import type { SimulatorState } from "../data/models";
 
 // Supplemental mock records: the contract supplies schemas, but no admin examples.
 const initialPolicies: PoliciesConfig = {
@@ -51,7 +52,7 @@ const initialPolicies: PoliciesConfig = {
   },
 };
 interface AdminState {
-  status: SimulatorStatus;
+  status: SimulatorStatus & Partial<SimulatorState>;
   runs: ScenarioRun[];
   alerts: Alert[];
 }
@@ -112,7 +113,10 @@ export function createAdminHandlers({
     }),
     http.get(`${base}/admin/simulator/status`, async ({ request }) => {
       const denied = await guard(request, false, true);
-      return denied ?? HttpResponse.json((await state()).status);
+      return denied ?? HttpResponse.json({
+        meterCount: 12, meterSource: "api", outboxSize: 0,
+        generationPaused: false, lastError: null, ...(await state()).status,
+      });
     }),
     http.post(`${base}/admin/simulator/start`, async ({ request }) => {
       const denied = await guard(request, true, true);
@@ -174,14 +178,14 @@ export function createAdminHandlers({
       const body = (await request.json()) as SimulatorBackfillRequest;
       if (
         !body ||
-        !["spike", "zero", "gap"].includes(body.profile ?? "") ||
+        !["normal", "peak", "storm"].includes(body.profile ?? "") ||
         !Number.isFinite(Date.parse(body.from ?? "")) ||
         !Number.isFinite(Date.parse(body.to ?? "")) ||
         Date.parse(body.from!) >= Date.parse(body.to!)
       )
         return error(
           422,
-          "Choose spike, zero or gap and a valid time range (from before to).",
+          "Choose normal, peak or storm and a valid time range (from before to).",
           "VALIDATION",
         );
       return mutate(async (current) => {
@@ -192,13 +196,13 @@ export function createAdminHandlers({
           profile: body.profile,
           startedAt: now,
           endedAt: now,
-          counters: { anomalies: 1 },
+          counters: { readings: 0 },
         };
         current.runs.unshift(run);
         current.alerts.unshift({
           id: crypto.randomUUID(),
           severity: "WARNING",
-          message: `Mock ${body.profile} anomaly in backfill ${body.from} – ${body.to}.`,
+          message: `Mock ${body.profile} backfill ${body.from} – ${body.to}.`,
           occurredAt: now,
         });
         current.alerts = current.alerts.slice(0, 50);

@@ -29,7 +29,16 @@ export const issueTitle = (issue: Issue) =>
   `${ISSUE_TYPES[issue.type ?? "OUTAGE_REPORT"].label}: ${issue.description}`;
 
 export function issueMapUrl(issue: Issue) {
+  if (issue.type === "MISSING_DOCUMENTS") return issueDocumentsUrl(issue);
   const params = new URLSearchParams({ region: issue.region, issue: issue.id });
   if (issue.segmentId) params.set("segment", issue.segmentId);
   return `/map?${params}`;
+}
+
+export function issueDocumentsUrl(issue: Issue) {
+  const params = new URLSearchParams({ region: issue.region });
+  if (issue.segmentId) params.set("segment", issue.segmentId);
+  if (issue.clientId) params.set("clientId", issue.clientId);
+  if (issue.caseId) params.set("caseId", issue.caseId);
+  return `/documents?${params}`;
 }

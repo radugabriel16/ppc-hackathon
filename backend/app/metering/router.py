@@ -1,5 +1,5 @@
 import hashlib
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
@@ -12,12 +12,14 @@ from app.auth.dependencies import get_current_user, require_simulator_token
 from app.core.api import Pagination, paginate
 from app.core.db import get_catalog_db
 from app.core.metrics import METER_INGEST_TOTAL
-from app.metering.schemas import MeterReadingIngest, MeterReadingResource
+from app.metering.schemas import MeterReadingIngest, MeterReadingListResource, MeterReadingResource
 from app.metering.service import ingest_reading
 from app.models.enums import FileCategory
-from app.models.metering import MeterReading
+from app.models.geography import Subregion
+from app.models.metering import Meter, MeterReading
 
 router = APIRouter(prefix="/api/v1", tags=["metering"])
+read_router = APIRouter(prefix="/api/v1", tags=["metering"])
 
 
 @router.post(
@@ -60,23 +62,38 @@ async def ingest(
 
 
 @router.get("/meter-readings", dependencies=[Depends(get_current_user)])
+@read_router.get("/meter-readings", dependencies=[Depends(get_current_user)])
 def list_readings(
     meter_id: Annotated[UUID | None, Query(alias="meterId")] = None,
     from_time: Annotated[AwareDatetime | None, Query(alias="from")] = None,
     to_time: Annotated[AwareDatetime | None, Query(alias="to")] = None,
+    order: Literal["interval_desc", "received_desc"] = "interval_desc",
     pagination: Pagination = Depends(),
     db: Session = Depends(get_catalog_db),
 ):
     if from_time is not None and to_time is not None and to_time < from_time:
         raise HTTPException(422, "'to' must not be before 'from'")
-    statement = select(MeterReading)
+    statement = select(
+        *MeterReading.__table__.c,
+        Meter.external_code.label("meter_code"),
+        Meter.subregion_id.label("segment_id"),
+        Subregion.code.label("segment_code"),
+        Subregion.name.label("segment_name"),
+    ).join(Meter, Meter.id == MeterReading.meter_id).outerjoin(
+        Subregion, Subregion.id == Meter.subregion_id,
+    )
     if meter_id is not None:
         statement = statement.where(MeterReading.meter_id == meter_id)
     if from_time is not None:
         statement = statement.where(MeterReading.interval_end >= from_time)
     if to_time is not None:
         statement = statement.where(MeterReading.interval_end <= to_time)
+    ordering = (
+        (MeterReading.received_at.desc(), MeterReading.id.desc())
+        if order == "received_desc"
+        else (MeterReading.interval_end.desc(), MeterReading.id)
+    )
     return paginate(
-        db, statement.order_by(MeterReading.interval_end.desc(), MeterReading.id),
-        pagination, MeterReadingResource,
+        db, statement.order_by(*ordering), pagination, MeterReadingListResource,
+        mappings=True,
     )

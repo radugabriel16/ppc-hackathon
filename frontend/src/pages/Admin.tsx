@@ -7,6 +7,8 @@ import {
   LinearProgress,
   Paper,
   Stack,
+  Tab,
+  Tabs,
   Table,
   TableBody,
   TableCell,
@@ -18,6 +20,8 @@ import {
   Typography,
 } from "@mui/material";
 import { ManagerOnly } from "../components/Shell";
+import { MeterReadingsTable } from "../components/MeterReadingsTable";
+import { useMeterReadings, useReadingMeters } from "../data/meter-readings-hooks";
 import { Empty, ErrorNotice, Loading, PageHeading } from "../components/common";
 import {
   usePolicies,
@@ -28,11 +32,9 @@ import {
   useSimulatorStatus,
 } from "../data/admin-hooks";
 import {
-  BACKFILL_ANOMALIES,
   bytes,
   label,
   SIMULATOR_PROFILES,
-  type SimulatorBackfill,
   type SimulatorStart,
 } from "../data/models";
 
@@ -131,23 +133,69 @@ function Policies() {
   );
 }
 
+function LatestIngestedReadings() {
+  const [meterId, setMeterId] = useState("");
+  const meters = useReadingMeters();
+  const simulator = useSimulatorStatus();
+  const query = useMeterReadings(
+    { meterId: meterId || undefined, order: "received_desc", page: 0, size: 50 },
+    simulator.data?.running === true || (simulator.data?.outboxSize ?? 0) > 0,
+  );
+  return (
+    <Paper variant="outlined" sx={{ p: 3, minWidth: 0 }}>
+      <Typography variant="h6" component="h2" mb={1}>
+        Latest ingested readings
+      </Typography>
+      <Typography variant="body2" color="text.secondary" mb={2}>
+        Last 50 individual catalog readings, newest server receipt first.
+        Source and ingest result are not stored.
+      </Typography>
+      <TextField
+        select
+        label="Filter by meter"
+        value={meterId}
+        onChange={(event) => setMeterId(event.target.value)}
+        slotProps={{ select: { native: true } }}
+        sx={{ minWidth: 240, mb: 2 }}
+      >
+        <option value="">All meters</option>
+        {meters.data?.map((meter) => (
+          <option key={meter.id} value={meter.id}>{meter.code}</option>
+        ))}
+      </TextField>
+      {meters.error && <ErrorNotice error={meters.error} retry={() => void meters.refetch()} />}
+      {simulator.error && <ErrorNotice error={simulator.error} retry={() => void simulator.refetch()} />}
+      {query.isPending && <Loading label="Loading ingested readings..." />}
+      {query.error && <ErrorNotice error={query.error} retry={() => void query.refetch()} />}
+      {query.isFetching && !query.isPending && <LinearProgress aria-label="Refreshing ingested readings" />}
+      {query.data?.items.length === 0 && (
+        <Empty title="No ingested readings" detail="No catalog readings match this meter filter." />
+      )}
+      {!!query.data?.items.length && <MeterReadingsTable readings={query.data.items} />}
+    </Paper>
+  );
+}
+
 function Simulator() {
   const query = useSimulatorStatus();
   const { start, stop, backfill } = useSimulatorControls();
   const [profile, setProfile] = useState<SimulatorStart["profile"]>("normal");
-  const [rate, setRate] = useState("10");
-  const [anomaly, setAnomaly] = useState<SimulatorBackfill["anomaly"]>("spike");
+  const [seconds, setSeconds] = useState(5);
+  const [backfillProfile, setBackfillProfile] = useState<SimulatorStart["profile"]>("normal");
+  const [preparing, setPreparing] = useState(false);
+  const [prepareError, setPrepareError] = useState<unknown>(null);
+  const alignedNow = () => new Date(Math.floor(Date.now() / 900000) * 900000);
   const [from, setFrom] = useState(() =>
-    localDateTime(new Date(Date.now() - 86400000)),
+    localDateTime(new Date(alignedNow().getTime() - 86400000)),
   );
-  const [to, setTo] = useState(() => localDateTime(new Date()));
-  const validRate =
-    rate.trim() !== "" && Number.isFinite(Number(rate)) && Number(rate) > 0;
+  const [to, setTo] = useState(() => localDateTime(alignedNow()));
   const validRange =
     Number.isFinite(Date.parse(from)) &&
     Number.isFinite(Date.parse(to)) &&
-    Date.parse(from) < Date.parse(to);
-  const busy = start.isPending || stop.isPending || backfill.isPending;
+    Date.parse(from) < Date.parse(to) &&
+    Date.parse(to) - Date.parse(from) <= 31 * 86400000 &&
+    Date.parse(from) % 900000 === 0 && Date.parse(to) % 900000 === 0;
+  const busy = preparing || start.isPending || stop.isPending || backfill.isPending;
   return (
     <Paper variant="outlined" sx={{ p: 3 }}>
       <Stack direction="row" gap={2} alignItems="center" mb={2}>
@@ -158,7 +206,8 @@ function Simulator() {
           <Chip
             size="small"
             color={query.data.running ? "success" : "default"}
-            label={query.data.running ? "Running" : "Stopped"}
+            label={query.data.running ? "Running" : (query.data.outboxSize ?? 0) > 0
+              ? `Draining (${query.data.outboxSize} queued)` : "Stopped"}
           />
         )}
       </Stack>
@@ -172,21 +221,34 @@ function Simulator() {
       {query.data && (
         <Typography variant="body2" color="text.secondary" mb={3}>
           Active profile: {query.data.profile ?? "—"} · Rate:{" "}
-          {query.data.readingsPerSecond ?? "—"} readings/s
+          {query.data.readingsPerSecond ?? "—"} readings/s · Meters: {query.data.meterCount ?? "—"}
+          {" · "}Source: {query.data.meterSource ?? "—"} · Outbox: {query.data.outboxSize ?? "—"}
+          {" · "}Generation paused: {query.data.generationPaused === undefined ? "—" : query.data.generationPaused ? "Yes" : "No"}
+          {query.data.counters && <> · Sent counters: {JSON.stringify(query.data.counters)}</>}
         </Typography>
       )}
+      {query.data?.meterSource === "fallback" && <Alert severity="warning">API discovery failed; using fallback meters. Restart the simulator after API recovery.</Alert>}
+      {query.data?.lastError && <Alert severity="error">{query.data.lastError}</Alert>}
       <Box
         component="form"
-        onSubmit={(event) => {
+        onSubmit={async (event) => {
           event.preventDefault();
-          if (
-            validRate &&
-            !busy &&
-            query.data &&
-            !query.error &&
-            !query.data.running
-          )
-            start.mutate({ profile, readingsPerSecond: Number(rate) });
+          if (busy) return;
+          setPreparing(true);
+          setPrepareError(null);
+          start.reset();
+          try {
+            const status = await query.refetch({ throwOnError: true });
+            const count = status.data?.meterCount;
+            if (count === undefined || count <= 0)
+              throw new Error("Simulator status did not return a positive meterCount.");
+            start.mutate({ profile, readingsPerSecond: count / seconds });
+          } catch (error) {
+            setPrepareError(error);
+          } finally {
+            setPreparing(false);
+          }
+
         }}
       >
         <Stack
@@ -211,30 +273,25 @@ function Simulator() {
             ))}
           </TextField>
           <TextField
-            label="Readings per second"
-            type="number"
-            value={rate}
-            onChange={(event) => setRate(event.target.value)}
-            error={!validRate}
-            helperText={
-              !validRate
-                ? "Enter a positive, finite rate."
-                : "Readings generated each second"
-            }
-            slotProps={{ htmlInput: { min: 0, step: "any" } }}
-          />
+            select
+            label="Seconds per meter"
+            value={seconds}
+            onChange={(event) => setSeconds(Number(event.target.value))}
+            helperText="Each reading advances its meter by 15 simulated minutes"
+            slotProps={{ select: { native: true } }}
+          >
+            {[5, 10, 30, 60].map((value) => <option key={value} value={value}>{value} seconds</option>)}
+          </TextField>
           <Button
             type="submit"
             variant="contained"
             disabled={
               busy ||
-              !validRate ||
               !query.data ||
-              !!query.error ||
-              query.data.running
+              !!query.error
             }
           >
-            Start simulator
+            {query.data?.running ? "Apply" : "Start"}
           </Button>
           <Button
             variant="outlined"
@@ -243,17 +300,18 @@ function Simulator() {
             }
             onClick={() => stop.mutate()}
           >
-            Stop simulator
+            Stop
           </Button>
         </Stack>
       </Box>
       {start.error && <ErrorNotice error={start.error} />}
+      {prepareError !== null && <ErrorNotice error={prepareError} />}
       {stop.error && <ErrorNotice error={stop.error} />}
       <Typography variant="subtitle1" component="h3" mt={3} mb={1}>
         Backfill historical readings
       </Typography>
       <Typography variant="body2" color="text.secondary" mb={2}>
-        Choose an anomaly and a time range. Times use your local timezone.
+        Choose a profile and a 15-minute aligned range of at most 31 days. Times use your local timezone.
       </Typography>
       <Box
         component="form"
@@ -261,7 +319,7 @@ function Simulator() {
           event.preventDefault();
           if (validRange && !busy)
             backfill.mutate({
-              anomaly,
+              profile: backfillProfile,
               from: new Date(from).toISOString(),
               to: new Date(to).toISOString(),
             });
@@ -274,15 +332,15 @@ function Simulator() {
         >
           <TextField
             select
-            label="Anomaly"
-            value={anomaly}
+            label="Backfill profile"
+            value={backfillProfile}
             onChange={(event) =>
-              setAnomaly(event.target.value as SimulatorBackfill["anomaly"])
+              setBackfillProfile(event.target.value as SimulatorStart["profile"])
             }
             slotProps={{ select: { native: true } }}
             sx={{ minWidth: 140 }}
           >
-            {BACKFILL_ANOMALIES.map((value) => (
+            {SIMULATOR_PROFILES.map((value) => (
               <option key={value} value={value}>
                 {label(value)}
               </option>
@@ -293,17 +351,17 @@ function Simulator() {
             type="datetime-local"
             value={from}
             onChange={(event) => setFrom(event.target.value)}
-            slotProps={{ inputLabel: { shrink: true } }}
+            slotProps={{ inputLabel: { shrink: true }, htmlInput: { step: 900 } }}
           />
           <TextField
             label="To"
             type="datetime-local"
             value={to}
             onChange={(event) => setTo(event.target.value)}
-            slotProps={{ inputLabel: { shrink: true } }}
+            slotProps={{ inputLabel: { shrink: true }, htmlInput: { step: 900 } }}
             error={!validRange}
             helperText={
-              !validRange ? "From must be earlier than To." : undefined
+              !validRange ? "Use 15-minute aligned times, From before To, at most 31 days apart." : undefined
             }
           />
           <Button
@@ -331,7 +389,7 @@ function Simulator() {
   );
 }
 
-function ScenarioRuns() {
+export function ScenarioRuns() {
   const [page, setPage] = useState(0);
   const [size, setSize] = useState(5);
   const query = useScenarioRuns(page, size);
@@ -474,6 +532,7 @@ function RecentAlerts() {
 }
 
 function Administration() {
+  const [tab, setTab] = useState(0);
   return (
     <>
       <PageHeading
@@ -481,11 +540,15 @@ function Administration() {
         title="Administration."
         detail="Effective storage policies, simulator operations and automated alerts across all regions."
       />
-      <Stack spacing={3}>
-        <Policies />
-        <Simulator />
-        <ScenarioRuns />
-        <RecentAlerts />
+      <Tabs value={tab} onChange={(_, value: number) => setTab(value)} aria-label="Administration tabs">
+        <Tab label="Meter readings" />
+        <Tab label="Policies" />
+        <Tab label="Alerts" />
+      </Tabs>
+      <Stack spacing={3} mt={3}>
+        {tab === 0 && <><Simulator /><LatestIngestedReadings /><Alert severity="info">Runs history is unavailable here: the existing admin history endpoint reads catalog-db, but simulator runs are stored locally.</Alert></>}
+        {tab === 1 && <Policies />}
+        {tab === 2 && <RecentAlerts />}
       </Stack>
     </>
   );

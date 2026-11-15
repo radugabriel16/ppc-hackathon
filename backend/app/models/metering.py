@@ -33,6 +33,8 @@ class MeterReading(UUIDPkMixin, Base):
         CheckConstraint("interval_end > interval_start", name="ck_meter_readings_interval_order"),
         CheckConstraint("energy_kwh >= 0", name="ck_meter_readings_energy_non_negative"),
         Index("ix_meter_readings_meter_interval_end", "meter_id", "interval_end"),
+        Index("ix_meter_readings_received_id", "received_at", "id"),
+        Index("ix_meter_readings_meter_received_id", "meter_id", "received_at", "id"),
     )
 
     meter_id: Mapped[uuid.UUID] = mapped_column(

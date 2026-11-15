@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Alert,
   Box,
@@ -54,6 +54,7 @@ import {
   ISSUE_STATES,
   ISSUE_TYPES,
   issueTitle,
+  issueDocumentsUrl,
 } from "../components/issue-presentation";
 import { ASSET_MARKERS } from "../components/station-icons";
 
@@ -699,6 +700,9 @@ export function MapPage() {
               )}
               {issue.caseId && (
                 <Typography variant="body2">Case ID: {issue.caseId}</Typography>
+              )}
+              {issue.type === "MISSING_DOCUMENTS" && (
+                <Button component={Link} to={issueDocumentsUrl(issue)}>Open Documents</Button>
               )}
               <Typography variant="body2" color="text.secondary">
                 {issue.assetId} · {label(issue.severity)} severity · Version{" "}

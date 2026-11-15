@@ -21,6 +21,10 @@ import type {
   StorageBenchmark,
   StorageRecommendation,
   MeterConsumption,
+  ReadingMeter,
+  RawMeterReading,
+  MeterReadingFilter,
+  MeterReadingWindow,
   OutageHotspot,
   ForecastPoint,
   GeographicArea,
@@ -75,6 +79,9 @@ export interface DataSource {
     region: Region,
     subregionId?: string,
   ): Promise<MeterConsumption[]>;
+  getReadingMeters(region?: Region, segmentId?: string): Promise<ReadingMeter[]>;
+  getMeterReadings(filter: MeterReadingFilter): Promise<Page<RawMeterReading>>;
+  getMeterReadingWindow(meterId: string): Promise<MeterReadingWindow>;
   getOutageHotspots(
     region: Region,
     subregionId?: string,

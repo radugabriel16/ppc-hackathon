@@ -45,3 +45,10 @@ class MeterReadingResource(ApiModel):
     @field_serializer("energy_kwh")
     def serialize_energy(self, value: Decimal) -> float:
         return float(value)
+
+
+class MeterReadingListResource(MeterReadingResource):
+    meter_code: str
+    segment_id: UUID | None
+    segment_code: str | None
+    segment_name: str | None

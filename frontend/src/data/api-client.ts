@@ -41,6 +41,8 @@ export class ApiConnection {
         typeof error === "object" && error !== null ? error : {}
       ) as Partial<ApiError>;
       const fieldErrors: Record<string, string> = {};
+      const detail = typeof error === "object" && error !== null && "detail" in error
+        ? error.detail : undefined;
       const uiField: Record<string, string> = {
         username: "name",
         videoInspectionId: "videoId",
@@ -53,7 +55,7 @@ export class ApiConnection {
         response.status,
         {
           code: body.code ?? `HTTP_${response.status}`,
-          message: body.message ?? `API request failed (${response.status}).`,
+          message: body.message ?? (typeof detail === "string" ? detail : `API request failed (${response.status}).`),
           fieldErrors,
           requestId:
             body.requestId ??

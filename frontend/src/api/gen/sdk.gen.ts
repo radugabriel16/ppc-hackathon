@@ -755,6 +755,7 @@ export const createMeterReadingsIngest = <ThrowOnError extends boolean = false>(
 
 /**
  * Query stored meter readings.
+ * Individual catalog-db rows only, never history-db or aggregates. Default interval_desc preserves interval-end ordering. received_desc orders by server receivedAt descending, then id descending. Zero-based pagination, size capped at 100. Meter and segment labels are included; source and ingest outcomes are not stored.
  */
 export const getMeterReadings = <ThrowOnError extends boolean = false>(
   options?: Options<GetMeterReadingsData, ThrowOnError>,
