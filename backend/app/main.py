@@ -23,6 +23,7 @@ from app.core.policy_schema import load_policies
 from app.core.settings import get_settings
 from app.core.tracing import configure_tracing
 from app.documents.router import router as documents_router
+from app.document_intake.router import router as intake_router
 from app.documents.encryption import DocumentKey
 from app.files.router import router as files_router
 from app.forecast.router import router as forecast_router
@@ -46,6 +47,7 @@ FILES_ROLE_ROUTERS = (
     auth_router,
     geography_router,
     documents_router,
+    intake_router,
     files_router,
     uploads_router,
     issues_router,

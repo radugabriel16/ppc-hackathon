@@ -1,0 +1,32 @@
+[
+  {
+    "externalCode": "DEMO-1-01",
+    "name": "Demo Client 1",
+    "cnp": "5010101400010"
+  },
+  {
+    "externalCode": "DEMO-1-02",
+    "name": "Demo Client 2",
+    "cnp": "5010101400029"
+  },
+  {
+    "externalCode": "DEMO-1-03",
+    "name": "Demo Client 3",
+    "cnp": "5010101400037"
+  },
+  {
+    "externalCode": "DEMO-1-04",
+    "name": "Demo Client 4",
+    "cnp": "5010101400045"
+  },
+  {
+    "externalCode": "DEMO-1-05",
+    "name": "Demo Client 5",
+    "cnp": "5010101400053"
+  },
+  {
+    "externalCode": "DEMO-1-06",
+    "name": "Demo Client 6",
+    "cnp": "5010101400061"
+  }
+]

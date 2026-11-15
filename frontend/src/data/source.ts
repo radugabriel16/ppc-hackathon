@@ -35,12 +35,13 @@ import type { DocumentType } from "../api/gen/types.gen";
 
 // The data boundary used by hooks, with typed contract resources for operations.
 export interface DataSource {
+  readonly documentIntake?: import("./document-intake").DocumentIntakeApi;
   readonly kind: "demo" | "mock" | "api";
   readonly uploadScope?: string;
   readonly uploads: UploadTransport;
   getDocumentTypes?(): Promise<DocumentType[]>;
   getGeography(): Promise<GeographicArea[]>;
-  downloadFile?(id: string): Promise<Blob>;
+  downloadFile?(id: string, inline?: boolean): Promise<Blob>;
   getSession(): Promise<Session | null>;
   login(input: LoginInput): Promise<Session>;
   logout(): Promise<void>;

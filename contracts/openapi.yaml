@@ -239,34 +239,49 @@ paths:
   /connection-cases:
     get:
       operationId: getConnectionCases
-      tags: [documents]
+      tags:
+      - documents
       summary: List connection cases, optionally filtered by region.
       parameters:
-        - $ref: "#/components/parameters/SegmentIdQuery"
-        - $ref: "#/components/parameters/SubregionIdQuery"
-        - $ref: "#/components/parameters/ClientIdQuery"
-        - $ref: "#/components/parameters/QueryFrom"
-        - $ref: "#/components/parameters/QueryTo"
-        - name: status
-          in: query
-          schema: {type: string, enum: [OPEN, CLOSED]}
-        - name: type
-          in: query
-          description: Filter cases with a linked non-historical issue of this type.
-          schema:
-            $ref: "#/components/schemas/IssueType"
-        - $ref: "#/components/parameters/RegionIdQuery"
-        - $ref: "#/components/parameters/Page"
-        - $ref: "#/components/parameters/Size"
+      - $ref: '#/components/parameters/SegmentIdQuery'
+      - $ref: '#/components/parameters/SubregionIdQuery'
+      - $ref: '#/components/parameters/ClientIdQuery'
+      - $ref: '#/components/parameters/QueryFrom'
+      - $ref: '#/components/parameters/QueryTo'
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum:
+          - OPEN
+          - CLOSED
+      - name: type
+        in: query
+        description: Filter cases with a linked non-historical issue of this type.
+        schema:
+          $ref: '#/components/schemas/IssueType'
+      - $ref: '#/components/parameters/RegionIdQuery'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: search
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: complete
+        in: query
+        required: false
+        schema:
+          type: boolean
       responses:
-        "200":
+        '200':
           description: OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ConnectionCasePage"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
+                $ref: '#/components/schemas/ConnectionCasePage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /connection-cases/{id}/documents:
     get:
@@ -413,32 +428,39 @@ paths:
   /files/{id}/download:
     get:
       operationId: getFilesIdDownload
-      tags: [files]
-      summary: >
-        Download the original bytes. Integrity is always verified: files
-        <=10MB are fully read and checked before sending; larger files are
-        hashed while streaming and the connection is aborted on mismatch.
-        CONNECTION_DOCUMENT downloads are audited.
+      tags:
+      - files
+      summary: 'Download the original bytes. Integrity is always verified: files <=10MB are fully read and checked
+        before sending; larger files are hashed while streaming and the connection is aborted on mismatch. CONNECTION_DOCUMENT
+        downloads are audited.
+
+        '
       parameters:
-        - $ref: "#/components/parameters/IdPath"
+      - $ref: '#/components/parameters/IdPath'
+      - name: inline
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
       responses:
-        "200":
+        '200':
           description: File bytes.
           content:
             application/octet-stream:
               schema:
                 type: string
                 format: binary
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
           description: File is CORRUPT; integrity check failed.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: '#/components/schemas/Error'
 
   /files/{id}/verify:
     get:
@@ -1406,6 +1428,322 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /customer-documents:
+    post:
+      operationId: createCustomerDocument
+      tags:
+      - documents
+      summary: createCustomerDocument
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentIntakeItem'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                customerId:
+                  type: string
+                  format: uuid
+                documentType:
+                  $ref: '#/components/schemas/IntakeDocumentType'
+                confirmManual:
+                  type: boolean
+                  default: false
+              required:
+              - file
+  /customer-documents/batches:
+    post:
+      operationId: createCustomerDocumentBatch
+      tags:
+      - documents
+      summary: createCustomerDocumentBatch
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      responses:
+        '202':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentIntakeAccepted'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                files:
+                  type: array
+                  maxItems: 50
+                  items:
+                    type: string
+                    format: binary
+              required:
+              - files
+  /customer-documents/batches/{batchId}:
+    get:
+      operationId: getCustomerDocumentBatch
+      tags:
+      - documents
+      summary: getCustomerDocumentBatch
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentIntakeBatch'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+      parameters:
+      - name: batchId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+  /customer-documents/review-items:
+    get:
+      operationId: getDocumentReviewItems
+      tags:
+      - documents
+      summary: getDocumentReviewItems
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentIntakePage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+      parameters:
+      - name: queue
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - IDENTITY
+          - MANUAL
+      - name: batchId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+  /customer-documents/review-items/{itemId}/confirm:
+    post:
+      operationId: ConfirmDocumentReviewItem
+      tags:
+      - documents
+      summary: ConfirmDocumentReviewItem
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentIntakeItem'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+      parameters:
+      - name: itemId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentIntakeConfirm'
+  /customer-documents/review-items/{itemId}/reject:
+    post:
+      operationId: RejectDocumentReviewItem
+      tags:
+      - documents
+      summary: RejectDocumentReviewItem
+      security:
+      - cookieAuth: []
+        csrfHeader: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentIntakeItem'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+      parameters:
+      - name: itemId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentIntakeReject'
+  /customers/lookup:
+    get:
+      operationId: lookupDocumentCustomer
+      tags:
+      - documents
+      summary: lookupDocumentCustomer
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerLookup'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          description: Lookup rate limit exceeded
+      parameters:
+      - name: cnp
+        in: query
+        required: true
+        schema:
+          type: string
+          pattern: ^[0-9]{13}$
+
+  /customers/{customerId}/cnp:
+    get:
+      operationId: revealCustomerCnp
+      tags: [documents]
+      summary: Reveal a customer's CNP with an audited OPERATOR or MANAGER session.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        "200":
+          description: Full CNP. Do not persist or cache this response.
+          headers:
+            Cache-Control:
+              schema: {type: string, enum: [no-store]}
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerCnpReveal"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /customers:
+    post:
+      operationId: createCustomer
+      tags: [documents]
+      summary: Create a customer and an open connection case, with audited OPERATOR or MANAGER access.
+      security:
+        - cookieAuth: []
+          csrfHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerCreate"
+      responses:
+        "201":
+          description: Created customer with only a masked CNP and missing required document slots.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerResource"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: A client with this CNP already exists.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
 components:
   securitySchemes:
     cookieAuth:
@@ -1525,6 +1863,12 @@ components:
         format: uuid
 
   responses:
+    ConflictError:
+      description: Optimistic version conflict or existing document requires review.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
     Unauthorized:
       description: Not authenticated.
       content:
@@ -1567,6 +1911,38 @@ components:
             $ref: "#/components/schemas/Error"
 
   schemas:
+    CustomerCnpReveal:
+      type: object
+      required: [cnp]
+      properties:
+        cnp:
+          type: string
+          pattern: "^[0-9]{13}$"
+    CustomerCreate:
+      type: object
+      required: [name, cnp]
+      description: Provide the current scope as regionId or segmentId. A segment determines its region.
+      properties:
+        name: {type: string, minLength: 1, maxLength: 128}
+        cnp:
+          type: string
+          pattern: "^[0-9]{13}$"
+          description: Valid date, county and sequence, and checksum using 279146358279.
+        regionId: {type: string, format: uuid}
+        segmentId: {type: string, format: uuid}
+    CustomerResource:
+      type: object
+      required: [id, name, cnpMasked, regionId, caseId, documents]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        cnpMasked: {type: string}
+        regionId: {type: string, format: uuid}
+        caseId: {type: string, format: uuid}
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/CaseDocumentSlot"
     IssueType:
       type: string
       enum: [OUTAGE_REPORT, OUTAGE_VIDEO, DRONE_DETECTED, ML_FORECAST, MISSING_DOCUMENTS]
@@ -2077,7 +2453,7 @@ components:
           type: string
           format: uuid
         status:
-          $ref: "#/components/schemas/CaseStatus"
+          $ref: '#/components/schemas/CaseStatus'
         openedAt:
           type: string
           format: date-time
@@ -2085,6 +2461,21 @@ components:
           type: string
           format: date-time
           nullable: true
+        customerName:
+          type: string
+        cnpMasked:
+          type: string
+          nullable: true
+        complete:
+          type: boolean
+        regionId:
+          type: string
+          format: uuid
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/CaseDocumentSlot'
+
     ConnectionCasePage:
       allOf:
         - $ref: "#/components/schemas/PageMeta"
@@ -2225,8 +2616,9 @@ components:
         regionId:
           type: string
           format: uuid
+          nullable: true
         category:
-          $ref: "#/components/schemas/FileCategory"
+          $ref: '#/components/schemas/FileCategory'
         originalName:
           type: string
         mediaType:
@@ -2237,11 +2629,11 @@ components:
         sha256:
           type: string
         storageBackend:
-          $ref: "#/components/schemas/StorageBackend"
+          $ref: '#/components/schemas/StorageBackend'
         fallbackUsed:
           type: boolean
         status:
-          $ref: "#/components/schemas/FileStatus"
+          $ref: '#/components/schemas/FileStatus'
         encrypted:
           type: boolean
         createdAt:
@@ -2255,6 +2647,7 @@ components:
           type: string
           format: date-time
           nullable: true
+
     FilePage:
       allOf:
         - $ref: "#/components/schemas/PageMeta"
@@ -2831,3 +3224,220 @@ components:
         occurredAt:
           type: string
           format: date-time
+
+    IntakeDocumentType:
+      type: string
+      enum:
+      - ID
+      - REQUEST_FORM
+      - CONNECTION_APPROVAL
+    DocumentIntakeItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        batchId:
+          type: string
+          format: uuid
+          nullable: true
+        fileId:
+          type: string
+          format: uuid
+          nullable: true
+        originalFileName:
+          type: string
+        status:
+          type: string
+          enum:
+          - PROCESSING
+          - AUTO_LINKED
+          - NEEDS_REVIEW
+          - CONFIRMED
+          - REJECTED
+          - FAILED
+        reviewQueue:
+          type: string
+          enum:
+          - IDENTITY
+          - MANUAL
+          nullable: true
+        reviewReason:
+          type: string
+          enum:
+          - IDENTITY_DOCUMENT
+          - NO_EXTRACTABLE_TEXT
+          - UNRECOGNIZED_TYPE
+          - AMBIGUOUS_TYPE
+          - CNP_MISSING
+          - CNP_INVALID
+          - CNP_AMBIGUOUS
+          - CUSTOMER_NOT_FOUND
+          - TYPE_ALREADY_PRESENT
+          - CONTENT_MISMATCH
+          - UNSUPPORTED_FORMAT
+          - PARSE_ERROR
+          nullable: true
+        detectedType:
+          $ref: '#/components/schemas/IntakeDocumentType'
+          nullable: true
+        cnpMasked:
+          type: string
+          nullable: true
+        suggestedCustomerId:
+          type: string
+          format: uuid
+          nullable: true
+        confirmedType:
+          $ref: '#/components/schemas/IntakeDocumentType'
+          nullable: true
+        customerId:
+          type: string
+          format: uuid
+          nullable: true
+        reviewedBy:
+          type: string
+          format: uuid
+          nullable: true
+        reviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+        errorDetail:
+          type: string
+          nullable: true
+        version:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required:
+      - id
+      - originalFileName
+      - status
+      - version
+      - createdAt
+    DocumentIntakePage:
+      allOf:
+      - $ref: '#/components/schemas/PageMeta'
+      - type: object
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/DocumentIntakeItem'
+    DocumentIntakeBatch:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - PROCESSING
+          - COMPLETED
+        totalCount:
+          type: integer
+        autoLinkedCount:
+          type: integer
+        reviewCount:
+          type: integer
+        failedCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocumentIntakeItem'
+      required:
+      - id
+      - status
+      - totalCount
+      - autoLinkedCount
+      - reviewCount
+      - failedCount
+      - items
+    DocumentIntakeAccepted:
+      type: object
+      properties:
+        batchId:
+          type: string
+          format: uuid
+      required:
+      - batchId
+    DocumentIntakeConfirm:
+      type: object
+      properties:
+        documentType:
+          $ref: '#/components/schemas/IntakeDocumentType'
+        cnp:
+          type: string
+          pattern: ^[0-9]{13}$
+        version:
+          type: integer
+          minimum: 1
+        replaceExisting:
+          type: boolean
+          default: false
+      required:
+      - documentType
+      - cnp
+      - version
+    DocumentIntakeReject:
+      type: object
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+        version:
+          type: integer
+          minimum: 1
+      required:
+      - reason
+      - version
+    CustomerLookup:
+      type: object
+      properties:
+        customerId:
+          type: string
+          format: uuid
+        customerName:
+          type: string
+        cnpMasked:
+          type: string
+      required:
+      - customerId
+      - customerName
+      - cnpMasked
+    CaseDocumentSlot:
+      type: object
+      properties:
+        documentType:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+          enum:
+          - PRESENT
+          - MISSING
+        fileId:
+          type: string
+          format: uuid
+          nullable: true
+        uploadedAt:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - documentType
+      - name
+      - status

@@ -84,3 +84,14 @@ DOCUMENT_ACCESS_TOTAL = Counter(
 for _action in ("download", "view"):
     for _outcome in ("requested", "success", "failure"):
         DOCUMENT_ACCESS_TOTAL.labels(action=_action, outcome=_outcome)
+
+INTAKE_TOTAL = Counter('filegrid_document_intake_total', 'Document intake outcomes', ['source', 'result'])
+INTAKE_REVIEW = Counter('filegrid_document_intake_review_total', 'Review reasons', ['reason'])
+INTAKE_DURATION = Histogram('filegrid_document_intake_duration_seconds', 'Document intake processing duration')
+for _source in ('single', 'batch'):
+    for _result in ('auto_linked', 'needs_review', 'failed'):
+        INTAKE_TOTAL.labels(source=_source, result=_result)
+for _reason in ('IDENTITY_DOCUMENT','NO_EXTRACTABLE_TEXT','UNRECOGNIZED_TYPE','AMBIGUOUS_TYPE',
+    'CNP_MISSING','CNP_INVALID','CNP_AMBIGUOUS','CUSTOMER_NOT_FOUND','TYPE_ALREADY_PRESENT',
+    'CONTENT_MISMATCH','UNSUPPORTED_FORMAT','PARSE_ERROR'):
+    INTAKE_REVIEW.labels(reason=_reason)

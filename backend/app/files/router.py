@@ -58,7 +58,7 @@ def list_files(
     pagination: Pagination = Depends(),
     db: Session = Depends(get_catalog_db),
 ):
-    statement = select(File)
+    statement = select(File).where(File.region_id.is_not(None))
     if category is None and not include_meter_readings:
         statement = statement.where(File.category != FileCategory.METER_READING)
     if region_id is not None:
@@ -75,7 +75,7 @@ def file_metadata(id: UUID, db: Session = Depends(get_catalog_db)):
 
 
 def prepare_reader(
-    request: Request, db: Session, id: UUID, actor_id: UUID, *, download: bool = False,
+    request: Request, db: Session, id: UUID, actor_id: UUID, *, download: bool = False, view: bool = False,
 ) -> FileReader:
     file = get_file(db, id)
     allowed = {FileStatus.READY} if download else {FileStatus.READY, FileStatus.CORRUPT}
@@ -89,14 +89,14 @@ def prepare_reader(
     if download and file.category == FileCategory.CONNECTION_DOCUMENT:
         db.add(
             AuditEvent(
-                actor_id=actor_id, action="DOCUMENT_DOWNLOAD_REQUESTED", entity_type="file",
+                actor_id=actor_id, action="DOCUMENT_VIEW_REQUESTED" if view else "DOCUMENT_DOWNLOAD_REQUESTED", entity_type="file",
                 entity_id=file.id, occurred_at=datetime.now(timezone.utc), request_id=request_id(),
             )
         )
     db.commit()
     if download and file.category == FileCategory.CONNECTION_DOCUMENT:
-        reader.document_action = "download"
-        DOCUMENT_ACCESS_TOTAL.labels(action="download", outcome="requested").inc()
+        reader.document_action = "view" if view else "download"
+        DOCUMENT_ACCESS_TOTAL.labels(action=reader.document_action, outcome="requested").inc()
     return reader
 
 
@@ -121,17 +121,19 @@ async def verify_file(
 
 @router.get("/files/{id}/download")
 async def download_file(
-    id: UUID, request: Request, user: AppUser = Depends(get_current_user),
+    id: UUID, request: Request, inline: bool = False, user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_catalog_db),
 ):
     def prepare():
-        return prepare_reader(request, db, id, user.id, download=True)
+        return prepare_reader(request, db, id, user.id, download=True, view=inline)
 
     reader = await anyio.to_thread.run_sync(prepare)
     headers = {
         "Content-Length": str(reader.file.size_bytes),
-        "Content-Disposition": f"attachment; filename*=UTF-8''{quote(reader.file.original_name, safe='')}",
+        "Content-Disposition": f"{'inline' if inline and reader.file.media_type in {'application/pdf', 'image/jpeg', 'image/png'} else 'attachment'}; filename*=UTF-8''{quote(reader.file.original_name, safe='')}",
         "X-Content-Type-Options": "nosniff",
+        "Cache-Control": "no-store",
+        "Content-Security-Policy": "sandbox",
     }
     if reader.file.size_bytes > SMALL_DOWNLOAD:
         return StreamingResponse(reader.download(), media_type=reader.file.media_type, headers=headers)

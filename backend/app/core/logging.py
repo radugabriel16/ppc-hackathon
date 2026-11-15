@@ -3,12 +3,24 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import sys
 from contextvars import ContextVar
 from datetime import datetime, timezone
 from opentelemetry import trace
 
 _request_id_ctx: ContextVar[str | None] = ContextVar("request_id", default=None)
+
+
+class RedactCnpLookup(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.msg = re.sub(
+            r"(/(?:api/v1/)?customers/lookup)\?[^\s\"]*",
+            r"\1?[REDACTED]",
+            record.getMessage(),
+        )
+        record.args = ()
+        return True
 
 
 def set_request_id(request_id: str | None) -> None:
@@ -44,4 +56,7 @@ def configure_logging(level: str = "INFO") -> None:
     root.setLevel(level.upper())
 
     # Quiet down noisy third-party loggers unless explicitly raised.
-    logging.getLogger("uvicorn.access").setLevel(level.upper())
+    access = logging.getLogger("uvicorn.access")
+    access.setLevel(level.upper())
+    if not any(isinstance(f, RedactCnpLookup) for f in access.filters):
+        access.addFilter(RedactCnpLookup())

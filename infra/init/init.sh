@@ -30,6 +30,7 @@ secret ftp_password 32
 secret aes_key 32
 secret aes_key_id 16
 secret session_secret 32
+secret cnp_hmac_key 32
 secret simulator_token 32
 secret operator_password 16
 secret manager_password 16

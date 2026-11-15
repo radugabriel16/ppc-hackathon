@@ -18,7 +18,9 @@ logger = logging.getLogger(__name__)
 
 def sync_missing_documents(db, issue_id_for_case=None):
     now = datetime.now(timezone.utc)
-    missing = db.execute(text(MISSING_CASES)).mappings().all()
+    missing = db.execute(text(
+        "SELECT * FROM (" + MISSING_CASES + ") missing WHERE case_status='OPEN'"
+    )).mappings().all()
     missing_ids = [row["case_id"] for row in missing]
     for row in missing:
         asset = db.scalar(text("""

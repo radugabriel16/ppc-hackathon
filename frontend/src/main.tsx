@@ -64,6 +64,10 @@ prepareSource(import.meta.env)
                           />
                           <Route path="/files" element={<FilesPage />} />
                           <Route path="/cases" element={<CasesPage />} />
+                          <Route
+                            path="/documents"
+                            element={<CasesPage documents />}
+                          />
                           <Route path="/issues" element={<IssuesPage />} />
                           <Route path="/uploads" element={<UploadsPage />} />
                           <Route

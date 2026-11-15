@@ -38,6 +38,7 @@ const links = [
   { to: "/issues", label: "Issues", Icon: ReportProblemOutlined },
   { to: "/files", label: "Files", Icon: FolderCopyOutlined },
   { to: "/cases", label: "Cases", Icon: DescriptionOutlined },
+  { to: "/documents", label: "Documents", Icon: DescriptionOutlined },
   { to: "/uploads", label: "Uploads", Icon: CloudUploadOutlined },
   { to: "/statistics", label: "Statistics", Icon: AssessmentOutlined },
   { to: "/admin", label: "Admin", Icon: AdminPanelSettingsOutlined },

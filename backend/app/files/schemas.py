@@ -20,6 +20,11 @@ class ConnectionDocumentMetadata(UploadMetadata):
     document_type_id: UUID
 
 
+class UnassignedDocumentMetadata(UploadMetadata):
+    # Internal intake metadata only; not accepted by the ordinary /files contract.
+    category: Literal[FileCategory.CONNECTION_DOCUMENT] = FileCategory.CONNECTION_DOCUMENT
+
+
 class OutageRecordMetadata(UploadMetadata):
     category: Literal[FileCategory.OUTAGE_RECORD]
     asset_id: UUID
@@ -43,7 +48,7 @@ metadata_adapter = TypeAdapter(FileUploadMetadata)
 
 class FileResource(ApiModel):
     id: UUID
-    region_id: UUID
+    region_id: UUID | None
     subregion_id: UUID | None = None
     category: FileCategory
     original_name: str

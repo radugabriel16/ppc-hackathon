@@ -151,6 +151,33 @@ import type {
   GetAlertsRecentData,
   GetAlertsRecentResponses,
   GetAlertsRecentErrors,
+  CreateCustomerDocumentData,
+  CreateCustomerDocumentResponses,
+  CreateCustomerDocumentErrors,
+  CreateCustomerDocumentBatchData,
+  CreateCustomerDocumentBatchResponses,
+  CreateCustomerDocumentBatchErrors,
+  GetCustomerDocumentBatchData,
+  GetCustomerDocumentBatchResponses,
+  GetCustomerDocumentBatchErrors,
+  GetDocumentReviewItemsData,
+  GetDocumentReviewItemsResponses,
+  GetDocumentReviewItemsErrors,
+  ConfirmDocumentReviewItemData,
+  ConfirmDocumentReviewItemResponses,
+  ConfirmDocumentReviewItemErrors,
+  RejectDocumentReviewItemData,
+  RejectDocumentReviewItemResponses,
+  RejectDocumentReviewItemErrors,
+  LookupDocumentCustomerData,
+  LookupDocumentCustomerResponses,
+  LookupDocumentCustomerErrors,
+  RevealCustomerCnpData,
+  RevealCustomerCnpResponses,
+  RevealCustomerCnpErrors,
+  CreateCustomerData,
+  CreateCustomerResponses,
+  CreateCustomerErrors,
 } from "./types.gen";
 import { client as _heyApiClient } from "./client.gen";
 
@@ -1392,5 +1419,256 @@ export const getAlertsRecent = <ThrowOnError extends boolean = false>(
     ],
     url: "/alerts/recent",
     ...options,
+  });
+};
+
+/**
+ * createCustomerDocument
+ */
+export const createCustomerDocument = <ThrowOnError extends boolean = false>(
+  options: Options<CreateCustomerDocumentData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    CreateCustomerDocumentResponses,
+    CreateCustomerDocumentErrors,
+    ThrowOnError
+  >({
+    ...formDataBodySerializer,
+    security: [
+      {
+        in: "cookie",
+        name: "filegrid_session",
+        type: "apiKey",
+      },
+      {
+        name: "X-CSRF-Token",
+        type: "apiKey",
+      },
+    ],
+    url: "/customer-documents",
+    ...options,
+    headers: {
+      "Content-Type": null,
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * createCustomerDocumentBatch
+ */
+export const createCustomerDocumentBatch = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateCustomerDocumentBatchData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    CreateCustomerDocumentBatchResponses,
+    CreateCustomerDocumentBatchErrors,
+    ThrowOnError
+  >({
+    ...formDataBodySerializer,
+    security: [
+      {
+        in: "cookie",
+        name: "filegrid_session",
+        type: "apiKey",
+      },
+      {
+        name: "X-CSRF-Token",
+        type: "apiKey",
+      },
+    ],
+    url: "/customer-documents/batches",
+    ...options,
+    headers: {
+      "Content-Type": null,
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * getCustomerDocumentBatch
+ */
+export const getCustomerDocumentBatch = <ThrowOnError extends boolean = false>(
+  options: Options<GetCustomerDocumentBatchData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).get<
+    GetCustomerDocumentBatchResponses,
+    GetCustomerDocumentBatchErrors,
+    ThrowOnError
+  >({
+    security: [
+      {
+        in: "cookie",
+        name: "filegrid_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/customer-documents/batches/{batchId}",
+    ...options,
+  });
+};
+
+/**
+ * getDocumentReviewItems
+ */
+export const getDocumentReviewItems = <ThrowOnError extends boolean = false>(
+  options?: Options<GetDocumentReviewItemsData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).get<
+    GetDocumentReviewItemsResponses,
+    GetDocumentReviewItemsErrors,
+    ThrowOnError
+  >({
+    security: [
+      {
+        in: "cookie",
+        name: "filegrid_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/customer-documents/review-items",
+    ...options,
+  });
+};
+
+/**
+ * ConfirmDocumentReviewItem
+ */
+export const confirmDocumentReviewItem = <ThrowOnError extends boolean = false>(
+  options: Options<ConfirmDocumentReviewItemData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    ConfirmDocumentReviewItemResponses,
+    ConfirmDocumentReviewItemErrors,
+    ThrowOnError
+  >({
+    security: [
+      {
+        in: "cookie",
+        name: "filegrid_session",
+        type: "apiKey",
+      },
+      {
+        name: "X-CSRF-Token",
+        type: "apiKey",
+      },
+    ],
+    url: "/customer-documents/review-items/{itemId}/confirm",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * RejectDocumentReviewItem
+ */
+export const rejectDocumentReviewItem = <ThrowOnError extends boolean = false>(
+  options: Options<RejectDocumentReviewItemData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    RejectDocumentReviewItemResponses,
+    RejectDocumentReviewItemErrors,
+    ThrowOnError
+  >({
+    security: [
+      {
+        in: "cookie",
+        name: "filegrid_session",
+        type: "apiKey",
+      },
+      {
+        name: "X-CSRF-Token",
+        type: "apiKey",
+      },
+    ],
+    url: "/customer-documents/review-items/{itemId}/reject",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * lookupDocumentCustomer
+ */
+export const lookupDocumentCustomer = <ThrowOnError extends boolean = false>(
+  options: Options<LookupDocumentCustomerData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).get<
+    LookupDocumentCustomerResponses,
+    LookupDocumentCustomerErrors,
+    ThrowOnError
+  >({
+    security: [
+      {
+        in: "cookie",
+        name: "filegrid_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/customers/lookup",
+    ...options,
+  });
+};
+
+/**
+ * Reveal a customer's CNP with an audited OPERATOR or MANAGER session.
+ */
+export const revealCustomerCnp = <ThrowOnError extends boolean = false>(
+  options: Options<RevealCustomerCnpData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).get<
+    RevealCustomerCnpResponses,
+    RevealCustomerCnpErrors,
+    ThrowOnError
+  >({
+    security: [
+      {
+        in: "cookie",
+        name: "filegrid_session",
+        type: "apiKey",
+      },
+    ],
+    url: "/customers/{customerId}/cnp",
+    ...options,
+  });
+};
+
+/**
+ * Create a customer and an open connection case, with audited OPERATOR or MANAGER access.
+ */
+export const createCustomer = <ThrowOnError extends boolean = false>(
+  options: Options<CreateCustomerData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    CreateCustomerResponses,
+    CreateCustomerErrors,
+    ThrowOnError
+  >({
+    security: [
+      {
+        in: "cookie",
+        name: "filegrid_session",
+        type: "apiKey",
+      },
+      {
+        name: "X-CSRF-Token",
+        type: "apiKey",
+      },
+    ],
+    url: "/customers",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
   });
 };

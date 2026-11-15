@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Box,
+  Button,
   Checkbox,
   Chip,
   InputAdornment,
@@ -21,6 +23,9 @@ import {
   TableRow,
 } from "@mui/material";
 import { AccessTime, Search } from "@mui/icons-material";
+import { IntakeWorkspace, type UploadSlot } from "../documents/IntakeWorkspace";
+import { CnpReveal, NewCustomerButton } from "../documents/CustomerActions";
+import type { IntakeDocumentType } from "../api/gen/types.gen";
 import { useCases } from "../data/hooks";
 import { label } from "../data/models";
 import type { CaseRecord } from "../data/models";
@@ -33,9 +38,14 @@ import {
   StatusChip,
 } from "../components/common";
 
-export function CasesPage() {
+export function CasesPage({ documents = false }: { documents?: boolean }) {
   const { selectedRegion, subregionId } = useRegion();
-  return <CasesContent key={`${selectedRegion}:${subregionId}`} />;
+  return (
+    <CasesContent
+      key={`${documents}:${selectedRegion}:${subregionId}`}
+      documents={documents}
+    />
+  );
 }
 const VIEW_KEY = "filegrid.cases-view";
 function storedView(): { view: "list" | "grid"; error: string } {
@@ -48,28 +58,84 @@ function storedView(): { view: "list" | "grid"; error: string } {
     return { view: "grid", error: "View preference storage is unavailable." };
   }
 }
-function CasesContent() {
+function CasesContent({ documents }: { documents: boolean }) {
   const { selectedRegion, subregionId } = useRegion();
-  const [preference, setPreference] = useState(storedView);
+  const [preference, setPreference] = useState(() =>
+    documents ? { view: "list" as const, error: "" } : storedView(),
+  );
+  const cache = useQueryClient();
+  const [created, setCreated] = useState<CaseRecord[]>([]);
+  const [priorityCaseId, setPriorityCaseId] = useState<string>();
+  const [uploadSlot, setUploadSlot] = useState<UploadSlot | null>(null);
+  const [previewId, setPreviewId] = useState<string | null>(null);
+  const [missingOnly, setMissingOnly] = useState(true);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<CaseRecord["status"] | "">("");
   const [page, setPage] = useState(0);
   const query = useCases({
+    priorityCaseId,
     region: selectedRegion ?? undefined,
     segmentId: subregionId,
-    missingOnly: true,
+    missingOnly,
     search,
     status: status || undefined,
     page,
     size: 6,
   });
+  useEffect(() => {
+    if (query.isSuccess && !query.isFetching) setCreated([]);
+  }, [query.data, query.isSuccess, query.isFetching]);
+  const items = [
+    ...(page === 0 ? created : []),
+    ...(query.data?.items ?? []).filter(
+      (item) => page !== 0 || !created.some((row) => row.id === item.id),
+    ),
+  ].slice(0, 6);
+  const revealKey = `${page}:${search}:${status}:${missingOnly}:${preference.view}`;
   return (
     <>
       <PageHeading
-        eyebrow="CASE WORKSPACE"
-        title="Keep every case moving."
-        detail="Clients missing required documents, ordered by due date. Region and segment follow the workspace scope."
+        eyebrow={documents ? "DOCUMENT WORKSPACE" : "CASE WORKSPACE"}
+        title={documents ? "Manage Customer Documents" : "Connection cases"}
+        detail={
+          documents
+            ? "Load documents, review unmatched files and track every client checklist. Region and segment follow the workspace scope."
+            : "Track connection cases and required documents. Region and segment follow the workspace scope."
+        }
       />
+      <IntakeWorkspace
+        slot={uploadSlot}
+        clearSlot={() => setUploadSlot(null)}
+        previewId={previewId}
+        clearPreview={() => setPreviewId(null)}
+        primaryAction={documents ? (
+          <NewCustomerButton onCreated={(customer, region) => {
+            setCreated((rows) => [{
+              id: customer.caseId, customerId: customer.id,
+              customerName: customer.name, cnpMasked: customer.cnpMasked,
+              title: customer.name, region, status: "OPEN", dueAt: null,
+              intakeDocuments: customer.documents,
+              documents: customer.documents.map((doc) => ({ name: doc.name, received: false })),
+            }, ...rows]);
+            setPriorityCaseId(customer.caseId);
+            setPage(0);
+            setSearch("");
+            setStatus("");
+            setMissingOnly(true);
+            void cache.invalidateQueries({ queryKey: ["cases"] });
+          }} />
+        ) : undefined}
+      />
+      <Button
+        onClick={() => {
+          setMissingOnly(!missingOnly);
+          setPage(0);
+        }}
+      >
+        {missingOnly
+          ? "Show all clients"
+          : "Show clients with missing documents"}
+      </Button>
       <Paper variant="outlined" sx={{ p: 2.5, mb: 2.5 }}>
         <Stack direction={{ xs: "column", sm: "row" }} gap={2}>
           <TextField
@@ -143,28 +209,40 @@ function CasesContent() {
       {query.error && (
         <ErrorNotice error={query.error} retry={() => void query.refetch()} />
       )}
-      {query.data &&
-        (query.data.items.length ? (
+      {(query.data || created.length > 0) &&
+        (items.length ? (
           preference.view === "list" ? (
             <TableContainer component={Paper} variant="outlined">
               <Table aria-label="Clients missing documents">
                 <TableHead>
                   <TableRow>
                     <TableCell>Client / case</TableCell>
+                    {documents && <TableCell>CNP</TableCell>}
                     <TableCell>Status</TableCell>
                     <TableCell>Due</TableCell>
                     <TableCell>Missing documents</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {query.data.items.map((item) => (
+                  {items.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell>
-                        {item.title}
+                        {item.customerName ?? item.title}
+                        {!documents && item.cnpMasked && (
+                          <Typography variant="caption" display="block">
+                            CNP {item.cnpMasked}
+                          </Typography>
+                        )}
                         <Typography variant="caption" display="block">
                           {item.id}
                         </Typography>
                       </TableCell>
+                      {documents && (
+                        <TableCell>
+                          <CnpReveal key={`${item.id}:${revealKey}`}
+                            customerId={item.customerId} cnpMasked={item.cnpMasked} />
+                        </TableCell>
+                      )}
                       <TableCell>
                         <StatusChip status={item.status} />
                       </TableCell>
@@ -174,10 +252,30 @@ function CasesContent() {
                           : "No due date"}
                       </TableCell>
                       <TableCell>
-                        {item.documents
-                          .filter((d) => !d.received)
-                          .map((d) => d.name)
-                          .join(", ")}
+                        {item.intakeDocuments?.length
+                          ? item.intakeDocuments.map((doc) => (
+                              <Button
+                                key={doc.documentType}
+                                size="small"
+                                onClick={() => {
+                                  if (doc.fileId) setPreviewId(doc.fileId);
+                                  else if (item.customerId)
+                                    setUploadSlot({
+                                      customerId: item.customerId,
+                                      documentType:
+                                        doc.documentType as IntakeDocumentType,
+                                      customerName:
+                                        item.customerName ?? item.title,
+                                    });
+                                }}
+                              >
+                                {doc.name} — {doc.status}
+                              </Button>
+                            ))
+                          : item.documents
+                              .filter((d) => !d.received)
+                              .map((d) => d.name)
+                              .join(", ")}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -193,7 +291,7 @@ function CasesContent() {
                 gap: 2,
               }}
             >
-              {query.data.items.map((item) => {
+              {items.map((item) => {
                 const overdue =
                   item.status !== "COMPLETE" &&
                   !!item.dueAt &&
@@ -211,7 +309,17 @@ function CasesContent() {
                       <Typography className="eyebrow">{item.id}</Typography>
                       <StatusChip status={item.status} />
                     </Stack>
-                    <Typography variant="h6">{item.title}</Typography>
+                    <Typography variant="h6">
+                      {item.customerName ?? item.title}
+                    </Typography>
+                    {documents ? (
+                      <CnpReveal key={`${item.id}:${revealKey}`}
+                        customerId={item.customerId} cnpMasked={item.cnpMasked} />
+                    ) : item.cnpMasked && (
+                      <Typography variant="caption">
+                        CNP {item.cnpMasked}
+                      </Typography>
+                    )}
                     <Stack
                       direction="row"
                       gap={1}
@@ -257,42 +365,65 @@ function CasesContent() {
                           {missing ? `${missing} missing` : "All received"}
                         </Typography>
                       </Stack>
-                      {item.documents.map((doc) => (
-                        <Stack
-                          direction="row"
-                          alignItems="center"
-                          key={doc.name}
-                          spacing={1}
+                      {item.intakeDocuments?.map((doc) => (
+                        <Button
+                          key={doc.documentType}
+                          fullWidth
+                          sx={{ justifyContent: "flex-start" }}
+                          onClick={() => {
+                            if (doc.fileId) setPreviewId(doc.fileId);
+                            else if (item.customerId)
+                              setUploadSlot({
+                                customerId: item.customerId,
+                                documentType:
+                                  doc.documentType as IntakeDocumentType,
+                                customerName: item.customerName ?? item.title,
+                              });
+                          }}
                         >
-                          <Checkbox
-                            checked={doc.received}
-                            disabled
-                            size="small"
-                            sx={{
-                              p: 0.4,
-                              "&.Mui-disabled": {
-                                color: doc.received ? "#4b8461" : "#c4c9c1",
-                              },
-                            }}
-                            inputProps={{
-                              "aria-label": `${doc.name}: ${doc.received ? "received" : "missing"}`,
-                            }}
-                          />
-                          <Typography
-                            variant="body2"
-                            color={
-                              doc.received ? "text.secondary" : "text.primary"
-                            }
-                          >
-                            {doc.name}
-                          </Typography>
-                          {!doc.received && (
-                            <Typography variant="caption" color="warning.main">
-                              Missing
-                            </Typography>
-                          )}
-                        </Stack>
+                          {doc.name} — {doc.status}
+                        </Button>
                       ))}
+                      {!item.intakeDocuments?.length &&
+                        item.documents.map((doc) => (
+                          <Stack
+                            direction="row"
+                            alignItems="center"
+                            key={doc.name}
+                            spacing={1}
+                          >
+                            <Checkbox
+                              checked={doc.received}
+                              disabled
+                              size="small"
+                              sx={{
+                                p: 0.4,
+                                "&.Mui-disabled": {
+                                  color: doc.received ? "#4b8461" : "#c4c9c1",
+                                },
+                              }}
+                              inputProps={{
+                                "aria-label": `${doc.name}: ${doc.received ? "received" : "missing"}`,
+                              }}
+                            />
+                            <Typography
+                              variant="body2"
+                              color={
+                                doc.received ? "text.secondary" : "text.primary"
+                              }
+                            >
+                              {doc.name}
+                            </Typography>
+                            {!doc.received && (
+                              <Typography
+                                variant="caption"
+                                color="warning.main"
+                              >
+                                Missing
+                              </Typography>
+                            )}
+                          </Stack>
+                        ))}
                     </Box>
                   </Paper>
                 );
@@ -306,7 +437,7 @@ function CasesContent() {
         ))}
       <TablePagination
         component="div"
-        count={query.data?.totalElements ?? 0}
+        count={Math.max(query.data?.totalElements ?? 0, items.length)}
         page={page}
         rowsPerPage={6}
         rowsPerPageOptions={[6]}

@@ -35,8 +35,14 @@ def reset_demo(db):
     for kind, table in (
         ("issue", "map_issues"), ("reading", "meter_readings"), ("case", "connection_cases"),
     ):
+        protected = (
+            "AND NOT EXISTS (SELECT 1 FROM map_issues WHERE case_id=connection_cases.id) "
+            "AND NOT EXISTS (SELECT 1 FROM client_documents WHERE case_id=connection_cases.id)"
+            if kind == "case" else ""
+        )
         db.execute(text(f"""
             DELETE FROM {table} WHERE id IN (SELECT id FROM demo_seed_entities WHERE kind=:kind)
+            {protected}
         """), {"kind": kind})
     for table in ("client_documents", "outages", "video_inspections"):
         db.execute(text(f"""
@@ -65,7 +71,7 @@ async def seed_demo(reset=False):
 
     keys = [7346021903] + [
         int.from_bytes(uuid5(NAMESPACE_URL, f"filegrid:job:{name}").bytes[:8], "big", signed=True)
-        for name in ("missing_document_issues", "reminders", "daily_forecasts", "orphan_contents")
+        for name in ("missing_document_issues", "reminders", "daily_forecasts", "orphan_contents", "document_intake")
     ]
     connection = get_catalog_engine().connect().execution_options(isolation_level="AUTOCOMMIT")
     acquired = []
@@ -110,6 +116,7 @@ async def _seed_demo(reset=False):
     from app.models.issues import MapIssue
     from app.policies.service import PolicyManager
     from app.storage.registry import create_storages
+    from fixtures.document_clients import seed_document_clients
     from seed_history import seed_history, last_complete_interval
 
     settings = get_settings()
@@ -185,6 +192,7 @@ async def _seed_demo(reset=False):
             AND NOT EXISTS (SELECT 1 FROM connection_cases WHERE client_id=c.id)
             AND NOT EXISTS (SELECT 1 FROM map_issues WHERE client_id=c.id)
         """), {"ids": archived_clients})
+        seed_document_clients(db)
         db.commit()
         generator = ROOT / "model-ML/filegrid-history-v2"
         # Fill missing training coverage on a fresh stack, without adding catalog files.
@@ -236,8 +244,8 @@ async def _seed_demo(reset=False):
             remember(db, "file", row["file_id"])
             readings_inserted += 1
         db.commit()
-        document_types = db.scalars(text("""
-            SELECT id FROM document_types WHERE required_for_connection ORDER BY code
+        document_types = db.execute(text("""
+            SELECT id,code FROM document_types WHERE required_for_connection ORDER BY code
         """)).all()
         if len(document_types) != 3:
             raise ValueError("Expected the three real required document types")
@@ -248,8 +256,16 @@ async def _seed_demo(reset=False):
             areas = [s for s in segments if s["region_id"] == region_id]
             region_cases = [(c, s, i) for c, s, i in case_ids if s["region_id"] == region_id]
             for case_id, area, index in region_cases:
-                if index < (9 if region_index == 0 else 8):
-                    for document_type in document_types:
+                for document_type, code in document_types:
+                    include = index < (9 if region_index == 0 else 8)
+                    if region_index == 0:
+                        if index < 2 and code in ("REQUEST_FORM", "CONNECTION_APPROVAL"):
+                            include = False
+                        if index == 9:
+                            include = True
+                    if region_index == 1 and index == 8 and code == "ID":
+                        include = True
+                    if include:
                         specs.append((f"form:{case_id}:{document_type}",
                             small_pdf(), "application/pdf", {
                                 "category": "CONNECTION_DOCUMENT", "caseId": str(case_id),
@@ -304,7 +320,7 @@ async def _seed_demo(reset=False):
             if metadata["category"] == "DRONE_VIDEO":
                 video_files[metadata["assetId"]] = file_id
             db.commit()
-        # Five incomplete checklists; required types and worker semantics are unchanged.
+        # Fixture clients have missing request/approval slots; closed cases create no issues.
         sync_missing_documents(db, lambda case_id: identity(f"missing:{case_id}"))
         for issue in db.scalars(select(MapIssue).where(
             MapIssue.type == IssueType.MISSING_DOCUMENTS,

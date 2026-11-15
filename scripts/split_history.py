@@ -139,6 +139,7 @@ def remove_unreferenced_files(catalog, file_ids):
           AND NOT EXISTS (SELECT 1 FROM outages WHERE file_id=f.id)
           AND NOT EXISTS (SELECT 1 FROM video_inspections WHERE file_id=f.id)
           AND NOT EXISTS (SELECT 1 FROM upload_sessions WHERE file_id=f.id)
+          AND NOT EXISTS (SELECT 1 FROM document_intake_items WHERE file_id=f.id)
     """), {"ids": file_ids})
     return result.rowcount
 

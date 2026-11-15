@@ -73,6 +73,8 @@ class Settings(BaseSettings):
 
     policies_path: str = Field(default="/app/config/policies.yaml", alias="POLICIES_PATH")
 
+    intake_identity_markers: str = "CARTE DE IDENTITATE|IDENTITY CARD|BULETIN DE IDENTITATE"
+
     worker_batch_size: int = Field(default=25, gt=0, le=1000)
     integrity_scrub_interval_seconds: int = Field(default=86400, gt=0)
     integrity_scrub_bytes_per_second: int = Field(default=5 * 1024 * 1024, gt=0)

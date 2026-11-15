@@ -17,7 +17,7 @@ MISSING_CASES = """
     WHERE dt.required_for_connection
       AND NOT EXISTS (
           SELECT 1 FROM client_documents cd JOIN files f ON f.id=cd.file_id
-          WHERE cd.case_id=cc.id AND cd.document_type_id=dt.id AND f.status='READY'
+          WHERE cd.case_id=cc.id AND cd.document_type_id=dt.id AND f.status='READY' AND cd.superseded_at IS NULL
       )
     GROUP BY cc.id,c.id,p.location
 """
