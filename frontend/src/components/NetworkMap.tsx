@@ -3,11 +3,16 @@ import { Alert, Box, Button, Menu, MenuItem, Snackbar } from "@mui/material";
 import maplibregl from "maplibre-gl";
 import type { GeoJSONSource, Map as LibreMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import type { CreateIssue, MapData, Region } from "../data/models";
+import type { Asset, CreateIssue, MapData, Region } from "../data/models";
 import type { GeographySelectionProps } from "./GeographyExplorer";
 import { areaBounds, areaFeatures, reportArea } from "./map-geography";
 import { ISSUE_TYPES } from "./issue-presentation";
 import { meterFeatures } from "./meter-features";
+import { issueColor, manualReportFilter } from "./issue-map-style";
+import { animateIssuePulse } from "./issue-pulse";
+import { ISSUE_STATES } from "./issue-presentation";
+import { stationFeatures } from "./station-features";
+import { addStationImages, ASSET_MARKERS } from "./station-icons";
 
 interface Props extends GeographySelectionProps {
   data: MapData;
@@ -21,21 +26,38 @@ interface Props extends GeographySelectionProps {
   ) => void;
   onIssue: (id: string) => void;
   selectedIssue?: string;
+  station?: Asset;
+  onStation: (station?: Asset) => void;
 }
 const empty = { type: "FeatureCollection" as const, features: [] };
 const issueFilter = (resolved: boolean): maplibregl.ExpressionSpecification =>
   resolved ? ["has", "status"] : ["!=", ["get", "status"], "RESOLVED"];
 function update(map: LibreMap, props: Props) {
+  const selected = props.areas.find((a) => a.id === props.selectedId);
   (map.getSource("assets") as GeoJSONSource)?.setData(props.data.assets);
+  (map.getSource("stations") as GeoJSONSource)?.setData(
+    stationFeatures(props.data.assets),
+  );
   (map.getSource("issues") as GeoJSONSource)?.setData(props.data.issues);
   (map.getSource("outages") as GeoJSONSource)?.setData(props.data.outages);
   (map.getSource("areas") as GeoJSONSource)?.setData(
     areaFeatures(props.areas, props.selectedId),
   );
   (map.getSource("meters") as GeoJSONSource)?.setData(
-    meterFeatures(props.data.meters ?? []),
+    meterFeatures(
+      selected?.parentId
+        ? (props.data.meters ?? []).filter(
+            (meter) => meter.segmentId === selected.id,
+          )
+        : [],
+      props.station?.id,
+    ),
   );
-  const selected = props.areas.find((a) => a.id === props.selectedId);
+  map.setPaintProperty(
+    "meter-points",
+    "icon-opacity",
+    props.station ? ["case", ["get", "highlighted"], 1, 0.45] : 1,
+  );
   const parentId = selected?.parentId ?? selected?.id;
   for (const kind of ["region", "subregion"]) {
     for (const suffix of ["fill", "line"]) {
@@ -58,8 +80,8 @@ function update(map: LibreMap, props: Props) {
       { selected: area.id === props.selectedId },
     );
   for (const [key, ids] of Object.entries({
-    assets: ["asset-points", "asset-lines"],
-    issues: ["issue-points", "issue-selected"],
+    assets: ["station-points", "asset-lines"],
+    issues: ["issue-points", "issue-icons", "issue-selected", "issue-pulse"],
     outages: ["outage-points"],
   })) {
     for (const id of ids)
@@ -70,6 +92,11 @@ function update(map: LibreMap, props: Props) {
       );
   }
   map.setFilter("issue-points", [
+    "any",
+    issueFilter(props.resolved),
+    ["==", ["get", "id"], props.selectedIssue ?? ""],
+  ]);
+  map.setFilter("issue-icons", [
     "any",
     issueFilter(props.resolved),
     ["==", ["get", "id"], props.selectedIssue ?? ""],
@@ -86,6 +113,8 @@ export function NetworkMap(props: Props) {
   const latest = useRef(props);
   const previousSelection = useRef<string | undefined>(undefined);
   const previousIssue = useRef<string | undefined>(undefined);
+  const previousStation = useRef<string | undefined>(undefined);
+  const zoomedMeters = useRef<string | undefined>(undefined);
   const [error, setError] = useState("");
   const [ready, setReady] = useState(false);
   const [context, setContext] = useState<{
@@ -130,8 +159,45 @@ export function NetworkMap(props: Props) {
               : 700,
           });
       }
+      if (previousStation.current !== props.station?.id) {
+        previousStation.current = props.station?.id;
+        zoomedMeters.current = undefined;
+      }
+      if (
+        props.station &&
+        props.data.meters &&
+        zoomedMeters.current !== props.station.id
+      ) {
+        zoomedMeters.current = props.station.id;
+        const bounds = new maplibregl.LngLatBounds();
+        for (const asset of props.data.assets.features)
+          if (asset.geometry.type === "Point")
+            bounds.extend([
+              asset.geometry.coordinates[0],
+              asset.geometry.coordinates[1],
+            ]);
+        for (const meter of props.data.meters) bounds.extend(meter.coordinates);
+        map.current.fitBounds(bounds, {
+          padding: 80,
+          maxZoom: 15,
+          duration: window.matchMedia("(prefers-reduced-motion: reduce)")
+            .matches
+            ? 0
+            : 700,
+        });
+      }
     }
   }, [props]);
+  const hasManualReports = props.data.issues.features.some(
+    (feature) =>
+      feature.properties?.type === "OUTAGE_REPORT" &&
+      feature.properties?.status === "OPEN",
+  );
+  useEffect(() => {
+    if (!ready || !props.layers.issues || !hasManualReports) return;
+    if (map.current && container.current)
+      return animateIssuePulse(map.current, container.current);
+  }, [ready, props.layers.issues, hasManualReports]);
   useEffect(() => {
     if (!container.current) return;
     let instance: LibreMap;
@@ -179,6 +245,7 @@ export function NetworkMap(props: Props) {
       closeOnClick: false,
       offset: 12,
     });
+    let tooltipTimeout: number | undefined;
     instance.addControl(
       new maplibregl.NavigationControl({ showCompass: false }),
       "top-right",
@@ -199,7 +266,14 @@ export function NetworkMap(props: Props) {
     instance.on("load", () => {
       setError("");
       setReady(true);
-      for (const id of ["assets", "issues", "outages", "areas", "meters"])
+      for (const id of [
+        "assets",
+        "stations",
+        "issues",
+        "outages",
+        "areas",
+        "meters",
+      ])
         instance.addSource(id, { type: "geojson", data: empty });
       for (const kind of ["region", "subregion"]) {
         instance.addLayer({
@@ -289,45 +363,78 @@ export function NetworkMap(props: Props) {
           "circle-stroke-color": "#8e5daf",
         },
       });
+      addStationImages(instance);
       instance.addLayer({
-        id: "asset-points",
-        type: "circle",
-        source: "assets",
-        filter: ["==", ["geometry-type"], "Point"],
-        paint: {
-          "circle-radius": ["match", ["get", "type"], "SUBSTATION", 8, 5],
-          "circle-color": [
-            "match",
-            ["get", "type"],
-            "SUBSTATION",
-            "#176747",
-            "#457b9d",
+        id: "station-points",
+        type: "symbol",
+        source: "stations",
+        layout: {
+          "icon-image": ["concat", "station-", ["get", "type"]],
+          "icon-size": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            5,
+            0.65,
+            8,
+            1,
+            12,
+            1.35,
+            15,
+            1.65,
+            18,
+            2,
           ],
-          "circle-stroke-color": "#ffffff",
-          "circle-stroke-width": 2,
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
         },
       });
-      const meterCanvas = document.createElement("canvas");
-      meterCanvas.width = meterCanvas.height = 24;
-      const meterContext = meterCanvas.getContext("2d");
-      if (meterContext) {
-        meterContext.fillStyle = "#2378aa";
-        meterContext.beginPath();
-        meterContext.arc(12, 12, 10, 0, Math.PI * 2);
-        meterContext.fill();
-        meterContext.strokeStyle = "#fff";
-        meterContext.lineWidth = 3;
-        meterContext.stroke();
-        instance.addImage("meter", meterContext.getImageData(0, 0, 24, 24), {
-          pixelRatio: 2,
-        });
+      for (const [id, color] of [
+        ["meter", "#2378aa"],
+        ["meter-highlighted", "#00a6b2"],
+      ]) {
+        const meterCanvas = document.createElement("canvas");
+        meterCanvas.width = meterCanvas.height = 24;
+        const meterContext = meterCanvas.getContext("2d");
+        if (meterContext) {
+          meterContext.fillStyle = color;
+          meterContext.beginPath();
+          meterContext.arc(12, 12, 10, 0, Math.PI * 2);
+          meterContext.fill();
+          meterContext.strokeStyle = "#fff";
+          meterContext.lineWidth = 3;
+          meterContext.stroke();
+          instance.addImage(id, meterContext.getImageData(0, 0, 24, 24), {
+            pixelRatio: 2,
+          });
+        }
       }
       instance.addLayer({
         id: "meter-points",
         type: "symbol",
         source: "meters",
         layout: {
-          "icon-image": "meter",
+          "icon-image": [
+            "case",
+            ["get", "highlighted"],
+            "meter-highlighted",
+            "meter",
+          ],
+          "icon-size": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            5,
+            0.15,
+            9,
+            0.35,
+            12,
+            0.7,
+            15,
+            1,
+            18,
+            1.2,
+          ],
           "icon-offset": ["get", "markerOffset"],
           "icon-allow-overlap": true,
           "icon-ignore-placement": true,
@@ -339,13 +446,6 @@ export function NetworkMap(props: Props) {
         canvas.width = canvas.height = 40;
         const ctx = canvas.getContext("2d");
         if (!ctx) continue;
-        ctx.fillStyle = info.color;
-        ctx.beginPath();
-        ctx.arc(20, 20, 18, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = "#fff";
-        ctx.lineWidth = 2;
-        ctx.stroke();
         ctx.fillStyle = "#fff";
         ctx.font = "bold 22px sans-serif";
         ctx.textAlign = "center";
@@ -356,19 +456,49 @@ export function NetworkMap(props: Props) {
         });
       }
       instance.addLayer({
+        id: "issue-pulse",
+        type: "circle",
+        source: "issues",
+        filter: manualReportFilter,
+        paint: {
+          "circle-radius": 14,
+          "circle-opacity": 0,
+          "circle-stroke-width": 2,
+          "circle-stroke-color": ISSUE_STATES.OPEN.color,
+          "circle-stroke-opacity": 0,
+        },
+      });
+      instance.addLayer({
         id: "issue-selected",
         type: "circle",
         source: "issues",
         paint: {
-          "circle-radius": 17,
-          "circle-color": "#f1cf41",
-          "circle-opacity": 0.6,
-          "circle-stroke-color": "#493e05",
+          "circle-radius": 14,
+          "circle-opacity": 0,
+          "circle-stroke-color": "#34495e",
           "circle-stroke-width": 2,
         },
       });
       instance.addLayer({
         id: "issue-points",
+        type: "circle",
+        source: "issues",
+        paint: {
+          "circle-radius": 9,
+          "circle-color": issueColor,
+          "circle-stroke-width": 1,
+          "circle-stroke-color": "#ffffff",
+        },
+      });
+      for (const property of ["circle-radius", "circle-stroke-opacity"])
+        instance.setPaintProperty("issue-pulse", `${property}-transition`, {
+          duration: 0,
+        });
+      instance.setPaintProperty("issue-points", "circle-color-transition", {
+        duration: 0,
+      });
+      instance.addLayer({
+        id: "issue-icons",
         type: "symbol",
         source: "issues",
         layout: {
@@ -411,21 +541,29 @@ export function NetworkMap(props: Props) {
     });
     instance.on("mousemove", (event) => {
       if (!instance.getLayer("region-fill")) return;
+      window.clearTimeout(tooltipTimeout);
       const hits = instance.queryRenderedFeatures(event.point, {
         layers: [
           "meter-points",
           "issue-points",
           "subregion-fill",
           "region-fill",
+          "station-points",
         ],
       });
       const feature =
-        hits.find((f) => f.layer.id === "meter-points") ?? hits[0];
-      const id = feature?.properties.id as string | undefined;
+        hits.find((f) => f.layer.id === "meter-points") ??
+        hits.find((f) => f.layer.id === "issue-points") ??
+        hits.find((f) => f.layer.id === "station-points") ??
+        hits[0];
+      const id =
+        feature?.layer.source === "areas"
+          ? (feature.properties.id as string | undefined)
+          : undefined;
       if (hovered !== id) {
         if (hovered) animateHover(hovered, 0);
         hovered = id;
-        if (id) animateHover(id, 1);
+        if (id && feature?.layer.source === "areas") animateHover(id, 1);
       }
       instance.getCanvas().style.cursor = feature ? "pointer" : "";
       if (!feature) {
@@ -441,23 +579,52 @@ export function NetworkMap(props: Props) {
               ISSUE_TYPES[feature.properties.type as keyof typeof ISSUE_TYPES]
                 ?.label ??
               "Issue")
-            : `${feature.properties.name} · ${feature.properties.meterCount} meters`;
+            : feature.layer.id === "station-points"
+              ? `${feature.properties.name} · ${ASSET_MARKERS[feature.properties.type as Asset["type"]].label} · Click to highlight linked meters`
+              : `${feature.properties.name} · ${feature.properties.meterCount} meters`;
       tooltip.setLngLat(event.lngLat).setDOMContent(content).addTo(instance);
     });
     instance.on("mouseout", () => {
+      window.clearTimeout(tooltipTimeout);
       if (hovered) animateHover(hovered, 0);
       hovered = undefined;
       instance.getCanvas().style.cursor = "";
       tooltip.remove();
     });
     instance.on("click", (event) => {
-      if (!instance.getLayer("asset-points")) return;
+      if (!instance.getLayer("station-points")) return;
       const feature = instance.queryRenderedFeatures(event.point, {
         layers: ["issue-points"],
       })[0];
       if (feature) {
         latest.current.onIssue(String(feature.properties.id));
       } else {
+        const asset = instance.queryRenderedFeatures(event.point, {
+          layers: ["station-points"],
+        })[0];
+        if (asset) {
+          const station = latest.current.data.assetList.find(
+            (item) => item.id === asset.properties.id,
+          );
+          tooltip.remove();
+          window.clearTimeout(tooltipTimeout);
+          if (station) {
+            latest.current.onStation(station);
+            if (
+              latest.current.data.meters &&
+              !latest.current.data.meters.some(
+                (meter) => meter.assetId === station.id,
+              )
+            ) {
+              tooltip
+                .setLngLat(event.lngLat)
+                .setText("No meters linked")
+                .addTo(instance);
+              tooltipTimeout = window.setTimeout(() => tooltip.remove(), 2200);
+            }
+          }
+          return;
+        }
         const area = instance.queryRenderedFeatures(event.point, {
           layers: ["subregion-fill", "region-fill"],
         })[0];
@@ -467,6 +634,7 @@ export function NetworkMap(props: Props) {
           );
           if (selected) latest.current.onSelect(selected);
           tooltip.remove();
+          window.clearTimeout(tooltipTimeout);
           return;
         }
       }
@@ -474,6 +642,7 @@ export function NetworkMap(props: Props) {
     instance.on("contextmenu", (event) => {
       event.preventDefault();
       tooltip.remove();
+      window.clearTimeout(tooltipTimeout);
       setContext({
         left: event.originalEvent.clientX,
         top: event.originalEvent.clientY,
@@ -486,6 +655,7 @@ export function NetworkMap(props: Props) {
       cancelAnimationFrame(pulseFrame);
       for (const frame of hoverFrames.values()) cancelAnimationFrame(frame);
       tooltip.remove();
+      window.clearTimeout(tooltipTimeout);
       resize.disconnect();
       instance.remove();
       map.current = null;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Alert,
@@ -33,6 +33,7 @@ import { AppError } from "../data/errors";
 import { label, REGION_INFO } from "../data/models";
 import type {
   CreateIssue,
+  Asset,
   GeographicArea,
   MapData,
   Severity,
@@ -49,7 +50,12 @@ import {
 import { NetworkMap } from "../components/NetworkMap";
 import { GeographyExplorer } from "../components/GeographyExplorer";
 import { ForecastPanel } from "../components/ForecastPanel";
-import { ISSUE_TYPES, issueTitle } from "../components/issue-presentation";
+import {
+  ISSUE_STATES,
+  ISSUE_TYPES,
+  issueTitle,
+} from "../components/issue-presentation";
+import { ASSET_MARKERS } from "../components/station-icons";
 
 function CreateIssueDialog({
   data,
@@ -196,12 +202,40 @@ export function MapPage() {
     clearRegion,
   } = useRegion();
   const query = useMap(region, selectedRegion === null);
-  const meters = useMapMeters();
   const geography = useGeography();
   const areas = geography.data ?? [];
   const parent = areas.find((a) => !a.parentId && a.region === selectedRegion);
   const selectedId = subregionId ?? parent?.id;
+  const scopeKey = `${selectedRegion}:${subregionId}`;
+  const [stationSelection, setStationSelection] = useState<{
+    scope: string;
+    station: Asset;
+  } | null>(null);
+  useEffect(() => {
+    setStationSelection((selection) =>
+      selection?.scope === scopeKey ? selection : null,
+    );
+  }, [scopeKey]);
+  const station =
+    stationSelection?.scope === scopeKey && !query.isPlaceholderData
+      ? query.data?.assetList.find(
+          (asset) => asset.id === stationSelection.station.id,
+        )
+      : undefined;
+  const meters = useMapMeters(region, subregionId);
+  const selectStation = (asset?: Asset) => {
+    if (!asset) {
+      setStationSelection(null);
+      return;
+    }
+    const segmentId = subregionId ?? asset.segmentId;
+    const targetScope = segmentId ? `${asset.region}:${segmentId}` : scopeKey;
+    setStationSelection({ scope: targetScope, station: asset });
+    if (segmentId && targetScope !== scopeKey)
+      setScope(asset.region, segmentId);
+  };
   const selectArea = (area?: GeographicArea) => {
+    setStationSelection(null);
     if (!area) {
       clearRegion();
       return;
@@ -235,6 +269,18 @@ export function MapPage() {
     });
   const [conflict, setConflict] = useState(false);
   const [notice, setNotice] = useState(false);
+  useEffect(() => {
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setStationSelection(null);
+      if (station && !create && !selected) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    document.addEventListener("keydown", escape, true);
+    return () => document.removeEventListener("keydown", escape, true);
+  }, [station, create, selected]);
   const data = query.data;
   const visibleData =
     data && query.isPlaceholderData
@@ -256,7 +302,8 @@ export function MapPage() {
       onKeyDown={(event) => {
         if (event.key === "Escape" && !create && !selected) {
           event.preventDefault();
-          goBack();
+          if (station) setStationSelection(null);
+          else goBack();
         }
       }}
     >
@@ -316,6 +363,7 @@ export function MapPage() {
           Issue created. The network map has been refreshed.
         </Alert>
       )}
+      {!issue && update.error && <ErrorNotice error={update.error} />}
       {data && (
         <Box
           sx={{
@@ -355,8 +403,27 @@ export function MapPage() {
               selectedId={selectedId}
               onSelect={selectArea}
             />
+            {station && (
+              <Stack direction="row" gap={1} alignItems="center" sx={{ px: 2 }}>
+                <Button size="small" onClick={() => setStationSelection(null)}>
+                  Clear meter highlight
+                </Button>
+                <Typography variant="caption">
+                  {station.name}
+                  {meters.isFetching ? " · Loading meters…" : ""}
+                  {meters.data
+                    ? ` · ${meters.data.filter((meter) => meter.assetId === station.id).length} linked meters highlighted`
+                    : ""}
+                </Typography>
+              </Stack>
+            )}
             <NetworkMap
-              data={{ ...visibleData!, meters: meters.data }}
+              data={{
+                ...visibleData!,
+                meters: subregionId ? meters.data : [],
+              }}
+              station={station}
+              onStation={selectStation}
               region={region}
               areas={areas}
               selectedId={selectedId}
@@ -369,9 +436,11 @@ export function MapPage() {
             />
             <Box sx={{ px: 2, py: 1 }}>
               <Typography variant="caption" color="text.secondary">
-                {meters.data?.length ?? 0} meters visible · Co-located meters
-                fanned out for clarity · Operational boundaries · [longitude,
-                latitude] · No personal client data ·{" "}
+                {subregionId ? (meters.data?.length ?? 0) : 0} meters visible ·
+                Meters appear at segment scope · Click a point asset to
+                highlight its linked meters · Co-located meters fanned out for
+                clarity · Operational boundaries · [longitude, latitude] · No
+                personal client data ·{" "}
                 <a
                   href="https://www.openstreetmap.org/copyright"
                   target="_blank"
@@ -412,7 +481,7 @@ export function MapPage() {
                     <Box
                       sx={{
                         borderRadius: "50%",
-                        bgcolor: info.color,
+                        bgcolor: ISSUE_STATES.OPEN.color,
                         color: "#fff",
                         width: 20,
                         height: 20,
@@ -427,13 +496,67 @@ export function MapPage() {
                   </Stack>
                 ))}
                 <Typography variant="caption">Blue markers · Meters</Typography>
+                <Typography variant="caption">
+                  Cyan markers · Highlighted linked meters
+                </Typography>
+                <Typography variant="caption">
+                  Red pulsing ring · Open manual reports only
+                </Typography>
+              </Stack>
+              <Divider sx={{ my: 1.5 }} />
+              <Typography variant="subtitle2" mb={1}>
+                Issue status
+              </Typography>
+              <Stack gap={0.8}>
+                {Object.entries(ISSUE_STATES).map(([status, info]) => (
+                  <Stack
+                    key={status}
+                    direction="row"
+                    gap={1}
+                    alignItems="center"
+                  >
+                    <Box
+                      sx={{
+                        width: 12,
+                        height: 12,
+                        borderRadius: "50%",
+                        bgcolor: info.color,
+                      }}
+                    />
+                    <Typography variant="caption">{info.label}</Typography>
+                  </Stack>
+                ))}
               </Stack>
               <Divider sx={{ my: 1.5 }} />
               <Stack gap={0.8}>
+                {Object.entries(ASSET_MARKERS).map(([type, marker]) => (
+                  <Stack
+                    direction="row"
+                    spacing={1.2}
+                    key={type}
+                    alignItems="center"
+                  >
+                    <Box
+                      component="svg"
+                      viewBox="0 0 48 48"
+                      sx={{ width: 22, height: 22 }}
+                    >
+                      <polygon
+                        points={marker.points
+                          .map((point) => point.join(","))
+                          .join(" ")}
+                        fill={marker.color}
+                        stroke="#fff"
+                        strokeWidth={3}
+                      />
+                    </Box>
+                    <Typography variant="caption" color="text.secondary">
+                      {marker.label}
+                    </Typography>
+                  </Stack>
+                ))}
                 {[
-                  ["#176747", "Substation"],
-                  ["#457b9d", "Transformer"],
-                  ["#25816e", "Line segment"],
+                  ["#25816e", "Network line"],
                   ["#9b70ba", "Outage"],
                 ].map(([color, text]) => (
                   <Stack
@@ -444,10 +567,10 @@ export function MapPage() {
                   >
                     <Box
                       sx={{
-                        width: text === "Line segment" ? 20 : 9,
-                        height: text === "Line segment" ? 3 : 9,
+                        width: text === "Network line" ? 20 : 9,
+                        height: text === "Network line" ? 3 : 9,
                         bgcolor: color,
-                        borderRadius: text === "Line segment" ? 0 : "50%",
+                        borderRadius: text === "Network line" ? 0 : "50%",
                       }}
                     />
                     <Typography variant="caption" color="text.secondary">
@@ -511,12 +634,7 @@ export function MapPage() {
                               width: 6,
                               height: 6,
                               borderRadius: "50%",
-                              bgcolor:
-                                item.status === "OPEN"
-                                  ? "#d44c53"
-                                  : item.status === "IN_PROGRESS"
-                                    ? "#e2b23d"
-                                    : "#6e9e8a",
+                              bgcolor: ISSUE_STATES[item.status].color,
                             }}
                           />
                         </Stack>
@@ -551,7 +669,7 @@ export function MapPage() {
           open
           onClose={() => {
             setSelected("");
-            update.reset();
+            if (!update.isPending) update.reset();
           }}
           fullWidth
           maxWidth="sm"
@@ -623,7 +741,7 @@ export function MapPage() {
             <Button
               onClick={() => {
                 setSelected("");
-                update.reset();
+                if (!update.isPending) update.reset();
               }}
             >
               Close

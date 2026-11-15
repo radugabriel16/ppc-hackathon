@@ -1,4 +1,13 @@
-import type { Issue, IssueType } from "../data/models";
+import type { Issue, IssueStatus, IssueType } from "../data/models";
+
+export const ISSUE_STATES: Record<
+  IssueStatus,
+  { label: string; color: string }
+> = {
+  OPEN: { label: "Open", color: "#bc473e" },
+  IN_PROGRESS: { label: "Taken", color: "#f1cf41" },
+  RESOLVED: { label: "Resolved", color: "#6e9e8a" },
+};
 
 export const ISSUE_TYPES: Record<
   IssueType,

@@ -84,6 +84,7 @@ export interface Asset {
   name: string;
   type: "SUBSTATION" | "TRANSFORMER" | "LINE_SEGMENT";
   region: Region;
+  segmentId?: string;
   coordinates: [number, number];
 }
 export interface Issue {
@@ -130,6 +131,7 @@ export interface IssueFilter {
 }
 export interface MeterMarker {
   id: string;
+  assetId: string;
   code: string;
   segmentId?: string;
   coordinates: [number, number];

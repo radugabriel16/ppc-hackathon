@@ -151,6 +151,7 @@ export function mapCollection(
         typeof p.name === "string"
           ? p.name
           : (asset?.name ?? asset?.code ?? id);
+      properties.segmentId = asset?.subregionId ?? undefined;
     } else if (layer === "ISSUES") {
       if (
         !["OPEN", "IN_PROGRESS", "RESOLVED"].includes(String(p.status)) ||
@@ -190,6 +191,10 @@ export function assetList(
     name: String(f.properties!.name),
     type: f.properties!.type as Asset["type"],
     region,
+    segmentId:
+      typeof f.properties!.segmentId === "string"
+        ? f.properties!.segmentId
+        : undefined,
     coordinates: coordinate(
       f.geometry.type === "Point"
         ? f.geometry.coordinates

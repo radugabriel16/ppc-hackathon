@@ -5,6 +5,7 @@ import type { MeterMarker } from "../data/models";
 it("keeps all eight co-located meter tooltips accessible without inventing geographic locations", () => {
   const meters: MeterMarker[] = Array.from({ length: 8 }, (_, index) => ({
     id: `m-${index}`,
+    assetId: "station",
     code: `M-${index}`,
     coordinates: [22.1, 44.9],
     clientType: "RESIDENTIAL",

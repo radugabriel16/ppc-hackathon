@@ -379,8 +379,9 @@ export class ApiSource implements DataSource {
   }
   async getMapMeters(
     region: Region,
-    segmentId?: string,
+    segmentId: string,
   ): Promise<MeterMarker[]> {
+    if (!segmentId) throw contractError("Select a segment before loading meters.");
     const regionId = await this.regionId(region);
     const [meters, clients] = await Promise.all([
       this.all((page) =>
@@ -400,11 +401,16 @@ export class ApiSource implements DataSource {
         ),
       ),
     ]);
+    const segmentMeters = meters.filter(
+      (meter) =>
+        requireValue(meter.segmentId ?? meter.subregionId, "meter.segmentId") ===
+        segmentId,
+    );
     const markers: MeterMarker[] = [];
-    for (let offset = 0; offset < meters.length; offset += 8) {
+    for (let offset = 0; offset < segmentMeters.length; offset += 8) {
       markers.push(
         ...(await Promise.all(
-          meters.slice(offset, offset + 8).map(async (meter) => {
+          segmentMeters.slice(offset, offset + 8).map(async (meter) => {
             const id = requireValue(meter.id, "meter.id");
             const readings = await this.connection.read(
               sdk.getMeterReadings({
@@ -415,6 +421,7 @@ export class ApiSource implements DataSource {
             const reading = requireValue(readings.items, "readings.items")[0];
             return {
               id,
+              assetId: requireValue(meter.assetId, "meter.assetId"),
               code: requireValue(meter.externalCode, "meter.externalCode"),
               segmentId: meter.segmentId ?? meter.subregionId ?? undefined,
               coordinates: coordinate(meter.location?.coordinates),

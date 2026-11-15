@@ -1,5 +1,11 @@
 # Contract / UI issues
 
+## Station meters and issue states (2026-11-15)
+
+- `/meters` exposes `assetId` but only accepts region/segment/subregion filters. The frontend now loads on a substation click, filters by the authoritative `Meter.assetId` **before** fetching readings, and never loads meters at initial map render. As agreed for this frontend-only change, the list request still downloads the selected station's region/segment meter rows. True station-only network loading requires a documented and implemented `assetId` query (or `/assets/{id}/meters`) with server-side filtering and pagination. No station membership is inferred from proximity or geographic segment.
+- The contract names the taken state `IN_PROGRESS`, not `TAKEN`. The frontend sends/retains `IN_PROGRESS` and labels it **Taken** in the map legend; it does not send an unsupported enum value. All issue types use status colors (open red, taken yellow, resolved green), retain their type glyphs, and only open `OUTAGE_REPORT` features get a pulsing ring.
+- Meter `assetId` must be supplied for reliable station membership. If topology attaches meters to downstream assets instead of substations, a backend-owned station association and station-filtered endpoint are needed; the frontend does not invent connectivity. Latest-reading/client-type aggregation remains the contract improvement described below.
+
 ## Scoped operations integration (2026-11-14)
 
 This section supersedes the older integration notes below. No backend or contract files were changed.

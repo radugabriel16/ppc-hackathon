@@ -45,7 +45,10 @@ export interface DataSource {
   login(input: LoginInput): Promise<Session>;
   logout(): Promise<void>;
   getMap(region: Region, subregionId?: string): Promise<MapData>;
-  getMapMeters?(region: Region, segmentId?: string): Promise<MeterMarker[]>;
+  getMapMeters?(
+    region: Region,
+    segmentId: string,
+  ): Promise<MeterMarker[]>;
   getIssues?(filter: IssueFilter): Promise<Page<Issue>>;
   createForecastRun?(input: ForecastRunCreate): Promise<ForecastRun>;
   getForecastRun?(id: string): Promise<ForecastRun>;

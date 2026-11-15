@@ -17,16 +17,52 @@ import { Shell, ManagerOnly } from "./Shell";
 import { Authenticated } from "./Authenticated";
 import { MapPage } from "../pages/Map";
 import { theme } from "../theme";
-import type { GeographicArea, MapData, Role, Session } from "../data/models";
-import type { GeographySelectionProps } from "./GeographyExplorer";
+import { AppError } from "../data/errors";
+import type {
+  GeographicArea,
+  MapData,
+  MeterMarker,
+  Role,
+  Session,
+} from "../data/models";
+import { geographicAreas } from "../data/api-mapping";
+import { mockRegions } from "../mocks/fixtures";
+import { pointAssetFixtures } from "./test-fixtures/point-assets";
+import type { ComponentProps } from "react";
 import type { ReactNode } from "react";
+import { flushSync } from "react-dom";
 
 // WebGL and remote tiles require a real browser; keep interaction tests focused
 // on the source/hooks/UI contract, using the actual demo source and query cache.
 vi.mock("./NetworkMap", () => ({
-  NetworkMap: ({ selectedId }: GeographySelectionProps) => (
-    <div data-testid="network-map" data-selected-id={selectedId}>
+  NetworkMap: ({
+    selectedId,
+    data,
+    onStation,
+    station,
+  }: ComponentProps<typeof import("./NetworkMap").NetworkMap>) => (
+    <div
+      data-testid="network-map"
+      data-selected-id={selectedId}
+      data-meter-ids={data.meters?.map((meter) => meter.id).join(",") ?? ""}
+      data-station-id={station?.id ?? ""}
+      data-asset-ids={data.assetList.map((asset) => asset.id).join(",")}
+      data-highlighted-meters={
+        data.meters?.filter((meter) => meter.assetId === station?.id).length ??
+        0
+      }
+      data-issue-status={
+        data.issues.features.find(
+          (feature) => feature.properties?.id === "ISS-100",
+        )?.properties?.status
+      }
+    >
       Map canvas
+      {data.assetList.map((asset) => (
+        <button key={asset.id} onClick={() => onStation(asset)}>
+          Select station {asset.id}
+        </button>
+      ))}
     </div>
   ),
 }));
@@ -65,6 +101,308 @@ async function workspace(
   return { source, cache };
 }
 describe("role-aware workspace and issue conflicts", () => {
+  it("loads eight meters only at segment scope, highlights any linked asset without fetching again, and clears on navigation", async () => {
+    const areas = geographicAreas(mockRegions);
+    const segment = areas.find((area) => area.name === "Muntenia 5")!;
+    const nextSegment = areas.find((area) => area.name === "Muntenia 1")!;
+    const { source } = await workspace(<MapPage />, "OPERATOR", "demo", areas);
+    const realMap = source.getMap.bind(source);
+    const getMap = vi
+      .spyOn(source, "getMap")
+      .mockImplementation(
+        async (region, segmentId?: string): Promise<MapData> => {
+          const map = await realMap(region);
+          const assets = pointAssetFixtures.filter(
+            (asset) =>
+              asset.region === region &&
+              (!segmentId || asset.segmentId === segmentId),
+          );
+          return {
+            ...map,
+            assetList: assets,
+            assets: {
+              type: "FeatureCollection",
+              features: assets.map((asset) => ({
+                type: "Feature",
+                id: asset.id,
+                geometry: { type: "Point", coordinates: asset.coordinates },
+                properties: {
+                  id: asset.id,
+                  type: asset.type,
+                  name: asset.name,
+                },
+              })),
+            },
+          };
+        },
+      );
+    const getMeters = vi.fn(
+      async (_region: string, segmentId: string): Promise<MeterMarker[]> => {
+        const assets = pointAssetFixtures.filter(
+          (asset) => asset.segmentId === segmentId,
+        );
+        return Array.from({ length: 8 }, (_, index) => ({
+          id: `${segmentId}-meter-${index}`,
+          assetId: assets[index % assets.length].id,
+          segmentId,
+          code: `METER-${index}`,
+          coordinates: assets[0].coordinates,
+          clientType: null,
+          lastReading: null,
+        }));
+      },
+    );
+    Object.assign(source, { getMapMeters: getMeters });
+    const parent = areas.find((area) => area.id === segment.parentId)!;
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: `${parent.name} · ${parent.meterCount} meters`,
+      }),
+    );
+    await screen.findByRole("button", {
+      name: `${segment.name} · ${segment.meterCount} meters`,
+    });
+    expect(getMeters).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: `${segment.name} · ${segment.meterCount} meters`,
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        screen
+          .getByTestId("network-map")
+          .getAttribute("data-meter-ids")!
+          .split(","),
+      ).toHaveLength(8),
+    );
+    expect(getMeters).toHaveBeenCalledExactlyOnceWith("MUNTENIA", segment.id);
+    const firstAssets = pointAssetFixtures.filter(
+      (asset) => asset.segmentId === segment.id,
+    );
+    await screen.findByRole("button", {
+      name: `Select station ${firstAssets[0].id}`,
+    });
+    const mapCalls = getMap.mock.calls.length;
+    const assetIds = screen
+      .getByTestId("network-map")
+      .getAttribute("data-asset-ids");
+    for (const type of ["SUBSTATION", "TRANSFORMER", "LINE_SEGMENT"]) {
+      const asset = firstAssets.find((asset) => asset.type === type)!;
+      fireEvent.click(
+        screen.getByRole("button", { name: `Select station ${asset.id}` }),
+      );
+      expect(
+        screen.getByTestId("network-map").getAttribute("data-station-id"),
+      ).toBe(asset.id);
+      expect(
+        Number(
+          screen
+            .getByTestId("network-map")
+            .getAttribute("data-highlighted-meters"),
+        ),
+      ).toBeGreaterThan(0);
+      expect(
+        screen
+          .getByTestId("network-map")
+          .getAttribute("data-meter-ids")!
+          .split(","),
+      ).toHaveLength(8);
+      expect(
+        screen.getByTestId("network-map").getAttribute("data-asset-ids"),
+      ).toBe(assetIds);
+    }
+    expect(getMeters).toHaveBeenCalledTimes(1);
+    expect(getMap).toHaveBeenCalledTimes(mapCalls);
+    // Native events can flush capture updates before the page handles bubbling.
+    const flushCapture = () => flushSync(() => {});
+    document.addEventListener("keydown", flushCapture, true);
+    try {
+      fireEvent.keyDown(screen.getByTestId("network-map"), { key: "Escape" });
+    } finally {
+      document.removeEventListener("keydown", flushCapture, true);
+    }
+    expect(
+      screen.getByTestId("network-map").getAttribute("data-selected-id"),
+    ).toBe(segment.id);
+    expect(
+      screen.getByTestId("network-map").getAttribute("data-station-id"),
+    ).toBe("");
+    expect(
+      screen
+        .getByTestId("network-map")
+        .getAttribute("data-meter-ids")!
+        .split(","),
+    ).toHaveLength(8);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: `Select station ${firstAssets[0].id}`,
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: /ISS-100.*Thermal anomaly/ }),
+    );
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("network-map").getAttribute("data-station-id"),
+      ).toBe(""),
+    );
+    expect(
+      screen
+        .getByTestId("network-map")
+        .getAttribute("data-meter-ids")!
+        .split(","),
+    ).toHaveLength(8);
+    let finish: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    getMeters.mockImplementationOnce(async () => {
+      await gate;
+      return Array.from({ length: 8 }, (_, index) => ({
+        id: `next-meter-${index}`,
+        assetId: pointAssetFixtures.find(
+          (asset) => asset.segmentId === nextSegment.id,
+        )!.id,
+        segmentId: nextSegment.id,
+        code: `M2-${index}`,
+        coordinates: [26, 44],
+        clientType: null,
+        lastReading: null,
+      }));
+    });
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: `${nextSegment.name} · ${nextSegment.meterCount} meters`,
+      }),
+    );
+    await waitFor(() => expect(getMeters).toHaveBeenCalledTimes(2));
+    expect(
+      screen.getByTestId("network-map").getAttribute("data-meter-ids"),
+    ).toBe("");
+    finish();
+    await waitFor(() =>
+      expect(
+        screen
+          .getByTestId("network-map")
+          .getAttribute("data-meter-ids")!
+          .split(","),
+      ).toHaveLength(8),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Romania" }));
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("network-map").getAttribute("data-meter-ids"),
+      ).toBe(""),
+    );
+  });
+  it("optimistically updates map feature status after Take with the dialog closed, then refetches", async () => {
+    const { source, cache } = await workspace(<MapPage />);
+    await screen.findByRole("button", { name: /ISS-100.*Thermal anomaly/ });
+    const perform = source.updateIssue.bind(source);
+    const initial = cache.getQueryData<MapData>(["map", "ROMANIA"])!;
+    cache.setQueryDefaults(["map", "MUNTENIA"], { gcTime: Infinity });
+    cache.setQueryDefaults(["issues"], { gcTime: Infinity });
+    cache.setQueryData(["map", "MUNTENIA"], initial);
+    cache.setQueryData(["issues", { page: 0 }], {
+      items: initial.issueList,
+      page: 0,
+      size: 20,
+      totalPages: 1,
+      totalElements: initial.issueList.length,
+    });
+    let finish: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    vi.spyOn(source, "updateIssue").mockImplementation(async (input) => {
+      await gate;
+      return perform(input);
+    });
+    const refetch = vi.spyOn(source, "getMap");
+    fireEvent.click(
+      screen.getByRole("button", { name: /ISS-100.*Thermal anomaly/ }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Take issue" }));
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("network-map").getAttribute("data-issue-status"),
+      ).toBe("IN_PROGRESS"),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(
+      cache
+        .getQueryData<MapData>(["map", "ROMANIA"])
+        ?.issues.features.find(
+          (feature) => feature.properties?.id === "ISS-100",
+        )?.properties?.status,
+    ).toBe("IN_PROGRESS");
+    expect(refetch).not.toHaveBeenCalled();
+    expect(
+      cache
+        .getQueryData<MapData>(["map", "MUNTENIA"])
+        ?.issues.features.find(
+          (feature) => feature.properties?.id === "ISS-100",
+        )?.properties?.status,
+    ).toBe("IN_PROGRESS");
+    expect(
+      cache
+        .getQueryData<{
+          items: { id: string; status: string }[];
+        }>(["issues", { page: 0 }])
+        ?.items.find((issue) => issue.id === "ISS-100")?.status,
+    ).toBe("IN_PROGRESS");
+    finish();
+    await waitFor(() => expect(refetch).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(
+        cache
+          .getQueryData<MapData>(["map", "ROMANIA"])
+          ?.issueList.find((issue) => issue.id === "ISS-100")?.version,
+      ).toBe(2),
+    );
+    expect(
+      screen.getByTestId("network-map").getAttribute("data-issue-status"),
+    ).toBe("IN_PROGRESS");
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+  it("rolls back a failed Take and surfaces its error even after closing the popup", async () => {
+    const { source } = await workspace(<MapPage />);
+    const button = await screen.findByRole("button", {
+      name: /ISS-100.*Thermal anomaly/,
+    });
+    let fail: (error: Error) => void = () => {};
+    vi.spyOn(source, "updateIssue").mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          fail = reject;
+        }),
+    );
+    fireEvent.click(button);
+    fireEvent.click(screen.getByRole("button", { name: "Take issue" }));
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("network-map").getAttribute("data-issue-status"),
+      ).toBe("IN_PROGRESS"),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fail(
+      new AppError(500, {
+        code: "UPDATE_FAILED",
+        message: "Taking issue failed",
+        requestId: "failed-take",
+      }),
+    );
+    await screen.findByText(/Taking issue failed.*failed-take/);
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("network-map").getAttribute("data-issue-status"),
+      ).toBe("OPEN"),
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
   it("syncs map selection, region/subregion filters and breadcrumb back navigation", async () => {
     const parent: GeographicArea = {
       id: "banat",

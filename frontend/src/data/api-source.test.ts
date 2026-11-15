@@ -80,7 +80,7 @@ describe("generated client → ApiSource → MSW contract examples", () => {
       await source.updateForecastThreshold(body.segmentId, 90),
     ).toMatchObject({ dailyEnergyKwh: 90 });
   });
-  it("joins geolocated meter markers to client types and the newest reading without synthesizing positions", async () => {
+  it("loads all segment meters across assets and excludes other segments before joining readings", async () => {
     const segmentId = "segment-1";
     server.use(
       http.get(`${base}/meters`, ({ request }) => {
@@ -90,10 +90,23 @@ describe("generated client → ApiSource → MSW contract examples", () => {
           items: [
             {
               id: "meter-1",
+              assetId: "station-1",
               externalCode: "METER-01",
               clientId: "client-1",
               segmentId,
               location: { type: "Point", coordinates: [26.11, 44.43] },
+            },
+            {
+              id: "other-station-meter",
+              assetId: "station-2",
+              externalCode: "METER-02",
+              segmentId,
+              location: { type: "Point", coordinates: [26.2, 44.4] },
+            },
+            {
+              id: "outside-segment",
+              assetId: "station-3",
+              segmentId: "other-segment",
             },
           ],
           page: 0,
@@ -110,7 +123,9 @@ describe("generated client → ApiSource → MSW contract examples", () => {
         }),
       ),
       http.get(`${base}/meter-readings`, ({ request }) => {
-        expect(new URL(request.url).searchParams.get("size")).toBe("1");
+        const query = new URL(request.url).searchParams;
+        expect(query.get("size")).toBe("1");
+        expect(["meter-1", "other-station-meter"]).toContain(query.get("meterId"));
         return HttpResponse.json({
           items: [{ energyKwh: 2.5, intervalEnd: "2026-11-14T20:00:00Z" }],
         });
@@ -119,10 +134,20 @@ describe("generated client → ApiSource → MSW contract examples", () => {
     expect(await source.getMapMeters("MUNTENIA", segmentId)).toEqual([
       {
         id: "meter-1",
+        assetId: "station-1",
         code: "METER-01",
         segmentId,
         coordinates: [26.11, 44.43],
         clientType: "RESIDENTIAL",
+        lastReading: { kWh: 2.5, timestamp: "2026-11-14T20:00:00Z" },
+      },
+      {
+        id: "other-station-meter",
+        assetId: "station-2",
+        code: "METER-02",
+        segmentId,
+        coordinates: [26.2, 44.4],
+        clientType: null,
         lastReading: { kWh: 2.5, timestamp: "2026-11-14T20:00:00Z" },
       },
     ]);

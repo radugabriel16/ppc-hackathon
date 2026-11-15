@@ -1,7 +1,10 @@
 import type { FeatureCollection, Point } from "geojson";
 import type { MeterMarker } from "../data/models";
 
-export function meterFeatures(meters: MeterMarker[]): FeatureCollection<Point> {
+export function meterFeatures(
+  meters: MeterMarker[],
+  highlightedAssetId?: string,
+): FeatureCollection<Point> {
   const groups = new Map<string, MeterMarker[]>();
   for (const meter of meters) {
     const key = meter.coordinates.join(",");
@@ -18,6 +21,9 @@ export function meterFeatures(meters: MeterMarker[]): FeatureCollection<Point> {
           geometry: { type: "Point", coordinates: meter.coordinates },
           properties: {
             id: meter.id,
+            kind: "METER",
+            assetId: meter.assetId,
+            highlighted: meter.assetId === highlightedAssetId,
             code: meter.code,
             markerOffset:
               group.length === 1

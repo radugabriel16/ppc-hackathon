@@ -18,6 +18,9 @@ import type {
   Region,
   LoginInput,
   Session,
+  Issue,
+  MapData,
+  Page,
 } from "./models";
 
 async function cacheSession(cache: QueryClient, session: Session | null) {
@@ -97,19 +100,15 @@ export function useMap(region: Region, national = false) {
     placeholderData: keepPreviousData,
   });
 }
-export function useMapMeters() {
+export function useMapMeters(region: Region, segmentId?: string) {
   const source = useSource();
-  const { selectedRegion, subregionId } = useRegion();
   return useQuery({
-    queryKey: ["map-meters", selectedRegion, subregionId],
+    queryKey: ["map-meters", region, segmentId],
+    enabled: !!segmentId,
     queryFn: async () => {
-      if (!source.getMapMeters) return [];
-      const regions = selectedRegion ? [selectedRegion] : REGIONS;
-      return (
-        await Promise.all(
-          regions.map((r) => source.getMapMeters!(r, subregionId)),
-        )
-      ).flat();
+      if (!source.getMapMeters)
+        throw new Error("Segment meter data is unavailable in this data mode.");
+      return source.getMapMeters(region, segmentId!);
     },
   });
 }
@@ -137,6 +136,45 @@ export function useCreateIssue() {
     },
   });
 }
+function patchMapIssue(
+  old: MapData | undefined,
+  id: string,
+  patch: Partial<Issue>,
+) {
+  return old
+    ? {
+        ...old,
+        issueList: old.issueList.map((issue) =>
+          issue.id === id ? { ...issue, ...patch } : issue,
+        ),
+        issues: {
+          ...old.issues,
+          features: old.issues.features.map((feature) =>
+            feature.properties?.id === id && patch.status
+              ? {
+                  ...feature,
+                  properties: { ...feature.properties, status: patch.status },
+                }
+              : feature,
+          ),
+        },
+      }
+    : old;
+}
+function patchIssuePage(
+  old: Page<Issue> | undefined,
+  id: string,
+  patch: Partial<Issue>,
+) {
+  return old
+    ? {
+        ...old,
+        items: old.items.map((issue) =>
+          issue.id === id ? { ...issue, ...patch } : issue,
+        ),
+      }
+    : old;
+}
 export function useUpdateIssue() {
   const source = useSource();
   const cache = useQueryClient();
@@ -157,6 +195,47 @@ export function useUpdateIssue() {
           });
         throw error;
       }
+    },
+    onMutate: async (input) => {
+      await Promise.all([
+        cache.cancelQueries({ queryKey: ["map"] }),
+        cache.cancelQueries({ queryKey: ["issues"] }),
+      ]);
+      const maps = cache.getQueriesData<MapData>({ queryKey: ["map"] });
+      const issues = cache.getQueriesData<Page<Issue>>({
+        queryKey: ["issues"],
+      });
+      cache.setQueriesData<MapData>({ queryKey: ["map"] }, (old) =>
+        patchMapIssue(old, input.id, { status: input.status }),
+      );
+      cache.setQueriesData<Page<Issue>>({ queryKey: ["issues"] }, (old) =>
+        patchIssuePage(old, input.id, { status: input.status }),
+      );
+      return { maps, issues };
+    },
+    onError: (_error, input, context) => {
+      for (const [key, previous] of context?.maps ?? []) {
+        const issue = previous?.issueList.find((i) => i.id === input.id);
+        if (!issue) continue;
+        cache.setQueryData<MapData>(key, (current) =>
+          patchMapIssue(current, input.id, issue),
+        );
+      }
+      for (const [key, previous] of context?.issues ?? []) {
+        const issue = previous?.items.find((i) => i.id === input.id);
+        if (!issue) continue;
+        cache.setQueryData<Page<Issue>>(key, (current) =>
+          patchIssuePage(current, input.id, issue),
+        );
+      }
+    },
+    onSuccess: (updated) => {
+      cache.setQueriesData<MapData>({ queryKey: ["map"] }, (old) =>
+        patchMapIssue(old, updated.id, updated),
+      );
+      cache.setQueriesData<Page<Issue>>({ queryKey: ["issues"] }, (old) =>
+        patchIssuePage(old, updated.id, updated),
+      );
     },
     onSettled: () =>
       Promise.all([

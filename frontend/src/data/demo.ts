@@ -267,6 +267,7 @@ export class LocalDemoSource implements DataSource {
           assetId: x.assetId,
           description: x.description,
           status: x.status,
+          type: x.type ?? "OUTAGE_REPORT",
           severity: x.severity,
         },
         geometry: { type: "Point", coordinates: x.coordinates },
